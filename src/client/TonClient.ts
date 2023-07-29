@@ -113,14 +113,12 @@ export class TonClient {
      * Get transactions
      * @param address address
      */
-    async getTransactions(address: Address, opts: { limit: number, lt?: string, hash?: string, to_lt?: string, inclusive?: boolean }) {
+    async getTransactions(address: Address, opts: { limit: number, lt?: string, hash?: string, to_lt?: string, inclusive?: boolean }): Promise<(Transaction & {
+        hash: String;
+    })[]> {
         // Fetch transactions
         let tx = await this.#api.getTransactions(address, opts);
-        let res: Transaction[] = [];
-        for (let r of tx) {
-            res.push(loadTransaction(Cell.fromBoc(Buffer.from(r.data, 'base64'))[0].beginParse()));
-        }
-        return res;
+        return tx.map<Transaction & { hash: String; }>(t => ({ hash: t.transaction_id.hash, ...loadTransaction(Cell.fromBoc(Buffer.from(t.data, 'base64'))[0].beginParse()) }))
     }
 
     /**
@@ -130,13 +128,9 @@ export class TonClient {
      * @param hash transaction hash
      * @returns transaction or null if not exist
      */
-    async getTransaction(address: Address, lt: string, hash: string) {
+    async getTransaction(address: Address, lt: string, hash: string): Promise<Transaction & { hash: string } | null> {
         let res = await this.#api.getTransaction(address, lt, hash);
-        if (res) {
-            return loadTransaction(Cell.fromBoc(Buffer.from(res.data, 'base64'))[0].beginParse());
-        } else {
-            return null;
-        }
+        return res ? { hash: res.transaction_id.hash, ...loadTransaction(Cell.fromBoc(Buffer.from(res.data, 'base64'))[0].beginParse()) } : null;
     }
 
     /**
