@@ -305,7 +305,7 @@ function parseStack(src: any[]) {
             } else {
                 stack.push({ type: 'int', value: BigInt(val) });
             }
-        } else if (s[0] === 'null') {
+        } else if (s[0] === 'null' || s[0] === 'list') {
             stack.push({ type: 'null' });
         } else if (s[0] === 'cell') {
             stack.push({ type: 'cell', cell: Cell.fromBoc(Buffer.from(s[1].bytes, 'base64'))[0] });
