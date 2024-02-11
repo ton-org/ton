@@ -304,12 +304,12 @@ export class TonClient4 {
      * @param init optional init data
      * @returns provider
      */
-    providerAt(block: number, address: Address, init?: { code: Cell, data: Cell } | null) {
+    providerAt(block: number, address: Address, init?: StateInit | null) {
         return createProvider(this, block, address, init ? init : null);
     }
 }
 
-function createProvider(client: TonClient4, block: number | null, address: Address, init: { code: Cell, data: Cell } | null): ContractProvider {
+function createProvider(client: TonClient4, block: number | null, address: Address, init: StateInit | null): ContractProvider {
     return {
         async getState(): Promise<ContractState> {
 
@@ -380,7 +380,7 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
             let last = await client.getLastBlock();
 
             // Resolve init
-            let neededInit: { code: Cell | null, data: Cell | null } | null = null;
+            let neededInit: StateInit | null = null;
             if (init && (await client.getAccountLite(last.last.seqno, address)).account.state.type !== 'active') {
                 neededInit = init;
             }
@@ -388,7 +388,7 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
             // Send with state init
             const ext = external({
                 to: address,
-                init: neededInit ? { code: neededInit.code, data: neededInit.data } : null,
+                init: neededInit,
                 body: message
             });
             let pkg = beginCell()
@@ -403,7 +403,7 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
             let last = await client.getLastBlock();
 
             // Resolve init
-            let neededInit: { code: Cell | null, data: Cell | null } | null = null;
+            let neededInit: StateInit | null = null;
             if (init && (await client.getAccountLite(last.last.seqno, address)).account.state.type !== 'active') {
                 neededInit = init;
             }
@@ -439,6 +439,9 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
                 init: neededInit,
                 body
             });
+        },
+        open<T extends Contract>(contract: T): ContractProvider {
+            return createProvider(client, block, contract.address, contract.init ?? null);
         }
     }
 }

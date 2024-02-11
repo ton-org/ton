@@ -8,7 +8,7 @@
 
 import { HttpApi } from "./api/HttpApi";
 import { AxiosAdapter } from 'axios';
-import { Address, beginCell, Cell, comment, Contract, ContractProvider, ContractState, external, loadTransaction, Message, openContract, storeMessage, toNano, Transaction, TupleItem, TupleReader } from '@ton/core';
+import { Address, beginCell, Cell, comment, Contract, ContractProvider, ContractState, external, loadTransaction, Message, openContract, StateInit, storeMessage, toNano, Transaction, TupleItem, TupleReader } from '@ton/core';
 import { Maybe } from "../utils/maybe";
 
 export type TonClientParameters = {
@@ -372,7 +372,7 @@ function parseStack(src: any[]) {
     return new TupleReader(stack);
 }
 
-function createProvider(client: TonClient, address: Address, init: { code: Cell | null, data: Cell | null } | null): ContractProvider {
+function createProvider(client: TonClient, address: Address, init: StateInit | null): ContractProvider {
     return {
         async getState(): Promise<ContractState> {
             let state = await client.getContractState(address);
@@ -422,7 +422,7 @@ function createProvider(client: TonClient, address: Address, init: { code: Cell 
             // Resolve init
             //
 
-            let neededInit: { code: Cell | null, data: Cell | null } | null = null;
+            let neededInit: StateInit | null = null;
             if (init && !await client.isContractDeployed(address)) {
                 neededInit = init;
             }
@@ -433,7 +433,7 @@ function createProvider(client: TonClient, address: Address, init: { code: Cell 
 
             const ext = external({
                 to: address,
-                init: neededInit ? { code: neededInit.code, data: neededInit.data } : null,
+                init: neededInit,
                 body: message
             })
             let boc = beginCell()
@@ -445,7 +445,7 @@ function createProvider(client: TonClient, address: Address, init: { code: Cell 
         async internal(via, message) {
 
             // Resolve init
-            let neededInit: { code: Cell | null, data: Cell | null } | null = null;
+            let neededInit: StateInit | null = null;
             if (init && (!await client.isContractDeployed(address))) {
                 neededInit = init;
             }
@@ -481,6 +481,9 @@ function createProvider(client: TonClient, address: Address, init: { code: Cell 
                 init: neededInit,
                 body
             });
+        },
+        open<T extends Contract>(contract: T): ContractProvider {
+            return createProvider(client, contract.address, contract.init ?? null);
         }
     }
 }
