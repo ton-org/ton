@@ -499,7 +499,12 @@ const accountCodec = z.object({
     account: z.object({
         state: z.union([
             z.object({ type: z.literal('uninit') }),
-            z.object({ type: z.literal('active'), code: z.union([z.string(), z.null()]), data: z.union([z.string(), z.null()]) }),
+            z.object({
+                type: z.literal('active'),
+                code: z.union([z.string(), z.null()]),
+                data: z.union([z.string(), z.null()]),
+                libraries: z.union([z.string(), z.null()]).optional()
+            }),
             z.object({ type: z.literal('frozen'), stateHash: z.string() })
         ]),
         balance: z.object({
