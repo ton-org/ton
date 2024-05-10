@@ -85,7 +85,7 @@ const message = z.object({
     created_lt: z.string(),
     body_hash: z.string(),
     msg_data: messageData,
-    message: z.string()
+    message: z.string().optional()
 });
 
 const transaction = z.object({
