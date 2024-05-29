@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import axios, { AxiosAdapter } from "axios";
+import axios, { AxiosAdapter, InternalAxiosRequestConfig } from "axios";
 import { Address, beginCell, Cell, comment, Contract, ContractProvider, ContractState, external, loadTransaction, openContract, OpenedContract, parseTuple, serializeTuple, StateInit, storeMessage, toNano, Transaction, TupleItem, TupleReader } from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { toUrlSafe } from "../utils/toUrlSafe";
@@ -28,6 +28,11 @@ export type TonClient4Parameters = {
      * HTTP Adapter for axios
      */
     httpAdapter?: AxiosAdapter;
+
+    /**
+     * HTTP request interceptor for axios
+     */
+    requestInterceptor?: (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig;
 }
 
 export class TonClient4 {
@@ -40,6 +45,9 @@ export class TonClient4 {
         this.#endpoint = args.endpoint;
         this.#timeout = args.timeout || 5000;
         this.#adapter = args.httpAdapter;
+        if (args.requestInterceptor) {
+            axios.interceptors.request.use(args.requestInterceptor)
+        }
     }
 
     /**
