@@ -347,7 +347,7 @@ function parseStackEntry(s: any): TupleItem {
         case 'tvm.stackEntryTuple':
             return { type: 'tuple', items: s.tuple.elements.map(parseStackEntry) };
         case 'tvm.stackEntryList':
-            return { type: 'list', items: s.list.elements.map(parseStackEntry) }
+            return { type: 'list', items: s.list.elements.map(parseStackEntry) };
         default:
             throw Error("Unsupported item type: " + s["@type"]);
     }
