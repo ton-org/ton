@@ -162,7 +162,7 @@ export class WalletContractV5 implements Contract {
     /**
      * Send signed transfer
      */
-    async send(provider: ContractProvider, message: Cell) {
+    private async send(provider: ContractProvider, message: Cell) {
         await provider.external(message);
     }
 
