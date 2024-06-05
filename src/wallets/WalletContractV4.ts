@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
@@ -12,15 +12,15 @@ import { createWalletTransferV4 } from "./signing/createWalletTransfer";
 import { ExternallySingedAuthSendArgs, SingedAuthSendArgs } from "./signing/singer";
 
 
-export type Wallet4BasicSendArgs = {
+export type WalletV4BasicSendArgs = {
     seqno: number,
     messages: MessageRelaxed[]
     sendMode?: Maybe<SendMode>,
     timeout?: Maybe<number>,
 }
 
-export type SingedAuthWallet4SendArgs = Wallet4BasicSendArgs & SingedAuthSendArgs;
-export type ExternallySingedAuthWallet4SendArgs = Wallet4BasicSendArgs & ExternallySingedAuthSendArgs;
+export type SingedAuthWallet4SendArgs = WalletV4BasicSendArgs & SingedAuthSendArgs;
+export type ExternallySingedAuthWallet4SendArgs = WalletV4BasicSendArgs & ExternallySingedAuthSendArgs;
 
 export class WalletContractV4 implements Contract {
 
