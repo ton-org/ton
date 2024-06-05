@@ -12,7 +12,7 @@ import { Maybe } from "../../utils/maybe";
 import {
     ExternallySingedAuthWallet5SendArgs,
     SingedAuthWallet5SendArgs,
-    Wallet5BasicSendArgs,
+    WalletV5BasicSendArgs,
     WalletContractV5
 } from "../WalletContractV5";
 import {
@@ -162,7 +162,7 @@ export function createWalletTransferV4<T extends ExternallySingedAuthWallet4Send
     ) as T extends ExternallySingedAuthWallet4SendArgs ? Promise<Cell> : Cell;
 }
 
-export function createWalletTransferV5ExtensionAuth(args: Wallet5BasicSendArgs & { actions: (OutActionSendMsg | OutActionExtended)[], walletId: (builder: Builder) => void }) {
+export function createWalletTransferV5ExtensionAuth(args: WalletV5BasicSendArgs & { actions: (OutActionSendMsg | OutActionExtended)[], walletId: (builder: Builder) => void }) {
     // Check number of actions
     if (args.actions.length > 255) {
         throw Error("Maximum number of OutActions in a single request is 255");

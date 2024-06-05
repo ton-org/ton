@@ -29,21 +29,21 @@ import { ExternallySingedAuthSendArgs, SingedAuthSendArgs } from "./signing/sing
 
 
 
-export type Wallet5BasicSendArgs = {
+export type WalletV5BasicSendArgs = {
     seqno: number;
     sendMode?: Maybe<SendMode>;
     timeout?: Maybe<number>;
 }
 
-export type SingedAuthWallet5SendArgs = Wallet5BasicSendArgs
+export type SingedAuthWallet5SendArgs = WalletV5BasicSendArgs
     & SingedAuthSendArgs
     & { authType?: 'external' | 'internal';};
 
-export type ExternallySingedAuthWallet5SendArgs = Wallet5BasicSendArgs
+export type ExternallySingedAuthWallet5SendArgs = WalletV5BasicSendArgs
     & ExternallySingedAuthSendArgs
     & {  authType?: 'external' | 'internal'; };
 
-export type ExtensionAuthWallet5SendArgs = Wallet5BasicSendArgs & {
+export type ExtensionAuthWallet5SendArgs = WalletV5BasicSendArgs & {
     authType: 'extension';
 }
 
