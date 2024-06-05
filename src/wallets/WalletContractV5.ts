@@ -35,12 +35,12 @@ export type Wallet5BasicSendArgs = {
     timeout?: Maybe<number>;
 }
 
-export type SingedAuthWallet5SendArgs = Wallet5BasicSendArgs 
-    & SingedAuthSendArgs 
+export type SingedAuthWallet5SendArgs = Wallet5BasicSendArgs
+    & SingedAuthSendArgs
     & { authType?: 'external' | 'internal';};
 
-export type ExternallySingedAuthWallet5SendArgs = Wallet5BasicSendArgs 
-    & ExternallySingedAuthSendArgs 
+export type ExternallySingedAuthWallet5SendArgs = Wallet5BasicSendArgs
+    & ExternallySingedAuthSendArgs
     & {  authType?: 'external' | 'internal'; };
 
 export type ExtensionAuthWallet5SendArgs = Wallet5BasicSendArgs & {
@@ -154,7 +154,7 @@ export class WalletContractV5 implements Contract {
      * Get is secret-key authentication enabled
      */
     async getIsSecretKeyAuthEnabled(provider: ContractProvider) {
-        let res = await provider.get('is_public_key_enabled', []);
+        let res = await provider.get('get_is_signature_auth_allowed', []);
         const result = res.stack.readNumber();
         return result !== 0;
     }

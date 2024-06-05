@@ -7,12 +7,12 @@
  */
 
 import {randomTestKey} from "../utils/randomTestKey";
-import {Address, beginCell, Cell, internal, OpenedContract, SendMode} from "@ton/core";
+import {Address, Cell, internal, OpenedContract, SendMode} from "@ton/core";
 import {WalletContractV5} from "./WalletContractV5";
 import {KeyPair, sign} from "@ton/crypto";
-import {createTestClient} from "../utils/createTestClient";
-import {TonClient} from "../client/TonClient";
 import {Buffer} from "buffer";
+import {createTestClient4} from "../utils/createTestClient4";
+import {TonClient4} from "../client/TonClient4";
 
 const getExtensionsArray = async (wallet: OpenedContract<WalletContractV5>) => {
     try {
@@ -27,12 +27,12 @@ const getExtensionsArray = async (wallet: OpenedContract<WalletContractV5>) => {
 }
 
 describe('WalletContractV5', () => {
-    let client: TonClient;
+    let client: TonClient4;
     let walletKey: KeyPair;
     let wallet: OpenedContract<WalletContractV5>;
 
     beforeEach(() => {
-        client = createTestClient();
+        client = createTestClient4();
         walletKey = randomTestKey('v5-treasure-1');
         wallet = client.open(WalletContractV5.create({ walletId: { networkGlobalId: -3 }, publicKey: walletKey.publicKey }));
 
