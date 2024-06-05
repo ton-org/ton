@@ -169,7 +169,7 @@ export function createWalletTransferV5ExtensionAuth(args: WalletV5BasicSendArgs 
     }
 
     return beginCell()
-        .storeUint(WalletContractV5.opCodes.auth_extension, 32)
+        .storeUint(WalletContractV5.OpCodes.auth_extension, 32)
         .store(storeOutListExtended(args.actions))
         .endCell();
 }
@@ -183,8 +183,8 @@ export function createWalletTransferV5SignedAuth<T extends ExternallySingedAuthW
 
     const signingMessage = beginCell()
         .storeUint(args.authType === 'internal'
-            ? WalletContractV5.opCodes.auth_signed_internal
-            : WalletContractV5.opCodes.auth_signed_external, 32)
+            ? WalletContractV5.OpCodes.auth_signed_internal
+            : WalletContractV5.OpCodes.auth_signed_external, 32)
         .store(args.walletId);
 
     if (args.seqno === 0) {

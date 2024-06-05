@@ -54,7 +54,7 @@ export type Wallet5SendArgs =
 
 export class WalletContractV5 implements Contract {
 
-    static opCodes = {
+    static OpCodes = {
         auth_extension: 0x6578746e,
         auth_signed_external: 0x7369676e,
         auth_signed_internal: 0x73696e74
