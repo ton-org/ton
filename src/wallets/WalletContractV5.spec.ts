@@ -41,7 +41,7 @@ describe('WalletContractV5', () => {
     it('should has balance and correct address', async () => {
        const balance = await wallet.getBalance();
 
-        expect(wallet.address.equals(Address.parse('EQC8dsjdf3tAmQfuI4Mx9U4TGomK4TYnw3oLVzwwLUntqiBp'))).toBeTruthy();
+        expect(wallet.address.equals(Address.parse('EQAb3OyXDQyjOGf3HOXPXELTF8dhZP0onqMPz6fNQbleRqtY'))).toBeTruthy();
         expect(balance > 0n).toBe(true);
     });
 
@@ -53,7 +53,7 @@ describe('WalletContractV5', () => {
             sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             messages: [internal({
                 bounce: false,
-                to: 'UQCThZx4clXiDTaFpZNmjC4ULhdt8tHtFNcvL5Q9NcqqlbYF',
+                to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
                 value: '0.01',
                 body: 'Hello world single transfer!'
             })]
@@ -75,12 +75,11 @@ describe('WalletContractV5', () => {
         const transfer = await wallet.createAndSignRequestAsync({
             seqno,
             signer,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             actions: [{
                type: 'sendMsg',
                 outMsg: internal({
                     bounce: false,
-                    to: 'UQCThZx4clXiDTaFpZNmjC4ULhdt8tHtFNcvL5Q9NcqqlbYF',
+                    to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
                     value: '0.01',
                     body: 'Hello world single transfer!'
                 }),
@@ -97,14 +96,15 @@ describe('WalletContractV5', () => {
         const transfer = wallet.createTransfer({
             seqno,
             secretKey: walletKey.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             messages: [internal({
                 bounce: false,
-                to: 'UQCThZx4clXiDTaFpZNmjC4ULhdt8tHtFNcvL5Q9NcqqlbYF',
+                to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
                 value: '0.01',
                 body: 'Hello world to extension'
             }), internal({
                 bounce: false,
-                to: 'UQBTiOSPiXrtTUF7Z_2bVtFG3IcoN5tWNV1arNqk-3L1tdRm',
+                to: 'UQDUyIkKoOR5iZ1Gz60JwKc7wPr3LcdHxOJpVDb9jAKY_pfk',
                 value: '0.02',
                 body: 'Hello world to relayer'
             })]
@@ -131,8 +131,8 @@ describe('WalletContractV5', () => {
             });
 
             const waitUntilExtensionAdded = async (attempt = 0): Promise<void> => {
-                if (attempt >= 10) {
-                    throw new Error('Extension was not added in 10 blocks');
+                if (attempt >= 20) {
+                    throw new Error('Extension was not added in 20 blocks');
                 }
                 const extensions = await getExtensionsArray(wallet);
                 const extensionAdded = extensions.some(address => address.equals(extensionContract.address));
@@ -153,12 +153,14 @@ describe('WalletContractV5', () => {
         await extensionContract.sendTransfer({
             seqno: extensionsSeqno,
             secretKey: extensionKey.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             messages: [internal({
                 to: wallet.address,
                 value: '0.02',
                 body: wallet.createTransfer({
                     seqno: seqno,
                     authType: 'extension',
+                    sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
                     messages: [internal({
                         bounce: false,
                         to: '0QD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgoHo',
@@ -200,6 +202,7 @@ describe('WalletContractV5', () => {
         await relayerContract.sendTransfer({
             seqno: relayerSeqno,
             secretKey: relaerKey.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             messages: [internal({
                 to: wallet.address,
                 value: '0.03',
@@ -207,6 +210,7 @@ describe('WalletContractV5', () => {
                     seqno: seqno,
                     secretKey: walletKey.secretKey,
                     authType: 'internal',
+                    sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
                     messages: [internal({
                         bounce: false,
                         to: '0QD2NmD_lH5f5u1Kj3KfGyTvhZSX0Eg6qp2a5IQUKXxOG4so',
@@ -237,8 +241,8 @@ describe('WalletContractV5', () => {
             });
 
             const waitUntilExtensionAdded = async (attempt = 0): Promise<void> => {
-                if (attempt >= 15) {
-                    throw new Error('Extension was not added in 15 blocks');
+                if (attempt >= 20) {
+                    throw new Error('Extension was not added in 20 blocks');
                 }
                 const extensions = await getExtensionsArray(wallet);
                 const extensionAdded = extensions.some(address => address.equals(extensionContract.address));
@@ -258,8 +262,8 @@ describe('WalletContractV5', () => {
         const isInitiallyEnabled = await wallet.getIsSecretKeyAuthEnabled();
 
         const waitUntilAuthValue = async (target: 'enabled' | 'disabled', attempt = 0): Promise<void> => {
-            if (attempt >= 15) {
-                throw new Error('Auth permissions were not changed in 15 blocks');
+            if (attempt >= 20) {
+                throw new Error('Auth permissions were not changed in 20 blocks');
             }
             const isEnabledNow = await wallet.getIsSecretKeyAuthEnabled();
             if ((target === 'enabled' && isEnabledNow ) || (target === 'disabled' && !isEnabledNow)) {
@@ -271,7 +275,7 @@ describe('WalletContractV5', () => {
         }
 
         if (isInitiallyEnabled) {
-            await wallet.sendRequest({
+            await wallet.sendActionsBatch({
                 seqno,
                 secretKey: walletKey.secretKey,
                 actions: [
@@ -293,7 +297,7 @@ describe('WalletContractV5', () => {
             sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             messages: [internal({
                 bounce: false,
-                to: 'UQCThZx4clXiDTaFpZNmjC4ULhdt8tHtFNcvL5Q9NcqqlbYF',
+                to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
                 value: '0.01',
                 body: 'Hello world single transfer that SHOULD FAIL!'
             })]
@@ -307,10 +311,11 @@ describe('WalletContractV5', () => {
         await extensionContract.sendTransfer({
             seqno: extensionsSeqno,
             secretKey: extensionKey.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             messages: [internal({
                 to: wallet.address,
                 value: '0.03',
-                body: wallet.createRequest({
+                body: wallet.createActionsBatch({
                     seqno,
                     authType: 'extension',
                     actions: [
@@ -341,7 +346,7 @@ describe('WalletContractV5', () => {
             sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             messages: [internal({
                 bounce: false,
-                to: 'UQCThZx4clXiDTaFpZNmjC4ULhdt8tHtFNcvL5Q9NcqqlbYF',
+                to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
                 value: '0.01',
                 body: 'Hello world single transfer after sk auth enabled!'
             })]
