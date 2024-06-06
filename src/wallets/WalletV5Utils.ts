@@ -1,7 +1,8 @@
 import {
     Address,
     beginCell,
-    BitReader, BitString,
+    BitReader,
+    BitString,
     Builder,
     loadOutList,
     OutActionSendMsg,
@@ -25,6 +26,7 @@ export interface OutActionSetIsPublicKeyEnabled {
 }
 
 export type OutActionExtended = OutActionSetIsPublicKeyEnabled | OutActionAddExtension | OutActionRemoveExtension;
+export type OutActionWalletV5 = OutActionExtended | OutActionSendMsg;
 
 const outActionSetIsPublicKeyEnabledTag = 0x20cbb95a;
 function storeOutActionSetIsPublicKeyEnabled(action: OutActionSetIsPublicKeyEnabled) {

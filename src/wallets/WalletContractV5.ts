@@ -12,26 +12,21 @@ import {
     Cell,
     Contract,
     contractAddress,
-    ContractProvider, Dictionary,
+    ContractProvider,
+    Dictionary,
     internal,
     MessageRelaxed,
-    OutActionSendMsg,
-    Sender,
+    OutActionSendMsg, Sender,
     SendMode
 } from "@ton/core";
-import { Maybe } from "../utils/maybe";
-import {
-    createWalletTransferV5ExtensionAuth,
-    createWalletTransferV5SignedAuth
-} from "./signing/createWalletTransfer";
-import { OutActionExtended, storeWalletId, WalletId } from "./WalletV5Utils";
-import { ExternallySingedAuthSendArgs, SingedAuthSendArgs } from "./signing/singer";
-
+import {Maybe} from "../utils/maybe";
+import {createWalletTransferV5ExtensionAuth, createWalletTransferV5SignedAuth} from "./signing/createWalletTransfer";
+import {OutActionWalletV5, storeWalletId, WalletId} from "./WalletV5Utils";
+import {ExternallySingedAuthSendArgs, SingedAuthSendArgs} from "./signing/singer";
 
 
 export type WalletV5BasicSendArgs = {
     seqno: number;
-    sendMode?: Maybe<SendMode>;
     timeout?: Maybe<number>;
 }
 
@@ -162,14 +157,14 @@ export class WalletContractV5 implements Contract {
     /**
      * Send signed transfer
      */
-    private async send(provider: ContractProvider, message: Cell) {
+    async send(provider: ContractProvider, message: Cell) {
         await provider.external(message);
     }
 
     /**
      * Sign and send transfer
      */
-    async sendTransfer(provider: ContractProvider,   args: Wallet5SendArgs & { messages: MessageRelaxed[] }) {
+    async sendTransfer(provider: ContractProvider, args: Wallet5SendArgs & { messages: MessageRelaxed[];  sendMode: SendMode }) {
         const transfer = this.createTransfer(args);
         await this.send(provider, transfer);
     }
@@ -191,25 +186,24 @@ export class WalletContractV5 implements Contract {
     }
 
     /**
-     * Sign and send request
+     * Sign and send actions batch
      */
-    async sendRequest(provider: ContractProvider, args: Wallet5SendArgs & { actions: (OutActionSendMsg | OutActionExtended)[], }) {
-        const request = this.createRequest(args);
+    async sendActionsBatch(provider: ContractProvider, args: Wallet5SendArgs & { actions: OutActionWalletV5[] }) {
+        const request = this.createActionsBatch(args);
         await this.send(provider, request);
     }
 
-    private createActions( args: {  messages: MessageRelaxed[], sendMode?: Maybe<SendMode> }) {
-        const sendMode = args.sendMode ?? SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS;
-        const actions: OutActionSendMsg[] = args.messages.map(message => ({ type: 'sendMsg', mode: sendMode, outMsg: message}));
+    private createActions( args: {  messages: MessageRelaxed[], sendMode: SendMode }) {
+        const actions: OutActionSendMsg[] = args.messages.map(message => ({ type: 'sendMsg', mode: args.sendMode, outMsg: message}));
         return actions;
     }
 
     /**
      * Create signed transfer
      */
-    createTransfer(args: Wallet5SendArgs & { messages: MessageRelaxed[] }) {
+    createTransfer(args: Wallet5SendArgs & { messages: MessageRelaxed[]; sendMode: SendMode }) {
         const { messages, ...rest } = args;
-        return this.createRequest({
+        return this.createActionsBatch({
             ...rest,
             actions: this.createActions({ messages, sendMode: args.sendMode })
         })
@@ -218,11 +212,11 @@ export class WalletContractV5 implements Contract {
     /**
      * Create signed transfer async
      */
-    createTransferAndSignRequestAsync(args: ExternallySingedAuthWallet5SendArgs & { messages: MessageRelaxed[] }) {
-        const { messages, ...rest } = args;
+    createTransferAndSignRequestAsync(args: ExternallySingedAuthWallet5SendArgs & { messages: MessageRelaxed[]; sendMode: SendMode }) {
+        const { messages, sendMode, ...rest } = args;
         return this.createAndSignRequestAsync({
             ...rest,
-            actions: this.createActions({ messages, sendMode: args.sendMode })
+            actions: this.createActions({ messages, sendMode })
         })
     }
 
@@ -231,7 +225,7 @@ export class WalletContractV5 implements Contract {
      */
     createAddExtension(args: Wallet5SendArgs & { extensionAddress: Address }) {
         const { extensionAddress, ...rest } = args;
-        return this.createRequest({
+        return this.createActionsBatch({
             actions: [{
                 type: 'addExtension',
                 address: extensionAddress
@@ -245,7 +239,7 @@ export class WalletContractV5 implements Contract {
      */
     createRemoveExtension(args: Wallet5SendArgs & { extensionAddress: Address }) {
         const { extensionAddress, ...rest } = args;
-        return this.createRequest({
+        return this.createActionsBatch({
             actions: [{
                 type: 'removeExtension',
                 address: extensionAddress
@@ -257,18 +251,16 @@ export class WalletContractV5 implements Contract {
     /**
      * Create signed request or extension auth request
      */
-    createRequest(args: Wallet5SendArgs & { actions: (OutActionSendMsg | OutActionExtended)[] }) {
+    createActionsBatch(args: Wallet5SendArgs & { actions: OutActionWalletV5[] }) {
         if (args.authType === 'extension') {
             return createWalletTransferV5ExtensionAuth({
                 ...args,
-                sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
                 walletId: storeWalletId(this.walletId)
             })
         }
 
         return createWalletTransferV5SignedAuth({
             ...args,
-            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             walletId: storeWalletId(this.walletId)
         })
     }
@@ -276,10 +268,9 @@ export class WalletContractV5 implements Contract {
     /**
      * Create asynchronously signed request
      */
-    createAndSignRequestAsync(args: ExternallySingedAuthWallet5SendArgs & { actions: (OutActionSendMsg | OutActionExtended)[] }) {
+    createAndSignRequestAsync(args: ExternallySingedAuthWallet5SendArgs & { actions: OutActionWalletV5[] }) {
         return createWalletTransferV5SignedAuth({
             ...args,
-            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             walletId: storeWalletId(this.walletId)
         })
     }
@@ -294,7 +285,7 @@ export class WalletContractV5 implements Contract {
                 let transfer = this.createTransfer({
                     seqno,
                     secretKey,
-                    sendMode: args.sendMode,
+                    sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
                     messages: [internal({
                         to: args.to,
                         value: args.value,
