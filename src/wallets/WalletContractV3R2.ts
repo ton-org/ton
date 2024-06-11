@@ -9,6 +9,9 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { createWalletTransferV3 } from "./signing/createWalletTransfer";
+import { ExternallySingedAuthSendArgs, SingedAuthSendArgs } from "./signing/singer";
+import { ExternallySingedAuthWallet3SendArgs, SingedAuthWallet3SendArgs } from "./WalletContractV3";
+
 
 export class WalletContractV3R2 implements Contract {
 
@@ -89,21 +92,29 @@ export class WalletContractV3R2 implements Contract {
     /**
      * Create transfer
      */
-    createTransfer(args: { seqno: number, sendMode?: Maybe<SendMode>, secretKey: Buffer, messages: MessageRelaxed[], timeout?: Maybe<number> }) {
+    createTransfer(args: SingedAuthWallet3SendArgs) {
         let sendMode = SendMode.PAY_GAS_SEPARATELY;
         if (args.sendMode !== null && args.sendMode !== undefined) {
             sendMode = args.sendMode;
         }
         return createWalletTransferV3({
-            seqno: args.seqno,
-            sendMode,
-            secretKey: args.secretKey,
-            messages: args.messages,
-            timeout: args.timeout,
+            ...args,
+            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
             walletId: this.walletId
         });
     }
 
+    /**
+     * Create asynchronously signed request
+     */
+    createTransferAndSignRequestAsync(args: ExternallySingedAuthWallet3SendArgs) {
+        return createWalletTransferV3({
+            ...args,
+            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
+            walletId: this.walletId
+        });
+    }
+    
     /**
      * Create sender
      */

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
@@ -9,6 +9,18 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { createWalletTransferV4 } from "./signing/createWalletTransfer";
+import { ExternallySingedAuthSendArgs, SingedAuthSendArgs } from "./signing/singer";
+
+
+export type WalletV4BasicSendArgs = {
+    seqno: number,
+    messages: MessageRelaxed[]
+    sendMode?: Maybe<SendMode>,
+    timeout?: Maybe<number>,
+}
+
+export type SingedAuthWallet4SendArgs = WalletV4BasicSendArgs & SingedAuthSendArgs;
+export type ExternallySingedAuthWallet4SendArgs = WalletV4BasicSendArgs & ExternallySingedAuthSendArgs;
 
 export class WalletContractV4 implements Contract {
 
@@ -90,23 +102,21 @@ export class WalletContractV4 implements Contract {
     /**
      * Create signed transfer
      */
-    createTransfer(args: {
-        seqno: number,
-        secretKey: Buffer,
-        messages: MessageRelaxed[]
-        sendMode?: Maybe<SendMode>,
-        timeout?: Maybe<number>,
-    }) {
-        let sendMode = SendMode.PAY_GAS_SEPARATELY;
-        if (args.sendMode !== null && args.sendMode !== undefined) {
-            sendMode = args.sendMode;
-        }
+    createTransfer(args: SingedAuthWallet4SendArgs) {
         return createWalletTransferV4({
-            seqno: args.seqno,
-            sendMode,
-            secretKey: args.secretKey,
-            messages: args.messages,
-            timeout: args.timeout,
+            ...args,
+            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
+            walletId: this.walletId
+        });
+    }
+
+    /**
+     * Create asynchronously signed request
+     */
+    createTransferAndSignRequestAsync(args: ExternallySingedAuthWallet4SendArgs) {
+        return createWalletTransferV4({
+            ...args,
+            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
             walletId: this.walletId
         });
     }
