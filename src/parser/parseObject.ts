@@ -1,13 +1,20 @@
-import { Cell } from '@ton/core';
+import { Cell, type TupleItem } from '@ton/core';
+import type { TvmType } from './types';
 
-export function parseObject(x: any): any {
+export function parseObject(x: TvmType): TupleItem {
   const typeName = x['@type'];
   switch(typeName) {
       case 'tvm.list':
       case 'tvm.tuple':
-          return x.elements.map(parseObject);
+          return {
+              type: 'tuple',
+              items: x.elements.map(parseObject)
+          };
       case 'tvm.cell':
-          return Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0];
+          return {
+            type: 'cell',
+            cell: Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0]
+          };
       case 'tvm.stackEntryCell':
           return parseObject(x.cell);
       case 'tvm.stackEntryTuple':
@@ -15,7 +22,10 @@ export function parseObject(x: any): any {
       case 'tvm.stackEntryNumber':
           return parseObject(x.number);
       case 'tvm.numberDecimal':
-          return BigInt(x.number);
+          return {
+            type: 'int',
+            value: BigInt(x.number)
+          };
       default:
           throw Error('Unsupported item type: ' + typeName);
   }

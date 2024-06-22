@@ -1,7 +1,8 @@
 import { Cell, TupleItem } from '@ton/core';
+import { StackItem } from './types';
 import { parseObject } from './parseObject';
 
-export function parseStackItem(s: any): TupleItem {
+export function parseStackItem(s: StackItem): TupleItem {
   if (s[0] === 'num') {
       let val = s[1] as string;
       if (val.startsWith('-')) {
