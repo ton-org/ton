@@ -26,6 +26,13 @@ export function parseObject(x: TvmType): TupleItem {
             type: 'int',
             value: BigInt(x.number)
           };
+      case 'tvm.slice':
+          return {
+            type: 'slice',
+            cell: Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0]
+          };
+      case 'tvm.stackEntrySlice':
+          return parseObject(x.slice);
       default:
           throw Error('Unsupported item type: ' + typeName);
   }
