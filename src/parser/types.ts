@@ -7,13 +7,13 @@ type TvmStackEntrySlice = { '@type': 'tvm.stackEntrySlice', slice: TvmSlice };
 type TvmCell = { '@type': 'tvm.cell', bytes: string };
 type TvmStackEntryCell = { '@type': 'tvm.stackEntryCell', cell: TvmCell };
 
-export type TvmType = TvmNumberDecimal | TvmCell | TvmSlice | TvmList | TvmTuple
+export type TvmValue = TvmNumberDecimal | TvmCell | TvmSlice | TvmList | TvmTuple
   | TvmStackEntryCell | TvmStackEntryNumber | TvmStackEntrySlice | TvmStackEntryTuple;
 
 // TODO: It doesn't seem lists are used
 type TvmList = { '@type': 'tvm.list', elements: any[] };
 
-type TvmTuple = { '@type': 'tvm.tuple', elements: TvmType[] };
+type TvmTuple = { '@type': 'tvm.tuple', elements: TvmValue[] };
 type TvmStackEntryTuple = { '@type': 'tvm.stackEntryTuple', tuple: TvmTuple };
 
 type SerializedCell = { bytes: string };

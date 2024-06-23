@@ -1,7 +1,7 @@
 import { Cell, type TupleItem } from '@ton/core';
-import type { TvmType } from './types';
+import type { TvmValue } from './types';
 
-export function parseObject(x: TvmType): TupleItem {
+export function parseObject(x: TvmValue): TupleItem {
   const typeName = x['@type'];
   switch(typeName) {
       case 'tvm.list':
