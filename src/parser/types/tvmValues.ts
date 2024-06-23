@@ -9,6 +9,7 @@ type TvmCell = { '@type': 'tvm.cell', bytes: string };
 type TvmStackEntryCell = { '@type': 'tvm.stackEntryCell', cell: TvmCell };
 
 // Structured types for TON Virtual Machine values
+// TODO: Check how list parsing works
 export type TvmList = { '@type': 'tvm.list', elements: TvmValue[] };
 type TvmStackEntryList = { '@type': 'tvm.stackEntryList', list: TvmList };
 
