@@ -1,6 +1,6 @@
 import { Cell, TupleItem } from '@ton/core';
 import { StackItem } from './types';
-import { parseObject } from './parseObject';
+import { parseTvmValue } from './parseTvmValue';
 
 export function parseStackItem(s: StackItem): TupleItem {
   if (s[0] === 'num') {
@@ -19,7 +19,7 @@ export function parseStackItem(s: StackItem): TupleItem {
   } else if (s[0] === 'builder') {
       return { type: 'builder', cell: Cell.fromBoc(Buffer.from(s[1].bytes, 'base64'))[0] };
   } else if (s[0] === 'tuple' || s[0] === 'list') {
-      return { type: 'tuple', items: s[1].elements.map(parseObject) };
+      return { type: 'tuple', items: s[1].elements.map(parseTvmValue) };
   } else {
       throw Error('Unsupported stack item type: ' + s[0])
   }
