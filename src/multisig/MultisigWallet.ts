@@ -10,6 +10,7 @@ import {
     ContractProvider,
     Dictionary,
     Sender,
+    SendMode,
     Slice,
     StateInit,
 } from '@ton/core';
@@ -128,7 +129,7 @@ export class MultisigWallet {
 
     public async deployInternal(sender: Sender, value: bigint = 1000000000n) {
         await sender.send({
-            sendMode: 3,
+            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             to: this.address,
             value: value,
             init: this.init,

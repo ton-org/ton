@@ -338,18 +338,24 @@ export class TonClient {
     }
 }
 
-function parseStackEntry(s: any): TupleItem {
-    switch (s["@type"]) {
-        case "tvm.stackEntryNumber":
-            return { type: 'int', value: BigInt(s.number.number) };
-        case "tvm.stackEntryCell":
-            return { type: 'cell', cell: Cell.fromBase64(s.cell) };
+function parseObject(x: any): any {
+    const typeName = x['@type'];
+    switch(typeName) {
+        case 'tvm.list':
+        case 'tvm.tuple':
+            return x.elements.map(parseObject);
+        case 'tvm.cell':
+            return Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0];
+        case 'tvm.stackEntryCell':
+            return parseObject(x.cell);
         case 'tvm.stackEntryTuple':
-            return { type: 'tuple', items: s.tuple.elements.map(parseStackEntry) };
-        case 'tvm.stackEntryList':
-            return { type: 'list', items: s.list.elements.map(parseStackEntry) };
+            return parseObject(x.tuple);
+        case 'tvm.stackEntryNumber':
+            return parseObject(x.number);
+        case 'tvm.numberDecimal':
+            return BigInt(x.number);
         default:
-            throw Error("Unsupported item type: " + s["@type"]);
+            throw Error('Unsupported item type: ' + typeName);
     }
 }
 
@@ -370,14 +376,7 @@ function parseStackItem(s: any): TupleItem {
     } else if (s[0] === 'builder') {
         return { type: 'builder', cell: Cell.fromBoc(Buffer.from(s[1].bytes, 'base64'))[0] };
     } else if (s[0] === 'tuple' || s[0] === 'list') {
-        // toncenter.com missbehaviour
-        if (s[1].elements.length === 0) {
-            return { type: 'null' };
-        }
-        return {
-            type: s[0],
-            items: s[1].elements.map(parseStackEntry)
-        };
+        return { type: 'tuple', items: s[1].elements.map(parseObject) };
     } else {
         throw Error('Unsupported stack item type: ' + s[0])
     }
