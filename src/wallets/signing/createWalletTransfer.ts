@@ -10,18 +10,26 @@ import { beginCell, Builder, Cell, MessageRelaxed, OutActionSendMsg, storeMessag
 import { sign } from "@ton/crypto";
 import { Maybe } from "../../utils/maybe";
 import {
-    ExternallySingedAuthWallet5SendArgs,
-    SingedAuthWallet5SendArgs,
-    WalletV5BasicSendArgs,
-    WalletContractV5
-} from "../WalletContractV5";
+    ExternallySingedAuthWallet5BetaSendArgs,
+    SingedAuthWallet5BetaSendArgs,
+    WalletV5BetaBasicSendArgs,
+    WalletContractV5Beta
+} from "../WalletContractV5Beta";
 import {
-    OutActionExtended,
-    storeOutListExtended
-} from "../WalletV5Utils";
+    storeOutListExtendedV5Beta
+} from "../WalletV5betaUtils";
 import { signPayload } from "./singer";
 import { ExternallySingedAuthWallet4SendArgs, SingedAuthWallet4SendArgs } from "../WalletContractV4";
 import { ExternallySingedAuthWallet3SendArgs, SingedAuthWallet3SendArgs } from "../WalletContractV3";
+import {OutActionExtended} from "../WalletV5Utils";
+import {
+    ExtensionAuthWallet5R1SendArgs,
+    ExternallySingedAuthWallet5R1SendArgs,
+    SingedAuthWallet5R1SendArgs,
+    WalletContractV5R1,
+    WalletV5R1SendArgs
+} from "../WalletContractV5R1";
+import {storeOutListExtendedV5R1} from "../WalletV5R1Utils";
 
 
 function packSignatureToFront(signature: Buffer, signingMessage: Builder): Cell {
@@ -162,20 +170,20 @@ export function createWalletTransferV4<T extends ExternallySingedAuthWallet4Send
     ) as T extends ExternallySingedAuthWallet4SendArgs ? Promise<Cell> : Cell;
 }
 
-export function createWalletTransferV5ExtensionAuth(args: WalletV5BasicSendArgs & { actions: (OutActionSendMsg | OutActionExtended)[], walletId: (builder: Builder) => void }) {
+export function createWalletTransferV5BetaExtensionAuth(args: WalletV5BetaBasicSendArgs & { actions: (OutActionSendMsg | OutActionExtended)[] }) {
     // Check number of actions
     if (args.actions.length > 255) {
         throw Error("Maximum number of OutActions in a single request is 255");
     }
 
     return beginCell()
-        .storeUint(WalletContractV5.OpCodes.auth_extension, 32)
-        .store(storeOutListExtended(args.actions))
+        .storeUint(WalletContractV5Beta.OpCodes.auth_extension, 32)
+        .store(storeOutListExtendedV5Beta(args.actions))
         .endCell();
 }
 
-export function createWalletTransferV5SignedAuth<T extends ExternallySingedAuthWallet5SendArgs | SingedAuthWallet5SendArgs>
-(args: T & { actions: (OutActionSendMsg | OutActionExtended)[], walletId: (builder: Builder) => void }): T extends ExternallySingedAuthWallet5SendArgs ? Promise<Cell> : Cell {
+export function createWalletTransferV5BetaSignedAuth<T extends ExternallySingedAuthWallet5BetaSendArgs | SingedAuthWallet5BetaSendArgs>
+(args: T & { actions: (OutActionSendMsg | OutActionExtended)[], walletId: (builder: Builder) => void }): T extends ExternallySingedAuthWallet5BetaSendArgs ? Promise<Cell> : Cell {
     // Check number of actions
     if (args.actions.length > 255) {
         throw Error("Maximum number of OutActions in a single request is 255");
@@ -183,8 +191,8 @@ export function createWalletTransferV5SignedAuth<T extends ExternallySingedAuthW
 
     const signingMessage = beginCell()
         .storeUint(args.authType === 'internal'
-            ? WalletContractV5.OpCodes.auth_signed_internal
-            : WalletContractV5.OpCodes.auth_signed_external, 32)
+            ? WalletContractV5Beta.OpCodes.auth_signed_internal
+            : WalletContractV5Beta.OpCodes.auth_signed_external, 32)
         .store(args.walletId);
 
     if (args.seqno === 0) {
@@ -197,11 +205,56 @@ export function createWalletTransferV5SignedAuth<T extends ExternallySingedAuthW
 
     signingMessage
         .storeUint(args.seqno, 32)
-        .store(storeOutListExtended(args.actions));
+        .store(storeOutListExtendedV5Beta(args.actions));
 
     return signPayload(
         args,
         signingMessage,
         packSignatureToTail,
-    ) as T extends ExternallySingedAuthWallet5SendArgs ? Promise<Cell> : Cell;
+    ) as T extends ExternallySingedAuthWallet5BetaSendArgs ? Promise<Cell> : Cell;
+}
+
+export function createWalletTransferV5R1ExtensionAuth(args: ExtensionAuthWallet5R1SendArgs & { actions: (OutActionSendMsg | OutActionExtended)[] }) {
+    // Check number of actions
+    if (args.actions.length > 255) {
+        throw Error("Maximum number of OutActions in a single request is 255");
+    }
+
+    return beginCell()
+        .storeUint(WalletContractV5R1.OpCodes.auth_extension, 32)
+        .storeUint(args.queryId ?? 0, 64)
+        .store(storeOutListExtendedV5R1(args.actions))
+        .endCell();
+}
+
+export function createWalletTransferV5R1SignedAuth<T extends ExternallySingedAuthWallet5R1SendArgs | SingedAuthWallet5R1SendArgs>
+(args: T & { actions: (OutActionSendMsg | OutActionExtended)[], walletId: (builder: Builder) => void }): T extends ExternallySingedAuthWallet5R1SendArgs ? Promise<Cell> : Cell {
+    // Check number of actions
+    if (args.actions.length > 255) {
+        throw Error("Maximum number of OutActions in a single request is 255");
+    }
+
+    const signingMessage = beginCell()
+        .storeUint(args.authType === 'internal'
+            ? WalletContractV5R1.OpCodes.auth_signed_internal
+            : WalletContractV5R1.OpCodes.auth_signed_external, 32)
+        .store(args.walletId);
+
+    if (args.seqno === 0) {
+        for (let i = 0; i < 32; i++) {
+            signingMessage.storeBit(1);
+        }
+    } else {
+        signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
+    }
+
+    signingMessage
+        .storeUint(args.seqno, 32)
+        .store(storeOutListExtendedV5R1(args.actions));
+
+    return signPayload(
+        args,
+        signingMessage,
+        packSignatureToTail,
+    ) as T extends ExternallySingedAuthWallet5R1SendArgs ? Promise<Cell> : Cell;
 }

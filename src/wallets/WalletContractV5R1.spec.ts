@@ -8,13 +8,13 @@
 
 import {randomTestKey} from "../utils/randomTestKey";
 import {Address, Cell, internal, OpenedContract, SendMode} from "@ton/core";
-import {WalletContractV5} from "./WalletContractV5";
 import {KeyPair, sign} from "@ton/crypto";
 import {Buffer} from "buffer";
 import {createTestClient4} from "../utils/createTestClient4";
 import {TonClient4} from "../client/TonClient4";
+import {WalletContractV5R1} from "./WalletContractV5R1";
 
-const getExtensionsArray = async (wallet: OpenedContract<WalletContractV5>) => {
+const getExtensionsArray = async (wallet: OpenedContract<WalletContractV5R1>) => {
     try {
         return await wallet.getExtensionsArray();
     } catch (e) {
@@ -26,22 +26,22 @@ const getExtensionsArray = async (wallet: OpenedContract<WalletContractV5>) => {
     }
 }
 
-describe('WalletContractV5', () => {
+describe('WalletContractV5R1', () => {
     let client: TonClient4;
     let walletKey: KeyPair;
-    let wallet: OpenedContract<WalletContractV5>;
+    let wallet: OpenedContract<WalletContractV5R1>;
 
     beforeEach(() => {
         client = createTestClient4();
-        walletKey = randomTestKey('v5-treasure-1');
-        wallet = client.open(WalletContractV5.create({ walletId: { networkGlobalId: -3 }, publicKey: walletKey.publicKey }));
+        walletKey = randomTestKey('v5r1-treasure');
+        wallet = client.open(WalletContractV5R1.create({ walletId: { networkGlobalId: -3 }, publicKey: walletKey.publicKey }));
 
     })
 
     it('should has balance and correct address', async () => {
        const balance = await wallet.getBalance();
 
-        expect(wallet.address.equals(Address.parse('EQAb3OyXDQyjOGf3HOXPXELTF8dhZP0onqMPz6fNQbleRqtY'))).toBeTruthy();
+        expect(wallet.address.equals(Address.parse('EQCqe9WqFhS8AfVGDP2xQiTLjbeolhLGsvIbbgQ6C3XT5gGs'))).toBeTruthy();
         expect(balance > 0n).toBe(true);
     });
 
@@ -115,7 +115,7 @@ describe('WalletContractV5', () => {
 
     it('should add extension', async () => {
         const extensionKey = randomTestKey('v5-treasure-extension');
-        const extensionContract = client.open(WalletContractV5.create({ walletId: { workChain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
+        const extensionContract = client.open(WalletContractV5R1.create({ walletId: { networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
 
 
         let seqno = await wallet.getSeqno();
@@ -174,7 +174,7 @@ describe('WalletContractV5', () => {
 
     it('should remove extension', async () => {
         const extensionKey = randomTestKey('v5-treasure-extension');
-        const extensionContract = client.open(WalletContractV5.create({ walletId: { workChain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
+        const extensionContract = client.open(WalletContractV5R1.create({ walletId: { networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
 
 
         const seqno = await wallet.getSeqno();
@@ -192,8 +192,8 @@ describe('WalletContractV5', () => {
     });
 
     it('should send internal transfer via relayer', async () => {
-        const relaerKey = randomTestKey('v5-treasure-relayer');
-        const relayerContract = client.open(WalletContractV5.create({ walletId: { workChain: 0, networkGlobalId: -3 }, publicKey: relaerKey.publicKey }));
+        const relaerKey = randomTestKey('v5r1-treasure-relayer');
+        const relayerContract = client.open(WalletContractV5R1.create({ walletId: { networkGlobalId: -3 }, publicKey: relaerKey.publicKey }));
 
 
         const seqno = await wallet.getSeqno();
@@ -226,7 +226,7 @@ describe('WalletContractV5', () => {
     it('should disable secret key auth, send extension-auth tx, and enable it again', async () => {
         /* firstly add an extension that will take the control over the wallet */
         const extensionKey = randomTestKey('v5-treasure-extension');
-        const extensionContract = client.open(WalletContractV5.create({ walletId: { workChain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
+        const extensionContract = client.open(WalletContractV5R1.create({ walletId: { networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
 
         let seqno = await wallet.getSeqno();
         const extensions = await getExtensionsArray(wallet);
@@ -241,8 +241,8 @@ describe('WalletContractV5', () => {
             });
 
             const waitUntilExtensionAdded = async (attempt = 0): Promise<void> => {
-                if (attempt >= 20) {
-                    throw new Error('Extension was not added in 20 blocks');
+                if (attempt >= 30) {
+                    throw new Error('Extension was not added in 30 blocks');
                 }
                 const extensions = await getExtensionsArray(wallet);
                 const extensionAdded = extensions.some(address => address.equals(extensionContract.address));
@@ -262,8 +262,8 @@ describe('WalletContractV5', () => {
         const isInitiallyEnabled = await wallet.getIsSecretKeyAuthEnabled();
 
         const waitUntilAuthValue = async (target: 'enabled' | 'disabled', attempt = 0): Promise<void> => {
-            if (attempt >= 20) {
-                throw new Error('Auth permissions were not changed in 20 blocks');
+            if (attempt >= 30) {
+                throw new Error('Auth permissions were not changed in 30 blocks');
             }
             const isEnabledNow = await wallet.getIsSecretKeyAuthEnabled();
             if ((target === 'enabled' && isEnabledNow ) || (target === 'disabled' && !isEnabledNow)) {
@@ -275,15 +275,26 @@ describe('WalletContractV5', () => {
         }
 
         if (isInitiallyEnabled) {
-            await wallet.sendActionsBatch({
-                seqno,
-                secretKey: walletKey.secretKey,
-                actions: [
-                    {
-                        type: 'setIsPublicKeyEnabled',
-                        isEnabled: false
-                    }
-                ]
+            const extensionsSeqno = await extensionContract.getSeqno();
+
+            await extensionContract.sendTransfer({
+                seqno: extensionsSeqno,
+                secretKey: extensionKey.secretKey,
+                sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                messages: [internal({
+                    to: wallet.address,
+                    value: '0.02',
+                    body: wallet.createActionsBatch({
+                        seqno,
+                        authType: 'extension',
+                        actions: [
+                            {
+                                type: 'setIsPublicKeyEnabled',
+                                isEnabled: false
+                            }
+                        ]
+                    })
+                })]
             });
 
             await waitUntilAuthValue('disabled');
@@ -338,18 +349,20 @@ describe('WalletContractV5', () => {
         });
 
         await waitUntilAuthValue('enabled');
+        await new Promise(r => setTimeout(r, 5000));
 
-        /* should fail direct secret-key auth transfer from the wallet */
+        /* should not fail direct secret-key auth transfer from the wallet */
+        seqno = await wallet.getSeqno();
         await wallet.sendTransfer({
-            seqno: seqno + 1,
+            seqno,
             secretKey: walletKey.secretKey,
             sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             messages: [internal({
                 bounce: false,
                 to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
                 value: '0.01',
-                body: 'Hello world single transfer after sk auth enabled!'
+                body: 'Hello world single transfer after sk auth is enabled!'
             })]
         });
-    }, 120000);
+    }, 260000);
 });
