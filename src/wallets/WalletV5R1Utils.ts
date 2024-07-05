@@ -5,7 +5,7 @@ import {
     BitString,
     Builder, Cell,
     loadOutList,
-    OutActionSendMsg,
+    OutActionSendMsg, SendMode,
     Slice,
     storeOutList
 } from '@ton/core';
@@ -15,8 +15,9 @@ import {
     OutActionAddExtension,
     OutActionExtended,
     OutActionRemoveExtension,
-    OutActionSetIsPublicKeyEnabled
+    OutActionSetIsPublicKeyEnabled, OutActionWalletV5
 } from "./WalletV5Utils";
+import {WalletV5R1SendArgs} from "./WalletContractV5R1";
 
 
 const outActionSetIsPublicKeyEnabledTag = 0x04;
@@ -242,4 +243,23 @@ export function storeWalletIdV5R1(walletId: WalletIdV5R1) {
 
         return builder.storeInt(BigInt(walletId.networkGlobalId) ^ BigInt(context), 32);
     }
+}
+
+/**
+ * при экстернале обязателен флаг +2 в sendmode, при интернале - любой sendmode
+ */
+export function toSafeV5R1SendMode(sendMode: SendMode, authType: WalletV5R1SendArgs['authType']) {
+    if (authType === 'internal' || authType === 'extension') {
+        return sendMode;
+    }
+
+    return sendMode | SendMode.IGNORE_ERRORS
+}
+
+export function patchV5R1ActionsSendMode(actions: OutActionWalletV5[], authType: WalletV5R1SendArgs['authType']): OutActionWalletV5[] {
+    return actions.map(action => action.type === 'sendMsg' ? ({
+        ...action,
+        mode: toSafeV5R1SendMode(action.mode, authType)
+    }) : action)
+
 }

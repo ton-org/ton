@@ -59,6 +59,9 @@ describe('WalletContractV5R1', () => {
             })]
         });
 
+        const sendMode = getTransferSendMode(transfer);
+        expect(sendMode).toBe(SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS);
+
         await wallet.send(transfer);
     });
 
@@ -83,10 +86,12 @@ describe('WalletContractV5R1', () => {
                     value: '0.01',
                     body: 'Hello world single transfer!'
                 }),
-                mode: SendMode.IGNORE_ERRORS + SendMode.PAY_GAS_SEPARATELY
-
+                mode: SendMode.PAY_GAS_SEPARATELY
             }]
         });
+
+        const sendMode = getTransferSendMode(transfer);
+        expect(sendMode).toBe(SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS);
 
         await wallet.send(transfer);
     });
@@ -96,7 +101,7 @@ describe('WalletContractV5R1', () => {
         const transfer = wallet.createTransfer({
             seqno,
             secretKey: walletKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
             messages: [internal({
                 bounce: false,
                 to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
@@ -109,6 +114,9 @@ describe('WalletContractV5R1', () => {
                 body: 'Hello world to relayer'
             })]
         });
+
+       const sendMode = getTransferSendMode(transfer);
+       expect(sendMode).toBe(SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS);
 
         await wallet.send(transfer);
     });
@@ -153,14 +161,14 @@ describe('WalletContractV5R1', () => {
         await extensionContract.sendTransfer({
             seqno: extensionsSeqno,
             secretKey: extensionKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
             messages: [internal({
                 to: wallet.address,
                 value: '0.02',
                 body: wallet.createTransfer({
                     seqno: seqno,
                     authType: 'extension',
-                    sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                    sendMode: SendMode.PAY_GAS_SEPARATELY,
                     messages: [internal({
                         bounce: false,
                         to: '0QD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgoHo',
@@ -202,7 +210,7 @@ describe('WalletContractV5R1', () => {
         await relayerContract.sendTransfer({
             seqno: relayerSeqno,
             secretKey: relaerKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
             messages: [internal({
                 to: wallet.address,
                 value: '0.03',
@@ -280,7 +288,7 @@ describe('WalletContractV5R1', () => {
             await extensionContract.sendTransfer({
                 seqno: extensionsSeqno,
                 secretKey: extensionKey.secretKey,
-                sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                sendMode: SendMode.PAY_GAS_SEPARATELY,
                 messages: [internal({
                     to: wallet.address,
                     value: '0.02',
@@ -305,7 +313,7 @@ describe('WalletContractV5R1', () => {
         const transfer = wallet.createTransfer({
             seqno: seqno,
             secretKey: walletKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
             messages: [internal({
                 bounce: false,
                 to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
@@ -322,7 +330,7 @@ describe('WalletContractV5R1', () => {
         await extensionContract.sendTransfer({
             seqno: extensionsSeqno,
             secretKey: extensionKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
             messages: [internal({
                 to: wallet.address,
                 value: '0.03',
@@ -336,7 +344,7 @@ describe('WalletContractV5R1', () => {
                         },
                         {
                         type: "sendMsg",
-                        mode: SendMode.IGNORE_ERRORS + SendMode.PAY_GAS_SEPARATELY,
+                        mode: SendMode.IGNORE_ERRORS,
                         outMsg: internal({
                             bounce: false,
                             to: '0QD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgoHo',
@@ -356,7 +364,7 @@ describe('WalletContractV5R1', () => {
         await wallet.sendTransfer({
             seqno,
             secretKey: walletKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
             messages: [internal({
                 bounce: false,
                 to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
@@ -366,3 +374,9 @@ describe('WalletContractV5R1', () => {
         });
     }, 260000);
 });
+
+function getTransferSendMode(cell: Cell): SendMode {
+    const outMsg = cell.beginParse().loadRef().beginParse();
+    const bits = outMsg.remainingBits;
+    return outMsg.skip(bits - 8).loadUint(8) as SendMode;
+}

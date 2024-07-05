@@ -10,7 +10,7 @@ import {
     loadOutListExtendedV5R1,
     loadWalletIdV5R1,
     storeOutActionExtendedV5R1, storeOutListExtendedV5R1,
-    storeWalletIdV5R1,
+    storeWalletIdV5R1, toSafeV5R1SendMode,
     WalletIdV5R1,
     WalletIdV5R1ClientContext, WalletIdV5R1CustomContext
 } from "./WalletV5R1Utils";
@@ -299,5 +299,45 @@ describe('Wallet V5R1 utils', () => {
                 expect(item1.isEnabled).toEqual(item2.isEnabled);
             }
         })
+    });
+
+    it('Check toSaveSendMode: add + 2 to externals', () => {
+        const notSafeSendMode = SendMode.PAY_GAS_SEPARATELY;
+        const authType = 'external';
+        const safeSendMode = toSafeV5R1SendMode(notSafeSendMode, authType);
+
+        expect(safeSendMode).toEqual(notSafeSendMode + SendMode.IGNORE_ERRORS);
+    });
+
+    it('Check toSaveSendMode: keep mode for internals', () => {
+        const notSafeSendMode = SendMode.PAY_GAS_SEPARATELY;
+        const authType = 'internal';
+        const safeSendMode = toSafeV5R1SendMode(notSafeSendMode, authType);
+
+        expect(safeSendMode).toEqual(notSafeSendMode);
+    });
+
+    it('Check toSaveSendMode: keep mode for extensions', () => {
+        const notSafeSendMode = SendMode.PAY_GAS_SEPARATELY;
+        const authType = 'extension';
+        const safeSendMode = toSafeV5R1SendMode(notSafeSendMode, authType);
+
+        expect(safeSendMode).toEqual(notSafeSendMode);
+    });
+
+    it("Check toSaveSendMode: don't add + 2 twice for externals", () => {
+        const safeSendMode = SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS;
+        const authType = 'external';
+        const actualSafeSendMode = toSafeV5R1SendMode(safeSendMode, authType);
+
+        expect(actualSafeSendMode).toEqual(safeSendMode);
+    });
+
+    it("Check toSaveSendMode: don't add + 2 twice for internals", () => {
+        const safeSendMode = SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS;
+        const authType = 'internal';
+        const actualSafeSendMode = toSafeV5R1SendMode(safeSendMode, authType);
+
+        expect(actualSafeSendMode).toEqual(safeSendMode);
     });
 })

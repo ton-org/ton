@@ -29,7 +29,7 @@ import {
     WalletContractV5R1,
     WalletV5R1SendArgs
 } from "../WalletContractV5R1";
-import {storeOutListExtendedV5R1} from "../WalletV5R1Utils";
+import {patchV5R1ActionsSendMode, storeOutListExtendedV5R1} from "../WalletV5R1Utils";
 
 
 function packSignatureToFront(signature: Buffer, signingMessage: Builder): Cell {
@@ -233,6 +233,9 @@ export function createWalletTransferV5R1SignedAuth<T extends ExternallySingedAut
     if (args.actions.length > 255) {
         throw Error("Maximum number of OutActions in a single request is 255");
     }
+
+    const actions = patchV5R1ActionsSendMode(args.actions, args.authType);
+    args = {...args, actions};
 
     const signingMessage = beginCell()
         .storeUint(args.authType === 'internal'
