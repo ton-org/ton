@@ -51,6 +51,10 @@ export type Wallet5SendArgs =
     | ExtensionAuthWallet5SendArgs
 
 
+/**
+ * @deprecated
+ * use WalletContractV5R1 instead
+ */
 export class WalletContractV5Beta implements Contract {
 
     static OpCodes = {
@@ -81,7 +85,7 @@ export class WalletContractV5Beta implements Contract {
     ) {
         this.walletId = walletId;
 
-        // Build initial code and data
+        // https://github.com/tonkeeper/w5/commit/fa1b372a417a32af104fe1b949b6b31d29cee349 code with library
         let code = Cell.fromBoc(Buffer.from('te6cckEBAQEAIwAIQgLkzzsvTG1qYeoPK1RH0mZ4WyavNjfbLe7mvNGqgm80Eg3NjhE=', 'base64'))[0];
         let data = beginCell()
             .storeInt(0, 33) // Seqno

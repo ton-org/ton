@@ -136,10 +136,26 @@ export function loadOutListExtendedV5R1(slice: Slice): (OutActionExtended | OutA
 }
 
 /**
+ * schema:
  * wallet_id -- int32
  * wallet_id = global_id ^ context_id
  * context_id_client$1 = wc:int8 wallet_version:uint8 counter:uint15
  * context_id_backoffice$0 = counter:uint31
+ *
+ *
+ * calculated default values serialisation:
+ *
+ * global_id = -239, workchain = 0, wallet_version = 0', subwallet_number = 0 (client context)
+ * gives wallet_id = 2147483409
+ *
+ * global_id = -239, workchain = -1, wallet_version = 0', subwallet_number = 0 (client context)
+ * gives wallet_id = 8388369
+ *
+ * global_id = -3, workchain = 0, wallet_version = 0', subwallet_number = 0 (client context)
+ * gives wallet_id = 2147483645
+ *
+ * global_id = -3, workchain = -1, wallet_version = 0', subwallet_number = 0 (client context)
+ * gives wallet_id = 8388605
  */
 export interface WalletIdV5R1<C extends WalletIdV5R1ClientContext | WalletIdV5R1CustomContext = WalletIdV5R1ClientContext | WalletIdV5R1CustomContext> {
     /**
