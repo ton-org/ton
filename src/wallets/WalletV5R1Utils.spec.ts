@@ -3,7 +3,7 @@ import {
     SendMode,
     storeMessageRelaxed,
     Address,
-    MessageRelaxed, OutActionSendMsg, OutAction
+    MessageRelaxed, OutActionSendMsg, OutAction, Cell
 } from "@ton/core";
 import {OutActionExtended} from "./WalletV5Utils";
 import {
@@ -26,7 +26,26 @@ const mockMessageRelaxed1: MessageRelaxed = {
     body: beginCell().storeUint(0,8).endCell(),
     init: null
 }
-const mockData = beginCell().storeUint(123, 32).endCell();
+
+const mockMessageRelaxed2: MessageRelaxed = {
+    info: {
+        type: 'internal',
+        ihrDisabled: true,
+        bounce: false,
+        bounced: false,
+        dest: Address.parseRaw('0:' + '2'.repeat(64)),
+        value: {
+            coins: 1n
+        },
+        ihrFee: 1n,
+        forwardFee: 1n,
+        createdLt: 12345n,
+        createdAt: 123456
+    },
+    body: beginCell().storeUint(0,8).endCell(),
+    init: null
+}
+
 const mockAddress = Address.parseRaw('0:' + '1'.repeat(64))
 
 describe('Wallet V5R1 utils', () => {
@@ -232,6 +251,66 @@ describe('Wallet V5R1 utils', () => {
 
 
 
+        expect(actual.equals(expected)).toBeTruthy();
+    });
+
+    it('Should serialize extended out list and produce the expected boc', () => {
+        const sendMode1 = SendMode.PAY_GAS_SEPARATELY+ SendMode.IGNORE_ERRORS;
+        const isPublicKeyEnabled = false;
+
+        const actions: (OutActionExtended | OutActionSendMsg)[] = [
+            {
+                type: 'addExtension',
+                address: mockAddress
+            },
+            {
+                type: 'setIsPublicKeyEnabled',
+                isEnabled: isPublicKeyEnabled
+            },
+            {
+                type: 'sendMsg',
+                mode: sendMode1,
+                outMsg: mockMessageRelaxed1
+            }
+        ]
+
+        const actual = beginCell().store(storeOutListExtendedV5R1(actions)).endCell();
+        const expected = Cell.fromBoc(Buffer.from('b5ee9c72410105010046000245c0a000888888888888888888888888888888888888888888888888888888888888888c0104020a0ec3c86d0302030000001cc000000000000000000000000000000304409c06218f', 'hex'))[0];
+        expect(actual.equals(expected)).toBeTruthy();
+    });
+
+    it('Should serialize extended out list and produce the expected boc for complex structures', () => {
+        const sendMode1 = SendMode.PAY_GAS_SEPARATELY+ SendMode.IGNORE_ERRORS;
+        const sendMode2 = SendMode.NONE;
+        const isPublicKeyEnabled = false;
+
+        const actions: (OutActionExtended | OutActionSendMsg)[] = [
+            {
+                type: 'addExtension',
+                address: mockAddress
+            },
+            {
+                type: 'setIsPublicKeyEnabled',
+                isEnabled: isPublicKeyEnabled
+            },
+            {
+                type: 'removeExtension',
+                address: mockAddress
+            },
+            {
+                type: 'sendMsg',
+                mode: sendMode1,
+                outMsg: mockMessageRelaxed1
+            },
+            {
+                type: 'sendMsg',
+                mode: sendMode2,
+                outMsg: mockMessageRelaxed2
+            }
+        ]
+
+        const actual = beginCell().store(storeOutListExtendedV5R1(actions)).endCell();
+        const expected = Cell.fromBoc(Buffer.from('b5ee9c724101080100ab000245c0a000888888888888888888888888888888888888888888888888888888888888888c0106020a0ec3c86d030205020a0ec3c86d00030400000068420011111111111111111111111111111111111111111111111111111111111111110808404404000000000000c0e40007890000001cc00000000000000000000000000001030440070045038002222222222222222222222222222222222222222222222222222222222222223037cc71d6', 'hex'))[0];
         expect(actual.equals(expected)).toBeTruthy();
     });
 
