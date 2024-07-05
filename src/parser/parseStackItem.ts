@@ -18,8 +18,15 @@ export function parseStackItem(s: StackItem): TupleItem {
       return { type: 'slice', cell: Cell.fromBoc(Buffer.from(s[1].bytes, 'base64'))[0] };
   } else if (s[0] === 'builder') {
       return { type: 'builder', cell: Cell.fromBoc(Buffer.from(s[1].bytes, 'base64'))[0] };
-  } else if (s[0] === 'tuple' || s[0] === 'list') {
+  } else if (s[0] === 'tuple') {
       return { type: 'tuple', items: s[1].elements.map(parseTvmValue) };
+  } else if (s[0] === 'list') {
+    // Empty list is a null value
+    if (s[1].elements.length === 0) {
+        return { type: 'null' };
+    }
+    // FIXME: possibly it is not used
+    return { type: 'tuple', items: s[1].elements.map(parseTvmValue) };
   } else {
       throw Error('Unsupported stack item type: ' + s[0])
   }
