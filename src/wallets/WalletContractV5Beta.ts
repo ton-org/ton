@@ -145,7 +145,7 @@ export class WalletContractV5Beta implements Contract {
         return dict.keys().map(key => {
             const wc = dict.get(key)!;
             const addressHex = key ^ (wc + 1n);
-            return Address.parseRaw(`${wc}:${addressHex.toString(16)}`);
+            return Address.parseRaw(`${wc}:${addressHex.toString(16).padStart(64, "0")}`);
         })
     }
 
