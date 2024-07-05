@@ -1,13 +1,6 @@
 import {
     Address,
-    beginCell,
-    BitReader,
-    BitString,
-    Builder,
-    loadOutList,
-    OutActionSendMsg,
-    Slice,
-    storeOutList
+    OutActionSendMsg
 } from '@ton/core';
 
 export interface OutActionAddExtension {
