@@ -29,6 +29,7 @@ import {
     OpenedContract
 } from '@ton/core';
 import { Maybe } from "../utils/maybe";
+import { parseStack } from "../parser";
 
 export type TonClientParameters = {
     /**
@@ -336,60 +337,6 @@ export class TonClient {
     provider(address: Address, init?: StateInit | null) {
         return createProvider(this, address, init ?? null);
     }
-}
-
-function parseObject(x: any): any {
-    const typeName = x['@type'];
-    switch(typeName) {
-        case 'tvm.list':
-        case 'tvm.tuple':
-            return x.elements.map(parseObject);
-        case 'tvm.cell':
-            return Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0];
-        case 'tvm.stackEntryCell':
-            return parseObject(x.cell);
-        case 'tvm.stackEntryTuple':
-            return parseObject(x.tuple);
-        case 'tvm.stackEntryNumber':
-            return parseObject(x.number);
-        case 'tvm.numberDecimal':
-            return BigInt(x.number);
-        default:
-            throw Error('Unsupported item type: ' + typeName);
-    }
-}
-
-function parseStackItem(s: any): TupleItem {
-    if (s[0] === 'num') {
-        let val = s[1] as string;
-        if (val.startsWith('-')) {
-            return { type: 'int', value: -BigInt(val.slice(1)) };
-        } else {
-            return { type: 'int', value: BigInt(val) };
-        }
-    } else if (s[0] === 'null') {
-        return { type: 'null' };
-    } else if (s[0] === 'cell') {
-        return { type: 'cell', cell: Cell.fromBoc(Buffer.from(s[1].bytes, 'base64'))[0] };
-    } else if (s[0] === 'slice') {
-        return { type: 'slice', cell: Cell.fromBoc(Buffer.from(s[1].bytes, 'base64'))[0] };
-    } else if (s[0] === 'builder') {
-        return { type: 'builder', cell: Cell.fromBoc(Buffer.from(s[1].bytes, 'base64'))[0] };
-    } else if (s[0] === 'tuple' || s[0] === 'list') {
-        return { type: 'tuple', items: s[1].elements.map(parseObject) };
-    } else {
-        throw Error('Unsupported stack item type: ' + s[0])
-    }
-}
-
-function parseStack(src: any[]) {
-    let stack: TupleItem[] = [];
-
-    for (let s of src) {
-        stack.push(parseStackItem(s));
-    }
-
-    return new TupleReader(stack);
 }
 
 function createProvider(client: TonClient, address: Address, init: StateInit | null): ContractProvider {
