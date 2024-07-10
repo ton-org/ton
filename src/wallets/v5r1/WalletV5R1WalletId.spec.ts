@@ -7,7 +7,7 @@ import {
     WalletIdV5R1CustomContext
 } from "./WalletV5R1WalletId";
 
-describe('Wallet V5R1 utils', () => {
+describe('Wallet V5R1 wallet id', () => {
     it('Should serialise wallet id', () => {
         const walletId: WalletIdV5R1<WalletIdV5R1ClientContext> = {
             networkGlobalId: -239,

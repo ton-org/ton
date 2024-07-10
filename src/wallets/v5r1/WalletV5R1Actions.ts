@@ -13,7 +13,7 @@ import {
     OutActionExtended,
     OutActionRemoveExtension,
     OutActionSetIsPublicKeyEnabled, OutActionWalletV5
-} from "../WalletV5Utils";
+} from "../v5beta/WalletV5OutActions";
 import {WalletV5R1SendArgs} from "./WalletContractV5R1";
 
 

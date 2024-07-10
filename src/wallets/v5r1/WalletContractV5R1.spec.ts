@@ -75,19 +75,16 @@ describe('WalletContractV5R1', () => {
             }, 100)
         );
 
-        const transfer = await wallet.createAndSignRequestAsync({
+        const transfer = await wallet.createTransfer({
             seqno,
             signer,
-            actions: [{
-               type: 'sendMsg',
-                outMsg: internal({
-                    bounce: false,
-                    to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
-                    value: '0.01',
-                    body: 'Hello world single transfer!'
-                }),
-                mode: SendMode.PAY_GAS_SEPARATELY
-            }]
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            messages: [internal({
+                bounce: false,
+                to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
+                value: '0.01',
+                body: 'Hello world single transfer signed async!'
+            })]
         });
 
         const sendMode = getTransferSendMode(transfer);
@@ -292,7 +289,7 @@ describe('WalletContractV5R1', () => {
                 messages: [internal({
                     to: wallet.address,
                     value: '0.02',
-                    body: wallet.createActionsBatch({
+                    body: wallet.createRequest({
                         seqno,
                         authType: 'extension',
                         actions: [
@@ -334,7 +331,7 @@ describe('WalletContractV5R1', () => {
             messages: [internal({
                 to: wallet.address,
                 value: '0.03',
-                body: wallet.createActionsBatch({
+                body: wallet.createRequest({
                     seqno,
                     authType: 'extension',
                     actions: [

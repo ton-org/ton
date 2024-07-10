@@ -20,11 +20,9 @@ import {
     SendMode
 } from "@ton/core";
 import {Maybe} from "../../utils/maybe";
-import {
-    createWalletTransferV5R1ExtensionAuth, createWalletTransferV5R1SignedAuth,
-} from "../signing/createWalletTransfer";
-import {ExternallySingedAuthSendArgs, SingedAuthSendArgs} from "../signing/singer";
-import {OutActionWalletV5} from "../WalletV5Utils";
+import {createWalletTransferV5R1} from "../signing/createWalletTransfer";
+import {SendArgsSignable, SendArgsSigned} from "../signing/singer";
+import {OutActionWalletV5} from "../v5beta/WalletV5OutActions";
 import {
     isWalletIdV5R1ClientContext,
     storeWalletIdV5R1,
@@ -39,22 +37,25 @@ export type WalletV5R1BasicSendArgs = {
     timeout?: Maybe<number>;
 }
 
-export type SingedAuthWallet5R1SendArgs = WalletV5R1BasicSendArgs
-    & SingedAuthSendArgs
+export type WalletV5R1SendArgsSinged = WalletV5R1BasicSendArgs
+    & SendArgsSigned
     & { authType?: 'external' | 'internal';};
 
-export type ExternallySingedAuthWallet5R1SendArgs = WalletV5R1BasicSendArgs
-    & ExternallySingedAuthSendArgs
+export type WalletV5R1SendArgsSignable = WalletV5R1BasicSendArgs
+    & SendArgsSignable
     & {  authType?: 'external' | 'internal'; };
 
-export type ExtensionAuthWallet5R1SendArgs = WalletV5R1BasicSendArgs & {
+export type Wallet5VR1SendArgsExtensionAuth = WalletV5R1BasicSendArgs & {
     authType: 'extension';
     queryId?: bigint;
 }
 
 export type WalletV5R1SendArgs =
-    | SingedAuthWallet5R1SendArgs
-    | ExtensionAuthWallet5R1SendArgs
+    | WalletV5R1SendArgsSinged
+    | WalletV5R1SendArgsSignable
+    | Wallet5VR1SendArgsExtensionAuth;
+
+export type WalletV5R1PackedCell<T> =  T extends WalletV5R1SendArgsSignable ? Promise<Cell> : Cell;
 
 
 export class WalletContractV5R1 implements Contract {
@@ -190,7 +191,7 @@ export class WalletContractV5R1 implements Contract {
      * Sign and send transfer
      */
     async sendTransfer(provider: ContractProvider, args: WalletV5R1SendArgs & { messages: MessageRelaxed[];  sendMode: SendMode }) {
-        const transfer = this.createTransfer(args);
+        const transfer = await this.createTransfer(args);
         await this.send(provider, transfer);
     }
 
@@ -198,7 +199,7 @@ export class WalletContractV5R1 implements Contract {
      * Sign and send add extension request
      */
     async sendAddExtension(provider: ContractProvider, args: WalletV5R1SendArgs & { extensionAddress: Address }) {
-        const request = this.createAddExtension(args);
+        const request = await this.createAddExtension(args);
         await this.send(provider, request);
     }
 
@@ -206,15 +207,7 @@ export class WalletContractV5R1 implements Contract {
      * Sign and send remove extension request
      */
     async sendRemoveExtension(provider: ContractProvider, args: WalletV5R1SendArgs & { extensionAddress: Address, }) {
-        const request = this.createRemoveExtension(args);
-        await this.send(provider, request);
-    }
-
-    /**
-     * Sign and send actions batch
-     */
-    async sendActionsBatch(provider: ContractProvider, args: WalletV5R1SendArgs & { actions: OutActionWalletV5[] }) {
-        const request = this.createActionsBatch(args);
+        const request = await this.createRemoveExtension(args);
         await this.send(provider, request);
     }
 
@@ -226,75 +219,51 @@ export class WalletContractV5R1 implements Contract {
     /**
      * Create signed transfer
      */
-    createTransfer(args: WalletV5R1SendArgs & { messages: MessageRelaxed[]; sendMode: SendMode }) {
-        const { messages, ...rest } = args;
-        return this.createActionsBatch({
-            ...rest,
-            actions: this.createActions({ messages, sendMode: args.sendMode })
-        })
-    }
-
-    /**
-     * Create signed transfer async
-     */
-    createTransferAndSignRequestAsync(args: ExternallySingedAuthWallet5R1SendArgs & { messages: MessageRelaxed[]; sendMode: SendMode }) {
-        const { messages, sendMode, ...rest } = args;
-        return this.createAndSignRequestAsync({
-            ...rest,
-            actions: this.createActions({ messages, sendMode })
+    createTransfer<T extends WalletV5R1SendArgs>(args: T & { messages: MessageRelaxed[]; sendMode: SendMode }): WalletV5R1PackedCell<T> {
+        return this.createRequest({
+            actions: this.createActions({ messages: args.messages, sendMode: args.sendMode }),
+            ...args
         })
     }
 
     /**
      * Create signed add extension request
      */
-    createAddExtension(args: WalletV5R1SendArgs & { extensionAddress: Address }) {
-        const { extensionAddress, ...rest } = args;
-        return this.createActionsBatch({
+    createAddExtension<T extends WalletV5R1SendArgs>(args: T & { extensionAddress: Address }): WalletV5R1PackedCell<T> {
+        return this.createRequest({
             actions: [{
                 type: 'addExtension',
-                address: extensionAddress
+                address: args.extensionAddress
             }],
-            ...rest
+            ...args
         })
     }
 
     /**
      * Create signed remove extension request
      */
-    createRemoveExtension(args: WalletV5R1SendArgs & { extensionAddress: Address }) {
-        const { extensionAddress, ...rest } = args;
-        return this.createActionsBatch({
+    createRemoveExtension<T extends WalletV5R1SendArgs>(args: T & { extensionAddress: Address }): WalletV5R1PackedCell<T> {
+        return this.createRequest({
             actions: [{
                 type: 'removeExtension',
-                address: extensionAddress
+                address: args.extensionAddress
             }],
-            ...rest
+            ...args
         })
     }
 
     /**
      * Create signed request or extension auth request
      */
-    createActionsBatch(args: WalletV5R1SendArgs & { actions: OutActionWalletV5[] }) {
+    createRequest<T extends WalletV5R1SendArgs>(args: T & { actions: OutActionWalletV5[] }): WalletV5R1PackedCell<T> {
         if (args.authType === 'extension') {
-            return createWalletTransferV5R1ExtensionAuth(args)
+            return createWalletTransferV5R1(args as Wallet5VR1SendArgsExtensionAuth & { actions: OutActionWalletV5[] }) as WalletV5R1PackedCell<T>;
         }
 
-        return createWalletTransferV5R1SignedAuth({
-            ...args,
+        return createWalletTransferV5R1({
+            ...(args as (WalletV5R1SendArgsSinged | WalletV5R1SendArgsSignable) & { actions: OutActionWalletV5[] }),
             walletId: storeWalletIdV5R1(this.walletId)
-        })
-    }
-
-    /**
-     * Create asynchronously signed request
-     */
-    createAndSignRequestAsync(args: ExternallySingedAuthWallet5R1SendArgs & { actions: OutActionWalletV5[] }) {
-        return createWalletTransferV5R1SignedAuth({
-            ...args,
-            walletId: storeWalletIdV5R1(this.walletId)
-        })
+        }) as WalletV5R1PackedCell<T>;
     }
 
     /**

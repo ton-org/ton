@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
@@ -9,8 +9,7 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { createWalletTransferV3 } from "./signing/createWalletTransfer";
-import { ExternallySingedAuthSendArgs, SingedAuthSendArgs } from "./signing/singer";
-import { ExternallySingedAuthWallet3SendArgs, SingedAuthWallet3SendArgs } from "./WalletContractV3";
+import { WalletV3SendArgsSignable, WalletV3SendArgsSigned } from "./WalletContractV3Types";
 
 
 export class WalletContractV3R2 implements Contract {
@@ -92,29 +91,14 @@ export class WalletContractV3R2 implements Contract {
     /**
      * Create transfer
      */
-    createTransfer(args: SingedAuthWallet3SendArgs) {
-        let sendMode = SendMode.PAY_GAS_SEPARATELY;
-        if (args.sendMode !== null && args.sendMode !== undefined) {
-            sendMode = args.sendMode;
-        }
-        return createWalletTransferV3({
+    createTransfer<T extends WalletV3SendArgsSigned | WalletV3SendArgsSignable>(args: T) {
+        return createWalletTransferV3<T>({
             ...args,
             sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
             walletId: this.walletId
         });
     }
 
-    /**
-     * Create asynchronously signed request
-     */
-    createTransferAndSignRequestAsync(args: ExternallySingedAuthWallet3SendArgs) {
-        return createWalletTransferV3({
-            ...args,
-            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
-            walletId: this.walletId
-        });
-    }
-    
     /**
      * Create sender
      */

@@ -5,15 +5,12 @@ import {
     Address,
     MessageRelaxed, OutActionSendMsg, OutAction, Cell
 } from "@ton/core";
-import {OutActionExtended} from "../WalletV5Utils";
+import {OutActionExtended} from "../v5beta/WalletV5OutActions";
 import {
     loadOutListExtendedV5R1,
-    loadWalletIdV5R1,
     storeOutActionExtendedV5R1, storeOutListExtendedV5R1,
-    storeWalletIdV5R1, toSafeV5R1SendMode,
-    WalletIdV5R1,
-    WalletIdV5R1ClientContext, WalletIdV5R1CustomContext
-} from "./WalletV5R1Utils";
+     toSafeV5R1SendMode,
+} from "./WalletV5R1Actions";
 
 const mockMessageRelaxed1: MessageRelaxed = {
     info: {
@@ -48,7 +45,7 @@ const mockMessageRelaxed2: MessageRelaxed = {
 
 const mockAddress = Address.parseRaw('0:' + '1'.repeat(64))
 
-describe('Wallet V5R1 utils', () => {
+describe('Wallet V5R1 actions', () => {
     const outActionSetIsPublicKeyEnabledTag = 0x04;
     const outActionAddExtensionTag = 0x02;
     const outActionRemoveExtensionTag = 0x03;

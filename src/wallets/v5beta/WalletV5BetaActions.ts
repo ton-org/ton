@@ -12,7 +12,7 @@ import {
     OutActionExtended,
     OutActionRemoveExtension,
     OutActionSetIsPublicKeyEnabled
-} from "../WalletV5Utils";
+} from "./WalletV5OutActions";
 
 const outActionSetIsPublicKeyEnabledTag = 0x20cbb95a;
 function storeOutActionSetIsPublicKeyEnabled(action: OutActionSetIsPublicKeyEnabled) {

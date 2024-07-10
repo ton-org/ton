@@ -1,19 +1,19 @@
 import { Builder, Cell } from "@ton/core";
 import { sign } from "@ton/crypto";
 
-export type SingedAuthSendArgs = {
+export type SendArgsSigned = {
     secretKey: Buffer;
 }
 
-export type ExternallySingedAuthSendArgs = {
+export type SendArgsSignable = {
     signer: (message: Cell) => Promise<Buffer>;
 }
 
-export function signPayload<T extends SingedAuthSendArgs | ExternallySingedAuthSendArgs>(
+export function signPayload<T extends SendArgsSigned | SendArgsSignable>(
     args: T,
     signingMessage: Builder,
     packMessage: (signature: Buffer, signingMessage: Builder) => Cell
-): T extends ExternallySingedAuthSendArgs ? Promise<Cell> : Cell {
+): T extends SendArgsSignable ? Promise<Cell> : Cell {
 
     if ('secretKey' in args) {
         /**
@@ -22,7 +22,7 @@ export function signPayload<T extends SingedAuthSendArgs | ExternallySingedAuthS
         return packMessage(
             sign(signingMessage.endCell().hash(), args.secretKey),
             signingMessage
-        ) as T extends ExternallySingedAuthSendArgs ? Promise<Cell> : Cell;
+        ) as T extends SendArgsSignable ? Promise<Cell> : Cell;
     }
     else {
         /**
@@ -30,6 +30,6 @@ export function signPayload<T extends SingedAuthSendArgs | ExternallySingedAuthS
          * In this case lib could create a request to external resource to sign transaction.
          */
         return args.signer(signingMessage.endCell())
-            .then(signature => packMessage(signature, signingMessage)) as T extends ExternallySingedAuthSendArgs ? Promise<Cell> : Cell;
+            .then(signature => packMessage(signature, signingMessage)) as T extends SendArgsSignable ? Promise<Cell> : Cell;
     }
 }

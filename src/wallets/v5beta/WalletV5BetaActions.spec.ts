@@ -12,7 +12,7 @@ import {
     storeOutActionExtendedV5Beta,
     storeOutListExtendedV5Beta
 } from "./WalletV5BetaActions";
-import {OutActionExtended} from "../WalletV5Utils";
+import {OutActionExtended} from "./WalletV5OutActions";
 
 const mockMessageRelaxed1: MessageRelaxed = {
     info: {

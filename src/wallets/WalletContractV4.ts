@@ -9,7 +9,7 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { createWalletTransferV4 } from "./signing/createWalletTransfer";
-import { ExternallySingedAuthSendArgs, SingedAuthSendArgs } from "./signing/singer";
+import { SendArgsSignable, SendArgsSigned } from "./signing/singer";
 
 
 export type WalletV4BasicSendArgs = {
@@ -19,8 +19,8 @@ export type WalletV4BasicSendArgs = {
     timeout?: Maybe<number>,
 }
 
-export type SingedAuthWallet4SendArgs = WalletV4BasicSendArgs & SingedAuthSendArgs;
-export type ExternallySingedAuthWallet4SendArgs = WalletV4BasicSendArgs & ExternallySingedAuthSendArgs;
+export type Wallet4SendArgsSigned = WalletV4BasicSendArgs & SendArgsSigned;
+export type Wallet4SendArgsSignable = WalletV4BasicSendArgs & SendArgsSignable;
 
 export class WalletContractV4 implements Contract {
 
@@ -102,19 +102,8 @@ export class WalletContractV4 implements Contract {
     /**
      * Create signed transfer
      */
-    createTransfer(args: SingedAuthWallet4SendArgs) {
-        return createWalletTransferV4({
-            ...args,
-            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
-            walletId: this.walletId
-        });
-    }
-
-    /**
-     * Create asynchronously signed request
-     */
-    createTransferAndSignRequestAsync(args: ExternallySingedAuthWallet4SendArgs) {
-        return createWalletTransferV4({
+    createTransfer<T extends Wallet4SendArgsSigned | Wallet4SendArgsSignable>(args:T ){
+        return createWalletTransferV4<T>({
             ...args,
             sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
             walletId: this.walletId
