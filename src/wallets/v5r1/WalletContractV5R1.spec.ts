@@ -6,12 +6,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import {randomTestKey} from "../utils/randomTestKey";
+import {randomTestKey} from "../../utils/randomTestKey";
 import {Address, Cell, internal, OpenedContract, SendMode} from "@ton/core";
 import {KeyPair, sign} from "@ton/crypto";
 import {Buffer} from "buffer";
-import {createTestClient4} from "../utils/createTestClient4";
-import {TonClient4} from "../client/TonClient4";
+import {createTestClient4} from "../../utils/createTestClient4";
+import {TonClient4} from "../../client/TonClient4";
 import {WalletContractV5R1} from "./WalletContractV5R1";
 
 const getExtensionsArray = async (wallet: OpenedContract<WalletContractV5R1>) => {

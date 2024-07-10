@@ -4,14 +4,15 @@ import {
     storeMessageRelaxed,
     Address,
     OutAction,
-    MessageRelaxed, OutActionSendMsg
+    MessageRelaxed,
+    OutActionSendMsg
 } from "@ton/core";
 import {
-    loadOutListExtendedV5Beta, loadWalletIdV5Beta,
+    loadOutListExtendedV5Beta,
     storeOutActionExtendedV5Beta,
-    storeOutListExtendedV5Beta, storeWalletIdV5Beta, WalletIdV5Beta,
-} from "./WalletV5betaUtils";
-import {OutActionExtended} from "./WalletV5Utils";
+    storeOutListExtendedV5Beta
+} from "./WalletV5BetaActions";
+import {OutActionExtended} from "../WalletV5Utils";
 
 const mockMessageRelaxed1: MessageRelaxed = {
     info: {
@@ -24,10 +25,9 @@ const mockMessageRelaxed1: MessageRelaxed = {
     body: beginCell().storeUint(0,8).endCell(),
     init: null
 }
-const mockData = beginCell().storeUint(123, 32).endCell();
 const mockAddress = Address.parseRaw('0:' + '1'.repeat(64))
 
-describe('Wallet V5Beta utils', () => {
+describe('Wallet V5Beta actions', () => {
     const outActionSetIsPublicKeyEnabledTag = 0x20cbb95a;
     const outActionAddExtensionTag = 0x1c40db9f;
     const outActionRemoveExtensionTag = 0x5eaef4a4;
@@ -95,84 +95,6 @@ describe('Wallet V5Beta utils', () => {
             .endCell();
 
         expect(expected.equals(actual)).toBeTruthy();
-    });
-
-    it('Should serialise wallet id', () => {
-        const walletId: WalletIdV5Beta = {
-            walletVersion: 'v5',
-            networkGlobalId: -239,
-            workChain: 0,
-            subwalletNumber: 0
-        }
-
-        const actual = beginCell().store(storeWalletIdV5Beta(walletId)).endCell();
-
-        const expected = beginCell()
-            .storeInt(walletId.networkGlobalId, 32)
-            .storeInt(walletId.workChain, 8)
-            .storeUint(0, 8)
-            .storeUint(walletId.subwalletNumber, 32)
-            .endCell();
-
-        expect(expected.equals(actual)).toBeTruthy();
-    });
-
-    it('Should deserialise wallet id', () => {
-        const expected: WalletIdV5Beta = {
-            walletVersion: 'v5',
-            networkGlobalId: -239,
-            workChain: 0,
-            subwalletNumber: 0
-        }
-
-        const actual = loadWalletIdV5Beta(beginCell()
-            .storeInt(expected.networkGlobalId, 32)
-            .storeInt(expected.workChain, 8)
-            .storeUint(0, 8)
-            .storeUint(expected.subwalletNumber, 32)
-            .endCell().beginParse());
-
-
-        expect(expected).toEqual(actual);
-    });
-
-    it('Should serialise wallet id', () => {
-        const walletId: WalletIdV5Beta = {
-            walletVersion: 'v5',
-            networkGlobalId: -3,
-            workChain: -1,
-            subwalletNumber: 1234
-        }
-
-        const actual = beginCell().store(storeWalletIdV5Beta(walletId)).endCell();
-
-        const expected = beginCell()
-            .storeInt(walletId.networkGlobalId, 32)
-            .storeInt(walletId.workChain, 8)
-            .storeUint(0, 8)
-            .storeUint(walletId.subwalletNumber, 32)
-            .endCell();
-
-        expect(expected.equals(actual)).toBeTruthy();
-    });
-
-    it('Should deserialise wallet id', () => {
-        const expected: WalletIdV5Beta = {
-            walletVersion: 'v5',
-            networkGlobalId: -239,
-            workChain: -1,
-            subwalletNumber: 1
-        }
-
-        const actual = loadWalletIdV5Beta(beginCell()
-            .storeInt(expected.networkGlobalId, 32)
-            .storeInt(expected.workChain, 8)
-            .storeUint(0, 8)
-            .storeUint(expected.subwalletNumber, 32)
-            .endCell().beginParse());
-
-
-        expect(expected).toEqual(actual);
     });
 
     it('Should serialize extended out list', () => {
