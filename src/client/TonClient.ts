@@ -338,20 +338,26 @@ export class TonClient {
     }
 }
 
-function parseObject(x: any): any {
+function parseStackEntry(x: any): any {
     const typeName = x['@type'];
     switch(typeName) {
         case 'tvm.list':
         case 'tvm.tuple':
-            return x.elements.map(parseObject);
+            return x.elements.map(parseStackEntry);
         case 'tvm.cell':
             return Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0];
+        case 'tvm.slice':
+            return Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0];
         case 'tvm.stackEntryCell':
-            return parseObject(x.cell);
+            return parseStackEntry(x.cell);
+        case 'tvm.stackEntrySlice':
+            return parseStackEntry(x.slice);
         case 'tvm.stackEntryTuple':
-            return parseObject(x.tuple);
+            return parseStackEntry(x.tuple);
+        case 'tvm.stackEntryList':
+            return parseStackEntry(x.list);
         case 'tvm.stackEntryNumber':
-            return parseObject(x.number);
+            return parseStackEntry(x.number);
         case 'tvm.numberDecimal':
             return BigInt(x.number);
         default:
@@ -376,7 +382,11 @@ function parseStackItem(s: any): TupleItem {
     } else if (s[0] === 'builder') {
         return { type: 'builder', cell: Cell.fromBoc(Buffer.from(s[1].bytes, 'base64'))[0] };
     } else if (s[0] === 'tuple' || s[0] === 'list') {
-        return { type: 'tuple', items: s[1].elements.map(parseObject) };
+        if (s[1].elements.length === 0) {
+            return { type: 'null' };
+        }
+
+        return { type: 'tuple', items: s[1].elements.map(parseStackEntry) };
     } else {
         throw Error('Unsupported stack item type: ' + s[0])
     }
