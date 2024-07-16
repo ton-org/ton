@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
@@ -250,7 +250,7 @@ export class TonClient {
     /**
      * Estimate fees for external message
      * @param address target address
-     * @returns 
+     * @returns
      */
     async estimateExternalMessageFee(address: Address, args: {
         body: Cell,
