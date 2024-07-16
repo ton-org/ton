@@ -36,6 +36,8 @@ export { WalletContractV2R2 } from './wallets/WalletContractV2R2';
 export { WalletContractV3R1 } from './wallets/WalletContractV3R1';
 export { WalletContractV3R2 } from './wallets/WalletContractV3R2';
 export { WalletContractV4 } from './wallets/WalletContractV4';
+export { WalletContractV5Beta } from './wallets/WalletContractV5Beta';
+export { WalletContractV5R1 } from './wallets/WalletContractV5R1';
 
 //
 // Jettons
