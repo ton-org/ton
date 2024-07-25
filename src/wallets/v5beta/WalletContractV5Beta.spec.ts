@@ -111,7 +111,7 @@ describe('WalletContractV5Beta', () => {
 
     it('should add extension', async () => {
         const extensionKey = randomTestKey('v5-treasure-extension');
-        const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workChain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
+        const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
 
 
         let seqno = await wallet.getSeqno();
@@ -170,7 +170,7 @@ describe('WalletContractV5Beta', () => {
 
     it('should remove extension', async () => {
         const extensionKey = randomTestKey('v5-treasure-extension');
-        const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workChain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
+        const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
 
 
         const seqno = await wallet.getSeqno();
@@ -189,7 +189,7 @@ describe('WalletContractV5Beta', () => {
 
     it('should send internal transfer via relayer', async () => {
         const relaerKey = randomTestKey('v5-treasure-relayer');
-        const relayerContract = client.open(WalletContractV5Beta.create({ walletId: { workChain: 0, networkGlobalId: -3 }, publicKey: relaerKey.publicKey }));
+        const relayerContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: relaerKey.publicKey }));
 
 
         const seqno = await wallet.getSeqno();
@@ -222,7 +222,7 @@ describe('WalletContractV5Beta', () => {
     it('should disable secret key auth, send extension-auth tx, and enable it again', async () => {
         /* firstly add an extension that will take the control over the wallet */
         const extensionKey = randomTestKey('v5-treasure-extension');
-        const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workChain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
+        const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
 
         let seqno = await wallet.getSeqno();
         const extensions = await getExtensionsArray(wallet);

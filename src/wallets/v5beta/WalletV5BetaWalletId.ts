@@ -14,7 +14,7 @@ export interface WalletIdV5Beta {
      */
     readonly networkGlobalId: number;
 
-    readonly workChain: number;
+    readonly workchain: number;
 
     readonly subwalletNumber: number;
 }
@@ -33,7 +33,7 @@ export function loadWalletIdV5Beta(value: bigint | Buffer | Slice): WalletIdV5Be
         )
     );
     const networkGlobalId = bitReader.loadInt(32);
-    const workChain = bitReader.loadInt(8);
+    const workchain = bitReader.loadInt(8);
     const walletVersionRaw = bitReader.loadUint(8);
     const subwalletNumber = bitReader.loadUint(32);
 
@@ -47,13 +47,13 @@ export function loadWalletIdV5Beta(value: bigint | Buffer | Slice): WalletIdV5Be
         );
     }
 
-    return { networkGlobalId, workChain, walletVersion, subwalletNumber }
+    return { networkGlobalId, workchain, walletVersion, subwalletNumber }
 }
 
 export function storeWalletIdV5Beta(walletId: WalletIdV5Beta) {
     return (builder: Builder) => {
         builder.storeInt(walletId.networkGlobalId, 32);
-        builder.storeInt(walletId.workChain, 8);
+        builder.storeInt(walletId.workchain, 8);
         builder.storeUint(walletV5BetaVersionsSerialisation[walletId.walletVersion], 8);
         builder.storeUint(walletId.subwalletNumber, 32);
     }

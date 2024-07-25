@@ -70,24 +70,24 @@ export class WalletContractV5R1 implements Contract {
         walletId?: Maybe<WalletIdV5R1<C>>,
         publicKey: Buffer
     } : {
-        workChain?: number
+        workchain?: number
         publicKey: Buffer
         walletId?: Maybe<Partial<WalletIdV5R1<C>>>
     }) {
-        let workChain = 0;
+        let workchain = 0;
 
-        if ('workChain' in args && args.workChain != undefined) {
-            workChain = args.workChain;
+        if ('workchain' in args && args.workchain != undefined) {
+            workchain = args.workchain;
         }
 
-        if (args.walletId?.context && isWalletIdV5R1ClientContext(args.walletId.context) && args.walletId.context.workChain != undefined) {
-            workChain = args.walletId.context.workChain;
+        if (args.walletId?.context && isWalletIdV5R1ClientContext(args.walletId.context) && args.walletId.context.workchain != undefined) {
+          workchain = args.walletId.context.workchain;
         }
 
-        return new WalletContractV5R1(workChain, args.publicKey, {
+        return new WalletContractV5R1(workchain, args.publicKey, {
             networkGlobalId: args.walletId?.networkGlobalId ?? -239,
             context: args.walletId?.context ?? {
-                workChain: 0,
+                workchain: 0,
                 walletVersion: 'v5r1',
                 subwalletNumber: 0
             }
@@ -98,7 +98,7 @@ export class WalletContractV5R1 implements Contract {
     readonly init: { data: Cell, code: Cell };
 
     private constructor(
-        workChain: number,
+        workchain: number,
         readonly publicKey: Buffer,
         readonly walletId: WalletIdV5R1<WalletIdV5R1ClientContext | WalletIdV5R1CustomContext>,
     ) {
@@ -114,7 +114,7 @@ export class WalletContractV5R1 implements Contract {
             .storeBit(0) // Empty plugins dict
             .endCell();
         this.init = { code, data };
-        this.address = contractAddress(workChain, { code, data });
+        this.address = contractAddress(workchain, { code, data });
     }
 
     /**
