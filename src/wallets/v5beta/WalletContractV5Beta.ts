@@ -69,7 +69,7 @@ export class WalletContractV5Beta implements Contract {
     }) {
         const walletId = {
             networkGlobalId: args.walletId?.networkGlobalId ?? -239,
-            workChain: args?.walletId?.workChain ?? 0,
+            workchain: args?.walletId?.workchain ?? 0,
             subwalletNumber: args?.walletId?.subwalletNumber ?? 0,
             walletVersion: args?.walletId?.walletVersion ?? 'v5'
         }
@@ -94,7 +94,7 @@ export class WalletContractV5Beta implements Contract {
             .storeBit(0) // Empty plugins dict
             .endCell();
         this.init = { code, data };
-        this.address = contractAddress(this.walletId.workChain, { code, data });
+        this.address = contractAddress(this.walletId.workchain, { code, data });
     }
 
     /**

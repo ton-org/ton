@@ -13,7 +13,7 @@ describe('Wallet V5R1 wallet id', () => {
             networkGlobalId: -239,
             context: {
                 walletVersion: 'v5r1',
-                workChain: 0,
+                workchain: 0,
                 subwalletNumber: 0
             }
         }
@@ -22,7 +22,7 @@ describe('Wallet V5R1 wallet id', () => {
 
         const context = beginCell()
             .storeUint(1, 1)
-            .storeInt(walletId.context.workChain, 8)
+            .storeInt(walletId.context.workchain, 8)
             .storeUint(0, 8)
             .storeUint(walletId.context.subwalletNumber, 15)
             .endCell().beginParse().loadInt(32);
@@ -37,14 +37,14 @@ describe('Wallet V5R1 wallet id', () => {
             networkGlobalId: -239,
             context: {
                 walletVersion: 'v5r1',
-                workChain: 0,
+                workchain: 0,
                 subwalletNumber: 0
             }
         }
 
         const context = beginCell()
             .storeUint(1, 1)
-            .storeInt(expected.context.workChain, 8)
+            .storeInt(expected.context.workchain, 8)
             .storeUint(0, 8)
             .storeUint(expected.context.subwalletNumber, 15)
             .endCell().beginParse().loadInt(32);

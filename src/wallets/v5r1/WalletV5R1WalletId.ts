@@ -41,7 +41,7 @@ export interface WalletIdV5R1<C extends WalletIdV5R1ClientContext | WalletIdV5R1
 export interface WalletIdV5R1ClientContext {
     readonly walletVersion: 'v5r1';
 
-    readonly workChain: number;
+    readonly workchain: number;
 
     readonly subwalletNumber: number;
 }
@@ -80,7 +80,7 @@ export function loadWalletIdV5R1(value: bigint | Buffer | Slice, networkGlobalId
 
     const isClientContext = bitReader.loadUint(1);
     if (isClientContext) {
-        const workChain = bitReader.loadInt(8);
+        const workchain = bitReader.loadInt(8);
         const walletVersionRaw = bitReader.loadUint(8);
         const subwalletNumber = bitReader.loadUint(15);
 
@@ -98,7 +98,7 @@ export function loadWalletIdV5R1(value: bigint | Buffer | Slice, networkGlobalId
             networkGlobalId,
             context: {
                 walletVersion,
-                workChain,
+                workchain,
                 subwalletNumber
             }
         }
@@ -117,7 +117,7 @@ export function storeWalletIdV5R1(walletId: WalletIdV5R1) {
         if (isWalletIdV5R1ClientContext(walletId.context)) {
             context = beginCell()
                 .storeUint(1, 1)
-                .storeInt(walletId.context.workChain, 8)
+                .storeInt(walletId.context.workchain, 8)
                 .storeUint(walletV5R1VersionsSerialisation[walletId.context.walletVersion], 8)
                 .storeUint(walletId.context.subwalletNumber, 15)
                 .endCell().beginParse().loadInt(32);

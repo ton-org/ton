@@ -10,7 +10,7 @@ describe('Wallet V5Beta wallet id', () => {
         const walletId: WalletIdV5Beta = {
             walletVersion: 'v5',
             networkGlobalId: -239,
-            workChain: 0,
+            workchain: 0,
             subwalletNumber: 0
         }
 
@@ -18,7 +18,7 @@ describe('Wallet V5Beta wallet id', () => {
 
         const expected = beginCell()
             .storeInt(walletId.networkGlobalId, 32)
-            .storeInt(walletId.workChain, 8)
+            .storeInt(walletId.workchain, 8)
             .storeUint(0, 8)
             .storeUint(walletId.subwalletNumber, 32)
             .endCell();
@@ -30,13 +30,13 @@ describe('Wallet V5Beta wallet id', () => {
         const expected: WalletIdV5Beta = {
             walletVersion: 'v5',
             networkGlobalId: -239,
-            workChain: 0,
+            workchain: 0,
             subwalletNumber: 0
         }
 
         const actual = loadWalletIdV5Beta(beginCell()
             .storeInt(expected.networkGlobalId, 32)
-            .storeInt(expected.workChain, 8)
+            .storeInt(expected.workchain, 8)
             .storeUint(0, 8)
             .storeUint(expected.subwalletNumber, 32)
             .endCell().beginParse());
@@ -49,7 +49,7 @@ describe('Wallet V5Beta wallet id', () => {
         const walletId: WalletIdV5Beta = {
             walletVersion: 'v5',
             networkGlobalId: -3,
-            workChain: -1,
+            workchain: -1,
             subwalletNumber: 1234
         }
 
@@ -57,7 +57,7 @@ describe('Wallet V5Beta wallet id', () => {
 
         const expected = beginCell()
             .storeInt(walletId.networkGlobalId, 32)
-            .storeInt(walletId.workChain, 8)
+            .storeInt(walletId.workchain, 8)
             .storeUint(0, 8)
             .storeUint(walletId.subwalletNumber, 32)
             .endCell();
@@ -69,13 +69,13 @@ describe('Wallet V5Beta wallet id', () => {
         const expected: WalletIdV5Beta = {
             walletVersion: 'v5',
             networkGlobalId: -239,
-            workChain: -1,
+            workchain: -1,
             subwalletNumber: 1
         }
 
         const actual = loadWalletIdV5Beta(beginCell()
             .storeInt(expected.networkGlobalId, 32)
-            .storeInt(expected.workChain, 8)
+            .storeInt(expected.workchain, 8)
             .storeUint(0, 8)
             .storeUint(expected.subwalletNumber, 32)
             .endCell().beginParse());
