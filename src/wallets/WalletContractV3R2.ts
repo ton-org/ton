@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
@@ -9,6 +9,8 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { createWalletTransferV3 } from "./signing/createWalletTransfer";
+import { WalletV3SendArgsSignable, WalletV3SendArgsSigned } from "./WalletContractV3Types";
+
 
 export class WalletContractV3R2 implements Contract {
 
@@ -89,17 +91,10 @@ export class WalletContractV3R2 implements Contract {
     /**
      * Create transfer
      */
-    createTransfer(args: { seqno: number, sendMode?: Maybe<SendMode>, secretKey: Buffer, messages: MessageRelaxed[], timeout?: Maybe<number> }) {
-        let sendMode = SendMode.PAY_GAS_SEPARATELY;
-        if (args.sendMode !== null && args.sendMode !== undefined) {
-            sendMode = args.sendMode;
-        }
-        return createWalletTransferV3({
-            seqno: args.seqno,
-            sendMode,
-            secretKey: args.secretKey,
-            messages: args.messages,
-            timeout: args.timeout,
+    createTransfer<T extends WalletV3SendArgsSigned | WalletV3SendArgsSignable>(args: T) {
+        return createWalletTransferV3<T>({
+            ...args,
+            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
             walletId: this.walletId
         });
     }
