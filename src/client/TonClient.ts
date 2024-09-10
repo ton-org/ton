@@ -7,28 +7,30 @@
  */
 
 import { HttpApi } from "./api/HttpApi";
-import { AxiosAdapter } from 'axios';
+import type { AxiosAdapter } from 'axios';
 import {
     Address,
     beginCell,
     Cell,
     comment,
-    Contract,
-    ContractProvider,
-    ContractState,
+    type Contract,
+    type ContractProvider,
+    type ContractState,
     external,
     loadTransaction,
-    Message,
+    type Message,
     openContract,
     storeMessage,
     toNano,
-    Transaction,
-    TupleItem,
+    type Transaction,
+    type TupleItem,
     TupleReader,
-    StateInit,
-    OpenedContract
+    type StateInit,
+    type OpenedContract,
+    Slice,
+    type ContractGetMethodResult
 } from '@ton/core';
-import { Maybe } from "../utils/maybe";
+import type { Maybe } from "../utils/maybe";
 
 export type TonClientParameters = {
     /**
@@ -39,17 +41,17 @@ export type TonClientParameters = {
     /**
      * HTTP request timeout in milliseconds.
      */
-    timeout?: number;
+    timeout?: number | undefined;
 
     /**
      * API Key
      */
-    apiKey?: string;
+    apiKey?: string | undefined;
 
     /**
      * HTTP Adapter for axios
      */
-    httpAdapter?: AxiosAdapter;
+    httpAdapter?: AxiosAdapter | undefined;
 }
 
 export class TonClient {
@@ -132,12 +134,26 @@ export class TonClient {
      * Get transactions
      * @param address address
      */
-    async getTransactions(address: Address, opts: { limit: number, lt?: string, hash?: string, to_lt?: string, inclusive?: boolean, archival?: boolean }) {
+    async getTransactions(address: Address, opts: { 
+        limit: number, 
+        lt?: string, 
+        hash?: string, 
+        to_lt?: string, 
+        inclusive?: boolean, 
+        archival?: boolean 
+    }) {
         // Fetch transactions
         let tx = await this.api.getTransactions(address, opts);
+
         let res: Transaction[] = [];
+
         for (let r of tx) {
-            res.push(loadTransaction(Cell.fromBoc(Buffer.from(r.data, 'base64'))[0].beginParse()));
+            const slice: Slice | undefined = Cell.fromBoc(Buffer.from(r.data, 'base64'))[0]?.beginParse()
+
+            if (typeof slice !== 'undefined') {
+                res.push(loadTransaction(slice));
+            }
+
         }
         return res;
     }
@@ -149,10 +165,17 @@ export class TonClient {
      * @param hash transaction hash
      * @returns transaction or null if not exist
      */
-    async getTransaction(address: Address, lt: string, hash: string) {
+    async getTransaction(address: Address, lt: string, hash: string): Promise<Transaction | null | undefined> {
         let res = await this.api.getTransaction(address, lt, hash);
+
         if (res) {
-            return loadTransaction(Cell.fromBoc(Buffer.from(res.data, 'base64'))[0].beginParse());
+            const slice: Slice | undefined = Cell.fromBoc(Buffer.from(res.data, 'base64'))[0]?.beginParse()
+
+            if (typeof slice !== 'undefined') {
+                return loadTransaction(slice);
+            }
+
+            return null;
         } else {
             return null;
         }
@@ -165,8 +188,9 @@ export class TonClient {
      * @param created_lt message's created lt
      * @returns transaction
      */
-    async tryLocateResultTx(source: Address, destination: Address, created_lt: string) {
+    async tryLocateResultTx(source: Address, destination: Address, created_lt: string): Promise<Transaction> {
         let res = await this.api.tryLocateResultTx(source, destination, created_lt);
+
         return loadTransaction(Cell.fromBase64(res.data).beginParse());
     }
 
@@ -177,8 +201,9 @@ export class TonClient {
      * @param created_lt message's created lt
      * @returns transaction
      */
-    async tryLocateSourceTx(source: Address, destination: Address, created_lt: string) {
+    async tryLocateSourceTx(source: Address, destination: Address, created_lt: string): Promise<Transaction> {
         let res = await this.api.tryLocateSourceTx(source, destination, created_lt);
+
         return loadTransaction(Cell.fromBase64(res.data).beginParse());
     }
 
@@ -186,8 +211,14 @@ export class TonClient {
      * Fetch latest masterchain info
      * @returns masterchain info
      */
-    async getMasterchainInfo() {
+    async getMasterchainInfo(): Promise<{
+        workchain: number;
+        shard: string;
+        initSeqno: number;
+        latestSeqno: number;
+    }> {
         let r = await this.api.getMasterchainInfo();
+
         return {
             workchain: r.init.workchain,
             shard: r.last.shard,
@@ -200,8 +231,13 @@ export class TonClient {
      * Fetch latest workchain shards
      * @param seqno masterchain seqno
      */
-    async getWorkchainShards(seqno: number) {
+    async getWorkchainShards(seqno: number): Promise<Array<{
+        workchain: number;
+        shard: string;
+        seqno: number;
+    }>> {
         let r = await this.api.getShards(seqno);
+    
         return r.map((m) => ({
             workchain: m.workchain,
             shard: m.shard,
@@ -215,11 +251,17 @@ export class TonClient {
      * @param seqno
      * @param shard
      */
-    async getShardTransactions(workchain: number, seqno: number, shard: string) {
+    async getShardTransactions(workchain: number, seqno: number, shard: string): Promise<Array<{
+        account: Address;
+        lt: string;
+        hash: string;
+    }>> {
         let tx = await this.api.getBlockTransactions(workchain, seqno, shard);
+
         if (tx.incomplete) {
             throw Error('Unsupported');
         }
+
         return tx.transactions.map((v) => ({
             account: Address.parseRaw(v.account),
             lt: v.lt,
@@ -231,11 +273,12 @@ export class TonClient {
      * Send message to a network
      * @param src source message
      */
-    async sendMessage(src: Message) {
+    async sendMessage(src: Message): Promise<void> {
         const boc = beginCell()
             .store(storeMessage(src))
             .endCell()
             .toBoc();
+
         await this.api.sendBoc(boc);
     }
 
@@ -243,7 +286,7 @@ export class TonClient {
      * Send file to a network
      * @param src source file
      */
-    async sendFile(src: Buffer) {
+    async sendFile(src: Buffer): Promise<void> {
         await this.api.sendBoc(src);
     }
 
@@ -266,12 +309,13 @@ export class TonClient {
      * @param contract contract to send message
      * @param src message body
      */
-    async sendExternalMessage(contract: Contract, src: Cell) {
+    async sendExternalMessage(contract: Contract, src: Cell): Promise<void> {
         if (await this.isContractDeployed(contract.address) || !contract.init) {
             const message = external({
                 to: contract.address,
                 body: src
             });
+
             await this.sendMessage(message);
         } else {
             const message = external({
@@ -279,6 +323,7 @@ export class TonClient {
                 init: contract.init,
                 body: src
             });
+
             await this.sendMessage(message);
         }
     }
@@ -288,7 +333,7 @@ export class TonClient {
      * @param address addres to check
      * @returns true if contract is in active state
      */
-    async isContractDeployed(address: Address) {
+    async isContractDeployed(address: Address): Promise<boolean> {
         return (await this.getContractState(address)).state === 'active';
     }
 
@@ -296,10 +341,28 @@ export class TonClient {
      * Resolves contract state
      * @param address contract address
      */
-    async getContractState(address: Address) {
+    async getContractState(address: Address): Promise<{
+        balance: bigint;
+        state: "active" | "uninitialized" | "frozen";
+        code: Buffer | null;
+        data: Buffer | null;
+        lastTransaction: {
+            lt: string;
+            hash: string;
+        } | null;
+        blockId: {
+            workchain: number;
+            shard: string;
+            seqno: number;
+        };
+        timestampt: number;
+    }> {
         let info = await this.api.getAddressInformation(address);
+
         let balance = BigInt(info.balance);
+        
         let state = info.state as 'frozen' | 'active' | 'uninitialized';
+        
         return {
             balance,
             state,
@@ -323,7 +386,7 @@ export class TonClient {
      * @param src source contract
      * @returns contract
      */
-    open<T extends Contract>(src: T) {
+    open<T extends Contract>(src: T): OpenedContract<T> {
         return openContract<T>(src, (args) => createProvider(this, args.address, args.init));
     }
 
@@ -333,13 +396,14 @@ export class TonClient {
      * @param init optional init
      * @returns provider
      */
-    provider(address: Address, init?: StateInit | null) {
+    provider(address: Address, init?: StateInit | null): ContractProvider {
         return createProvider(this, address, init ?? null);
     }
 }
 
 function parseStackEntry(x: any): any {
     const typeName = x['@type'];
+
     switch(typeName) {
         case 'tvm.list':
         case 'tvm.tuple':
@@ -367,7 +431,8 @@ function parseStackEntry(x: any): any {
 
 function parseStackItem(s: any): TupleItem {
     if (s[0] === 'num') {
-        let val = s[1] as string;
+        let val = s[1];
+
         if (val.startsWith('-')) {
             return { type: 'int', value: -BigInt(val.slice(1)) };
         } else {
@@ -406,8 +471,11 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
     return {
         async getState(): Promise<ContractState> {
             let state = await client.getContractState(address);
+
             let balance = state.balance;
+            
             let last = state.lastTransaction ? { lt: BigInt(state.lastTransaction.lt), hash: Buffer.from(state.lastTransaction.hash, 'base64') } : null;
+            
             let storage: {
                 type: 'uninit';
             } | {
@@ -418,6 +486,7 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
                 type: 'frozen';
                 stateHash: Buffer;
             };
+            
             if (state.state === 'active') {
                 storage = {
                     type: 'active',
@@ -436,23 +505,25 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
             } else {
                 throw Error('Unsupported state');
             }
+            
             return {
                 balance,
                 last,
                 state: storage,
             };
         },
-        async get(name, args) {
+        async get(name, args): Promise<ContractGetMethodResult> {
             let method = await client.callGetMethod(address, name, args);
             return { stack: method.stack };
         },
-        async external(message) {
+        async external(message): Promise<void> {
 
             //
             // Resolve init
             //
 
             let neededInit: StateInit | null = null;
+
             if (init && !await client.isContractDeployed(address)) {
                 neededInit = init;
             }
@@ -466,14 +537,15 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
                 init: neededInit,
                 body: message
             })
+
             let boc = beginCell()
                 .store(storeMessage(ext))
                 .endCell()
                 .toBoc();
+
             await client.sendFile(boc);
         },
-        async internal(via, message) {
-
+        async internal(via, message): Promise<void> {
             // Resolve init
             let neededInit: StateInit | null = null;
             if (init && (!await client.isContractDeployed(address))) {

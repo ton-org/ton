@@ -1,7 +1,7 @@
-import { MessageRelaxed, SendMode } from "@ton/core";
-import { Maybe } from "../utils/maybe";
-import { SendArgsSignable } from "./signing/singer";
-import {SendArgsSigned} from "./signing/singer";
+import { type MessageRelaxed, SendMode } from "@ton/core";
+import type { Maybe } from "../utils/maybe";
+import type { SendArgsSignable } from "./signing/singer";
+import type { SendArgsSigned } from "./signing/singer";
 
 
 export type WalletV3BasicSendArgs = {

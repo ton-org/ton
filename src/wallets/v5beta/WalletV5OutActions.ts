@@ -1,6 +1,6 @@
 import {
     Address,
-    OutActionSendMsg
+    type OutActionSendMsg
 } from '@ton/core';
 
 export interface OutActionAddExtension {

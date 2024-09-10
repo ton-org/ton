@@ -6,29 +6,29 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { beginCell, Builder, Cell, MessageRelaxed, OutActionSendMsg, storeMessageRelaxed } from "@ton/core";
+import { beginCell, Builder, Cell, type MessageRelaxed, type OutActionSendMsg, storeMessageRelaxed } from "@ton/core";
 import { sign } from "@ton/crypto";
-import { Maybe } from "../../utils/maybe";
+import type { Maybe } from "../../utils/maybe";
 import {
-    WalletV5BetaSendArgsSignable,
+    type WalletV5BetaSendArgsSignable,
     WalletContractV5Beta,
-    WalletV5BetaPackedCell,
-    WalletV5BetaSendArgs,
-    WalletV5BetaSendArgsExtensionAuth
+    type WalletV5BetaPackedCell,
+    type WalletV5BetaSendArgs,
+    type WalletV5BetaSendArgsExtensionAuth
 } from "../v5beta/WalletContractV5Beta";
 import {
     storeOutListExtendedV5Beta
 } from "../v5beta/WalletV5BetaActions";
 import { signPayload } from "./singer";
-import { Wallet4SendArgsSignable, Wallet4SendArgsSigned } from "../WalletContractV4";
-import { WalletV3SendArgsSignable, WalletV3SendArgsSigned } from "../WalletContractV3Types";
-import {OutActionExtended} from "../v5beta/WalletV5OutActions";
+import type { Wallet4SendArgsSignable, Wallet4SendArgsSigned } from "../WalletContractV4";
+import type { WalletV3SendArgsSignable, WalletV3SendArgsSigned } from "../WalletContractV3Types";
+import type { OutActionExtended } from "../v5beta/WalletV5OutActions";
 import {
-    Wallet5VR1SendArgsExtensionAuth,
-    WalletV5R1SendArgsSignable,
+    type Wallet5VR1SendArgsExtensionAuth,
+    type WalletV5R1SendArgsSignable,
     WalletContractV5R1,
-    WalletV5R1PackedCell,
-    WalletV5R1SendArgs
+    type WalletV5R1PackedCell,
+    type WalletV5R1SendArgs
 } from "../v5r1/WalletContractV5R1";
 import {patchV5R1ActionsSendMode, storeOutListExtendedV5R1} from "../v5r1/WalletV5R1Actions";
 
@@ -51,8 +51,7 @@ function packSignatureToTail(signature: Buffer, signingMessage: Builder): Cell {
     return body;
 }
 
-export function createWalletTransferV1(args: { seqno: number, sendMode: number, message: Maybe<MessageRelaxed>, secretKey: Buffer }) {
-
+export function createWalletTransferV1(args: { seqno: number, sendMode: number, message: Maybe<MessageRelaxed>, secretKey: Buffer }): Cell {
     // Create message
     let signingMessage = beginCell()
         .storeUint(args.seqno, 32);
@@ -73,8 +72,7 @@ export function createWalletTransferV1(args: { seqno: number, sendMode: number, 
     return body;
 }
 
-export function createWalletTransferV2(args: { seqno: number, sendMode: number, messages: MessageRelaxed[], secretKey: Buffer, timeout?: Maybe<number> }) {
-
+export function createWalletTransferV2(args: { seqno: number, sendMode: number, messages: MessageRelaxed[], secretKey: Buffer, timeout?: Maybe<number> }): Cell {
     // Check number of messages
     if (args.messages.length > 4) {
         throw Error("Maximum number of messages in a single transfer is 4");
@@ -109,7 +107,7 @@ export function createWalletTransferV2(args: { seqno: number, sendMode: number, 
 
 export function createWalletTransferV3<T extends WalletV3SendArgsSignable | WalletV3SendArgsSigned>(
     args: T & { sendMode: number, walletId: number }
-) {
+): T extends WalletV3SendArgsSignable ? Promise<Cell> : Cell {
 
     // Check number of messages
     if (args.messages.length > 4) {

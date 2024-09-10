@@ -6,16 +6,19 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-export function exponentialBackoffDelay(currentFailureCount: number, minDelay: number, maxDelay: number, maxFailureCount: number) {
+export function exponentialBackoffDelay(currentFailureCount: number, minDelay: number, maxDelay: number, maxFailureCount: number): number {
     let maxDelayRet = minDelay + ((maxDelay - minDelay) / maxFailureCount) * Math.max(currentFailureCount, maxFailureCount);
     return Math.round(Math.random() * maxDelayRet);
 }
 
-export async function delay(ms: number) {
+export async function delay(ms: number): Promise<number> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export function delayBreakable(ms: number) {
+export function delayBreakable(ms: number): {
+    promise: Promise<unknown>;
+    resolver: () => void;
+} {
     // We can cancel delay from outer code
     let promiseResolver: ((value?: any | PromiseLike<any>) => void) | null = null;
     let resolver = () => {
@@ -32,7 +35,7 @@ export function delayBreakable(ms: number) {
 
 const promise = new Promise(() => { });
 
-export function forever() {
+export function forever(): Promise<unknown> {
     return promise;
 }
 

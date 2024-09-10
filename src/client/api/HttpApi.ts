@@ -5,10 +5,10 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
-import { InMemoryCache, TonCache } from './TonCache';
+import { InMemoryCache, type TonCache } from './TonCache.ts';
 import DataLoader from 'dataloader';
-import axios, { AxiosAdapter } from 'axios';
-import { Address, Cell, TupleItem } from '@ton/core';
+import axios, { type  AxiosAdapter } from 'axios';
+import { Address, Cell, type TupleItem } from '@ton/core';
 import { z } from 'zod';
 
 const version = require('../../../package.json').version as string;
@@ -170,17 +170,17 @@ export interface HttpApiParameters {
     /**
      * HTTP request timeout in milliseconds.
      */
-    timeout?: number;
+    timeout?: number | undefined;
 
     /**
      * API Key
      */
-    apiKey?: string;
+    apiKey?: string | undefined;
 
     /**
      * Adapter for Axios
      */
-    adapter?: AxiosAdapter;
+    adapter?: AxiosAdapter | undefined;
 }
 
 interface HttpApiResolvedParameters extends HttpApiParameters {
@@ -202,9 +202,9 @@ export class HttpApi {
         this.cache = new InMemoryCache();
 
         this.parameters = {
-            timeout: parameters?.timeout || 30000, // 30 seconds by default
-            apiKey: parameters?.apiKey,
-            adapter: parameters?.adapter
+            timeout: parameters?.timeout ?? 30000, // 30 seconds by default
+            apiKey: parameters?.apiKey ?? '',
+            adapter: parameters?.adapter ?? axios
         }
 
         // Shard
@@ -341,7 +341,7 @@ export class HttpApi {
         }), {
             headers,
             timeout: this.parameters.timeout,
-            adapter: this.parameters.adapter
+            adapter: this.parameters.adapter ?? axios
         })
         if (res.status !== 200 || !res.data.ok) {
             throw Error('Received error: ' + JSON.stringify(res.data));
@@ -361,11 +361,11 @@ function serializeStack(src: TupleItem[]) {
         if (s.type === 'int') {
             stack.push(['num', s.value.toString()]);
         } else if (s.type === 'cell') {
-            stack.push(['tvm.Cell', s.cell.toBoc().toString('base64')]);
+            stack.push(['tvm.Cell', s.cell?.toBoc().toString('base64')]);
         } else if (s.type === 'slice') {
-            stack.push(['tvm.Slice', s.cell.toBoc().toString('base64')]);
+            stack.push(['tvm.Slice', s.cell?.toBoc().toString('base64')]);
         } else if (s.type === 'builder') {
-            stack.push(['tvm.Builder', s.cell.toBoc().toString('base64')]);
+            stack.push(['tvm.Builder', s.cell?.toBoc().toString('base64')]);
         } else {
             throw Error('Unsupported stack item type: ' + s.type)
         }

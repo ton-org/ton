@@ -10,31 +10,31 @@ import {
     Address,
     beginCell,
     Cell,
-    Contract,
+    type Contract,
     contractAddress,
-    ContractProvider,
+    type ContractProvider,
     Dictionary,
     internal,
-    MessageRelaxed,
-    OutActionSendMsg, Sender,
+    type MessageRelaxed,
+    type OutActionSendMsg, 
+    type Sender,
     SendMode
 } from "@ton/core";
-import {Maybe} from "../../utils/maybe";
+import type {Maybe} from "../../utils/maybe";
 import {createWalletTransferV5R1} from "../signing/createWalletTransfer";
-import {SendArgsSignable, SendArgsSigned} from "../signing/singer";
-import {OutActionWalletV5} from "../v5beta/WalletV5OutActions";
+import type {SendArgsSignable, SendArgsSigned} from "../signing/singer";
+import type {OutActionWalletV5} from "../v5beta/WalletV5OutActions";
 import {
     isWalletIdV5R1ClientContext,
     storeWalletIdV5R1,
-    WalletIdV5R1,
-    WalletIdV5R1ClientContext,
-    WalletIdV5R1CustomContext
+    type WalletIdV5R1,
+    type WalletIdV5R1ClientContext,
+    type WalletIdV5R1CustomContext
 } from "./WalletV5R1WalletId";
-
 
 export type WalletV5R1BasicSendArgs = {
     seqno: number;
-    timeout?: Maybe<number>;
+    timeout?: Maybe<number> | undefined;
 }
 
 export type WalletV5R1SendArgsSinged = WalletV5R1BasicSendArgs
@@ -47,7 +47,7 @@ export type WalletV5R1SendArgsSignable = WalletV5R1BasicSendArgs
 
 export type Wallet5VR1SendArgsExtensionAuth = WalletV5R1BasicSendArgs & {
     authType: 'extension';
-    queryId?: bigint;
+    queryId?: bigint | undefined;
 }
 
 export type WalletV5R1SendArgs =
@@ -66,11 +66,11 @@ export class WalletContractV5R1 implements Contract {
         auth_signed_internal: 0x73696e74
     }
 
-    static create<C extends WalletIdV5R1ClientContext | WalletIdV5R1CustomContext>(args: C extends WalletIdV5R1ClientContext ?{
+    static create<C extends WalletIdV5R1ClientContext | WalletIdV5R1CustomContext>(args: C extends WalletIdV5R1ClientContext ? {
         walletId?: Maybe<WalletIdV5R1<C>>,
         publicKey: Buffer
     } : {
-        workchain?: number
+        workchain?: number | undefined
         publicKey: Buffer
         walletId?: Maybe<Partial<WalletIdV5R1<C>>>
     }) {
@@ -113,6 +113,9 @@ export class WalletContractV5R1 implements Contract {
             .storeBuffer(this.publicKey, 32)
             .storeBit(0) // Empty plugins dict
             .endCell();
+        if (typeof code === 'undefined') {
+            throw new Error('Initialization Error: Code is undefined');
+        }
         this.init = { code, data };
         this.address = contractAddress(workchain, { code, data });
     }

@@ -1,15 +1,18 @@
 /* Made by @Gusarich and @Miandic */
 
-import { MultisigOrder, TonClient } from '../index';
+import { 
+    // MultisigOrder,
+    TonClient 
+} from '../index';
 import {
-    beginCell,
     Cell,
     Address,
-    ContractProvider,
-    MessageRelaxed,
+    beginCell,
+    type MessageRelaxed,
+    type ContractProvider,
 } from '@ton/core';
 import { getSecureRandomBytes, keyPairFromSeed, sign } from '@ton/crypto';
-import { testAddress, ContractSystem, Treasure } from '@ton/emulator';
+import { testAddress, ContractSystem, type Treasure } from '@ton/emulator';
 import { MultisigWallet } from './MultisigWallet';
 import { MultisigOrderBuilder } from './MultisigOrderBuilder';
 import { createTestClient } from '../utils/createTestClient';
@@ -19,7 +22,7 @@ function createInternalMessage(
     dest: Address,
     value: bigint,
     body: Cell,
-    mode: number = 3
+    // mode: number = 3
 ): MessageRelaxed {
     return {
         info: {
@@ -58,14 +61,17 @@ describe('MultisigWallet', () => {
         });
     }
 
-    function signOrder(
-        order: MultisigOrder,
-    ): MultisigOrder {
-        for (let i = 0; i < 3; i++) {
-            order.sign(i, secretKeys[i]);
-        }
-        return order;
-    }
+    // function signOrder(
+    //     order: MultisigOrder,
+    // ): MultisigOrder {
+    //     for (let i = 0; i < 3; i++) {
+    //         const key = secretKeys[i];
+    //         if (typeof key !== 'undefined') {
+    //             order.sign(i, key);
+    //         }
+    //     }
+    //     return order;
+    // }
 
     beforeAll(async () => {
         publicKeys = [];
@@ -84,11 +90,13 @@ describe('MultisigWallet', () => {
     });
 
     it('should create MultisigWallet object', () => {
-        let multisig = new MultisigWallet(publicKeys, 0, 123, 2);
+        // let multisig = 
+        new MultisigWallet(publicKeys, 0, 123, 2);
     });
 
     it('should create MultisigWallet object from client', async () => {
-        let multisig = new MultisigWallet(publicKeys, 0, 123, 2, { client });
+        // let multisig = 
+        new MultisigWallet(publicKeys, 0, 123, 2, { client });
     });
 
     it('should throw in fromAddress if no provider and no client', async () => {
@@ -111,12 +119,12 @@ describe('MultisigWallet', () => {
 
     it('should deploy via internal message', async () => {
         let multisig = new MultisigWallet(publicKeys, 0, 123, 2);
-        let provider = createProvider(multisig);
+        // let provider = createProvider(multisig);
 
         await multisig.deployInternal(treasure);
         let txs = await system.run();
         expect(txs).toHaveLength(2);
-        expect(txs[1].endStatus).toEqual('active');
+        expect(txs[1]?.endStatus).toEqual('active');
     });
 
     it('should deploy via external message', async () => {
@@ -134,7 +142,7 @@ describe('MultisigWallet', () => {
         await multisig.deployExternal(provider);
         let txs = await system.run();
         expect(txs).toHaveLength(1);
-        expect(txs[0].endStatus).toEqual('active');
+        expect(txs[0]?.endStatus).toEqual('active');
     });
 
     it('should throw in deployExternal if there is no provider', async () => {
@@ -158,7 +166,7 @@ describe('MultisigWallet', () => {
         await multisig.deployExternal();
         let txs = await system.run();
         expect(txs).toHaveLength(1);
-        expect(txs[0].endStatus).toEqual('active');
+        expect(txs[0]?.endStatus).toEqual('active');
     });
 
     it('should load contract from address', async () => {
@@ -172,13 +180,13 @@ describe('MultisigWallet', () => {
             { provider }
         );
         expect(multisig.address.toRawString()).toEqual(
-            multisigFromProvider.address.toRawString()
+            multisigFromProvider?.address.toRawString()
         );
         expect(multisig.owners.keys().toString()).toEqual(
-            multisigFromProvider.owners.keys().toString()
+            multisigFromProvider?.owners.keys().toString()
         );
         expect(multisig.owners.values().toString()).toEqual(
-            multisigFromProvider.owners.values().toString()
+            multisigFromProvider?.owners.values().toString()
         );
 
         const testMultisigAddress = Address.parse(
@@ -189,10 +197,10 @@ describe('MultisigWallet', () => {
             { client }
         );
         expect(testMultisigAddress.toRawString()).toEqual(
-            multisigFromClient.address.toRawString()
+            multisigFromClient?.address.toRawString()
         );
-        expect(multisigFromClient.owners.keys().toString()).toEqual('0,1,2');
-        expect(multisigFromClient.owners.values().toString()).toEqual(
+        expect(multisigFromClient?.owners.keys().toString()).toEqual('0,1,2');
+        expect(multisigFromClient?.owners.values().toString()).toEqual(
             [
                 Buffer.from(
                     '51ce50ebcced0fdcc7520a2cacf653c81fb49f34f9c570a9e1bb23c7f7186d8d00',
@@ -213,7 +221,11 @@ describe('MultisigWallet', () => {
     it('should find order by public key', () => {
         let multisig = new MultisigWallet(publicKeys, 0, 123, 2);
         for (let i = 0; i < publicKeys.length; i += 1) {
-            expect(multisig.getOwnerIdByPubkey(publicKeys[i])).toEqual(i);
+            const key = publicKeys[i];
+
+            if (typeof key !== 'undefined') {
+                expect(multisig.getOwnerIdByPubkey(key)).toEqual(i);
+            }
         }
     });
 
@@ -252,10 +264,14 @@ describe('MultisigWallet', () => {
             3
         );
 
-        await multisig.sendOrder(orderBuilder.build(), secretKeys[3], provider);
+        const key = secretKeys[3];
+        if (key) {
+            await multisig.sendOrder(orderBuilder.build(), key, provider);
+        }
+
         let txs = await system.run();
         expect(txs).toHaveLength(1);
-        if (txs[0].description.type == 'generic') {
+        if (txs[0]?.description.type == 'generic') {
             expect(txs[0].description.aborted).toBeFalsy;
         }
     });
@@ -297,23 +313,27 @@ describe('MultisigWallet', () => {
 
         const order = orderBuilder.build();
 
-        const signature = sign(order.toCell(3).hash(), secretKeys[3]);
-        await multisig.sendOrderWithoutSecretKey(
-            orderBuilder.build(),
-            signature,
-            3,
-            provider
-        );
+        const key = secretKeys[3];
+        if (key) {
+            const signature = sign(order.toCell(3).hash(), key);
+            await multisig.sendOrderWithoutSecretKey(
+                orderBuilder.build(),
+                signature,
+                3,
+                provider
+            );
+        }
+
         let txs = await system.run();
         expect(txs).toHaveLength(1);
-        if (txs[0].description.type == 'generic') {
+        if (txs[0]?.description.type == 'generic') {
             expect(txs[0].description.aborted).toBeFalsy;
         }
     });
 
     it('should throw in sendOrder if there is no provider', async () => {
         let multisig = new MultisigWallet(publicKeys, 0, 123, 2);
-        let provider = createProvider(multisig);
+        // let provider = createProvider(multisig);
         await multisig.deployInternal(treasure, 10000000000n);
         await system.run();
 
@@ -346,9 +366,12 @@ describe('MultisigWallet', () => {
             3
         );
 
+        const key = secretKeys[3];
 
-        expect(multisig.sendOrder(order.build(), secretKeys[3]))
-            .rejects.toThrowError('you must specify provider if there is no such property in MultisigWallet instance');
+        if (key) {
+            expect(multisig.sendOrder(order.build(), key))
+                .rejects.toThrowError('you must specify provider if there is no such property in MultisigWallet instance');
+        }
     });
 
     it('should accept orders with provider from property', async () => {
@@ -387,10 +410,14 @@ describe('MultisigWallet', () => {
             3
         );
 
-        await multisig.sendOrder(orderBuilder.build(), secretKeys[3]);
+        const key = secretKeys[3];
+        if (key) {
+            await multisig.sendOrder(orderBuilder.build(), key);
+        }
+
         let txs = await system.run();
         expect(txs).toHaveLength(1);
-        if (txs[0].description.type == 'generic') {
+        if (txs[0]?.description.type == 'generic') {
             expect(txs[0].description.aborted).toBeFalsy();
         }
     });
@@ -432,11 +459,18 @@ describe('MultisigWallet', () => {
         let order = orderBuilder.build();
 
         for (let i = 0; i < 4; i += 1) {
-            await multisig.sendOrder(order, secretKeys[i], provider);
+            const key = secretKeys[i];
+            if (key) {
+                await multisig.sendOrder(order, key, provider);
+            }
             await system.run();
         }
 
-        await multisig.sendOrder(order, secretKeys[7], provider);
+        const key = secretKeys[7];
+        if (key) {
+            await multisig.sendOrder(order, key, provider);
+        }
+
         let txs = await system.run();
         expect(txs).toHaveLength(5);
     });
@@ -478,10 +512,17 @@ describe('MultisigWallet', () => {
         let order = orderBuilder.build();
 
         for (let i = 0; i < 5; i += 1) {
-            order.sign(i, secretKeys[i]);
+            const key = secretKeys[i];
+            if (key) {
+                order.sign(i, key);
+            }
         }
 
-        await multisig.sendOrder(order, secretKeys[0], provider);
+        const key = secretKeys[0];
+        if (key) {
+            await multisig.sendOrder(order, key, provider);
+        }
+
         let txs = await system.run();
         expect(txs).toHaveLength(5);
     });

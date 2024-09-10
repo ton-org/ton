@@ -6,11 +6,21 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
-import { Maybe } from "../utils/maybe";
+import {
+    Address,
+    beginCell,
+    Cell,
+    type Contract,
+    contractAddress,
+    type ContractProvider,
+    internal,
+    type MessageRelaxed,
+    type Sender,
+    SendMode
+} from "@ton/core";
+import type { Maybe } from "../utils/maybe";
 import { createWalletTransferV4 } from "./signing/createWalletTransfer";
-import { SendArgsSignable, SendArgsSigned } from "./signing/singer";
-
+import type { SendArgsSignable, SendArgsSigned } from "./signing/singer";
 
 export type WalletV4BasicSendArgs = {
     seqno: number,
@@ -53,6 +63,9 @@ export class WalletContractV4 implements Contract {
             .storeBuffer(this.publicKey)
             .storeBit(0) // Empty plugins dict
             .endCell();
+        if (typeof code === 'undefined') {
+            throw new Error('Initialization Error: Code is undefined');
+        }
         this.init = { code, data };
         this.address = contractAddress(workchain, { code, data });
     }

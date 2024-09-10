@@ -2,19 +2,21 @@ import {
     beginCell,
     Builder, Cell,
     loadOutList,
-    OutActionSendMsg, SendMode,
+    type OutActionSendMsg, 
+    SendMode,
     Slice,
     storeOutList
 } from '@ton/core';
 import {
     isOutActionBasic,
     isOutActionExtended,
-    OutActionAddExtension,
-    OutActionExtended,
-    OutActionRemoveExtension,
-    OutActionSetIsPublicKeyEnabled, OutActionWalletV5
+    type OutActionAddExtension,
+    type OutActionExtended,
+    type OutActionRemoveExtension,
+    type OutActionSetIsPublicKeyEnabled,
+    type OutActionWalletV5
 } from "../v5beta/WalletV5OutActions";
-import {WalletV5R1SendArgs} from "./WalletContractV5R1";
+import type { WalletV5R1SendArgs } from "./WalletContractV5R1";
 
 
 const outActionSetIsPublicKeyEnabledTag = 0x04;
@@ -87,9 +89,13 @@ export function storeOutListExtendedV5R1(actions: (OutActionExtended | OutAction
             builder.storeUint(0, 1);
         } else {
             const [first, ...rest] = extendedActions;
-            builder
+
+            if (typeof first !== 'undefined') {
+                builder
                 .storeUint(1, 1)
                 .store(storeOutActionExtendedV5R1(first));
+            }
+
             if (rest.length > 0) {
                 builder.storeRef(packExtendedActionsRec(rest));
             }
@@ -99,15 +105,21 @@ export function storeOutListExtendedV5R1(actions: (OutActionExtended | OutAction
 
 function packExtendedActionsRec(extendedActions: OutActionExtended[]): Cell {
     const [first, ...rest] = extendedActions;
+
     let builder = beginCell()
-        .store(storeOutActionExtendedV5R1(first));
+
+    if (typeof first !== 'undefined') {
+        builder.store(storeOutActionExtendedV5R1(first));
+
+    }
     if (rest.length > 0) {
         builder = builder.storeRef(packExtendedActionsRec(rest));
     }
+
     return builder.endCell();
 }
 
-export function loadOutListExtendedV5R1(slice: Slice): (OutActionExtended | OutActionSendMsg)[] {
+export function loadOutListExtendedV5R1(slice: Slice): Array<OutActionExtended | OutActionSendMsg> {
     const actions: (OutActionExtended | OutActionSendMsg)[] = [];
     const outListPacked = slice.loadMaybeRef();
     if (outListPacked) {
@@ -136,7 +148,7 @@ export function loadOutListExtendedV5R1(slice: Slice): (OutActionExtended | OutA
 /**
  * Safety rules -- actions of external messages must have +2 in the SendMode. Internal messages actions may have arbitrary SendMode.
  */
-export function toSafeV5R1SendMode(sendMode: SendMode, authType: WalletV5R1SendArgs['authType']) {
+export function toSafeV5R1SendMode(sendMode: SendMode, authType: WalletV5R1SendArgs['authType']): number {
     if (authType === 'internal' || authType === 'extension') {
         return sendMode;
     }

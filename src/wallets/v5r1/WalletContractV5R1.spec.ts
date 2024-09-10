@@ -7,8 +7,8 @@
  */
 
 import {randomTestKey} from "../../utils/randomTestKey";
-import {Address, Cell, internal, OpenedContract, SendMode} from "@ton/core";
-import {KeyPair, sign} from "@ton/crypto";
+import {Address, Cell, internal, type OpenedContract, SendMode} from "@ton/core";
+import { type KeyPair, sign } from "@ton/crypto";
 import {Buffer} from "buffer";
 import {createTestClient4} from "../../utils/createTestClient4";
 import {TonClient4} from "../../client/TonClient4";

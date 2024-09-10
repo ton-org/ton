@@ -1,7 +1,7 @@
-import { Address, beginCell } from '@ton/core';
+import { Address } from '@ton/core';
 import { TonClient } from './TonClient';
 
-let describeConditional = process.env.TEST_CLIENTS ? describe : describe.skip;
+let describeConditional = process.env['TEST_CLIENTS'] ? describe : describe.skip;
 
 describeConditional('TonClient', () => {
     let client = new TonClient({

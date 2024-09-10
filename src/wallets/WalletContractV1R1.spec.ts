@@ -34,6 +34,9 @@ describe('WalletContractV1R1', () => {
 
         // Prepare transfer
         let seqno = await contract.getSeqno();
+        if (typeof seqno === 'undefined') {
+            throw new Error('Seqno is undefined');
+        }
         let transfer = contract.createTransfer({
             seqno,
             secretKey: key.secretKey,

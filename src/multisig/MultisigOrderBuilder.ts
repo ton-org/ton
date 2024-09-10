@@ -1,9 +1,9 @@
 /* Made by @Gusarich and @Miandic */
 
 import {
-    beginCell,
     Builder,
-    MessageRelaxed,
+    beginCell,
+    type MessageRelaxed,
     storeMessageRelaxed,
 } from '@ton/core';
 import { MultisigOrder } from './MultisigOrder';

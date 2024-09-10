@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-export function toUrlSafe(src: string) {
+export function toUrlSafe(src: string): string {
     while (src.indexOf('/') >= 0) {
         src = src.replace('/', '_');
     }

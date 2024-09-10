@@ -7,12 +7,12 @@ import {
     beginCell,
     Cell,
     contractAddress,
-    ContractProvider,
+    type ContractProvider,
     Dictionary,
-    Sender,
+    type Sender,
     SendMode,
     Slice,
-    StateInit,
+    type StateInit,
 } from '@ton/core';
 import { MultisigOrder } from './MultisigOrder';
 
@@ -35,17 +35,20 @@ export class MultisigWallet {
         walletId: number,
         k: number,
         opts?: {
-            address?: Address;
-            provider?: ContractProvider;
-            client?: TonClient;
-        }
+            address?: Address | undefined;
+            provider?: ContractProvider| undefined;
+            client?: TonClient | undefined;
+        } | undefined
     ) {
         this.owners = Dictionary.empty();
         this.workchain = workchain;
         this.walletId = walletId;
         this.k = k;
         for (let i = 0; i < publicKeys.length; i += 1) {
-            this.owners.set(i, Buffer.concat([publicKeys[i], Buffer.alloc(1)]));
+            const key = publicKeys[i];
+            if (typeof key !== 'undefined') {
+                this.owners.set(i, Buffer.concat([key, Buffer.alloc(1)]));
+            }
         }
         this.init = {
             code: MULTISIG_CODE,
@@ -76,7 +79,7 @@ export class MultisigWallet {
     static async fromAddress(
         address: Address,
         opts: { provider?: ContractProvider; client?: TonClient }
-    ): Promise<MultisigWallet> {
+    ): Promise<MultisigWallet | undefined> {
         let provider: ContractProvider;
         if (opts.provider) {
             provider = opts.provider;
@@ -95,29 +98,43 @@ export class MultisigWallet {
             throw Error('Contract must be active');
         }
 
-        const data: Slice = Cell.fromBoc(contractState.data!)[0].beginParse();
-        const walletId: number = data.loadUint(32);
-        data.skip(8);
-        const k: number = data.loadUint(8);
-        data.skip(64);
-        const owners = data.loadDict(
-            Dictionary.Keys.Uint(8),
-            Dictionary.Values.Buffer(33)
-        );
-        let publicKeys: Buffer[] = [];
-        for (const [key, value] of owners) {
-            const publicKey = value.subarray(0, 32);
-            publicKeys.push(publicKey);
+        if (typeof contractState.data !== 'undefined' && contractState.data !== null) {
+            const data: Slice | undefined = Cell.fromBoc(contractState.data)[0]?.beginParse();
+
+            const walletId: number | undefined = data?.loadUint(32);
+            data?.skip(8);
+            const k: number | undefined = data?.loadUint(8);
+            data?.skip(64);
+
+            const owners: Dictionary<number, Buffer> | undefined = data?.loadDict(
+                Dictionary.Keys.Uint(8),
+                Dictionary.Values.Buffer(33)
+            );
+    
+            let publicKeys: Buffer[] = [];
+
+            if (typeof owners !== 'undefined') {
+                for (const [_key, value] of owners) {
+                    const publicKey = value.subarray(0, 32);
+                    publicKeys.push(publicKey);
+                }
+            }
+    
+            if (typeof walletId === 'number' && typeof k === 'number') {
+                return new MultisigWallet(publicKeys, address.workChain, walletId, k, {
+                    address,
+                    provider,
+                    client: opts.client,
+                });
+            }
+
+            return;
         }
 
-        return new MultisigWallet(publicKeys, address.workChain, walletId, k, {
-            address,
-            provider,
-            client: opts.client,
-        });
+        return;
     }
 
-    public async deployExternal(provider?: ContractProvider) {
+    public async deployExternal(provider?: ContractProvider): Promise<void> {
         if (!provider && !this.provider) {
             throw Error('you must specify provider if there is no such property in MultisigWallet instance');
         }
@@ -127,7 +144,7 @@ export class MultisigWallet {
         await provider.external(Cell.EMPTY);
     }
 
-    public async deployInternal(sender: Sender, value: bigint = 1000000000n) {
+    public async deployInternal(sender: Sender, value: bigint = 1000000000n): Promise<void> {
         await sender.send({
             sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
             to: this.address,

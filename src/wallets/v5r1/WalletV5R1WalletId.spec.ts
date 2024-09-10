@@ -2,9 +2,9 @@ import {beginCell} from "@ton/core";
 import {
     loadWalletIdV5R1,
     storeWalletIdV5R1,
-    WalletIdV5R1,
-    WalletIdV5R1ClientContext,
-    WalletIdV5R1CustomContext
+    type WalletIdV5R1,
+    type WalletIdV5R1ClientContext,
+    type WalletIdV5R1CustomContext
 } from "./WalletV5R1WalletId";
 
 describe('Wallet V5R1 wallet id', () => {

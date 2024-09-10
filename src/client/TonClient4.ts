@@ -6,9 +6,32 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import axios, { AxiosAdapter, InternalAxiosRequestConfig, AxiosInstance } from "axios";
-import { Address, beginCell, Cell, comment, Contract, ContractProvider, ContractState, external, loadTransaction, openContract, OpenedContract, parseTuple, serializeTuple, StateInit, storeMessage, toNano, Transaction, TupleItem, TupleReader } from "@ton/core";
-import { Maybe } from "../utils/maybe";
+import axios, { type AxiosAdapter, type InternalAxiosRequestConfig, type AxiosInstance } from "axios";
+import { 
+    Address,
+    beginCell,
+    Cell,
+    comment,
+    type Contract,
+    type ContractGetMethodResult,
+    type ContractProvider,
+    type ContractState,
+    external,
+    loadTransaction,
+    openContract,
+    type OpenedContract,
+    parseTuple,
+    type Sender,
+    SendMode,
+    serializeTuple,
+    type StateInit,
+    storeMessage,
+    toNano,
+    type Transaction,
+    type TupleItem,
+    TupleReader 
+} from "@ton/core";
+import type { Maybe } from "../utils/maybe";
 import { toUrlSafe } from "../utils/toUrlSafe";
 import { z } from 'zod';
 
@@ -22,24 +45,24 @@ export type TonClient4Parameters = {
     /**
      * HTTP request timeout in milliseconds.
      */
-    timeout?: number;
+    timeout?: number | undefined;
 
     /**
      * HTTP Adapter for axios
      */
-    httpAdapter?: AxiosAdapter;
+    httpAdapter?: AxiosAdapter | undefined;
 
     /**
      * HTTP request interceptor for axios
      */
-    requestInterceptor?: (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig;
+    requestInterceptor?: ((config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig) | undefined;
 }
 
 export class TonClient4 {
 
     #endpoint: string;
     #timeout: number;
-    #adapter?: AxiosAdapter;
+    #adapter?: AxiosAdapter | undefined;
     #axios: AxiosInstance
 
     constructor(args: TonClient4Parameters) {
@@ -56,7 +79,21 @@ export class TonClient4 {
      * Get Last Block
      * @returns last block info
      */
-    async getLastBlock() {
+    async getLastBlock(): Promise<{ 
+        last: {
+            seqno: number;
+            shard: string;
+            workchain: number;
+            fileHash: string;
+            rootHash: string;
+        };
+        init: {
+            fileHash: string;
+            rootHash: string;
+        };
+        stateRootHash: string;
+        now: number;    
+    }> {
         let res = await this.#axios.get(this.#endpoint + '/block/latest', { adapter: this.#adapter, timeout: this.#timeout });
         let lastBlock = lastBlockCodec.safeParse(res.data);
         if (!lastBlock.success) {
@@ -70,15 +107,32 @@ export class TonClient4 {
      * @param seqno block sequence number
      * @returns block info
      */
-    async getBlock(seqno: number) {
+    async getBlock(seqno: number): Promise<{
+        shards: {
+            seqno: number;
+            shard: string;
+            workchain: number;
+            fileHash: string;
+            rootHash: string;
+            transactions: Array<{
+                account: string;
+                hash: string;
+                lt: string;
+            }>;
+        }[];
+    }> {
         let res = await this.#axios.get(this.#endpoint + '/block/' + seqno, { adapter: this.#adapter, timeout: this.#timeout });
+
         let block = blockCodec.safeParse(res.data);
+
         if (!block.success) {
             throw Error('Mailformed response');
         }
+
         if (!block.data.exist) {
             throw Error('Block is out of scope');
         }
+
         return block.data.block;
     }
 
@@ -87,15 +141,32 @@ export class TonClient4 {
      * @param ts unix timestamp
      * @returns block info
      */
-    async getBlockByUtime(ts: number) {
+    async getBlockByUtime(ts: number): Promise<{
+        shards: Array<{
+            seqno: number;
+            shard: string;
+            workchain: number;
+            fileHash: string;
+            rootHash: string;
+            transactions: Array<{
+                account: string;
+                hash: string;
+                lt: string;
+            }>;
+        }>;
+    }> {
         let res = await this.#axios.get(this.#endpoint + '/block/utime/' + ts, { adapter: this.#adapter, timeout: this.#timeout });
+
         let block = blockCodec.safeParse(res.data);
+
         if (!block.success) {
             throw Error('Mailformed response');
         }
+
         if (!block.data.exist) {
             throw Error('Block is out of scope');
         }
+    
         return block.data.block;
     }
 
@@ -105,7 +176,43 @@ export class TonClient4 {
      * @param address account address
      * @returns account info
      */
-    async getAccount(seqno: number, address: Address) {
+    async getAccount(seqno: number, address: Address): Promise<{ 
+        account: { 
+            balance: { 
+                coins: string; 
+            }; 
+            state: { 
+                type: "uninit"; 
+            } | { 
+                code: string | null; 
+                type: "active"; 
+                data: string | null; 
+            } | { 
+                type: "frozen"; 
+                stateHash: string; 
+            }; 
+            last: { 
+                lt: string; 
+                hash: string; 
+            } | null; 
+            storageStat: { 
+                lastPaid: number; 
+                duePayment: string | null; 
+                used: { 
+                    bits: number; 
+                    cells: number; 
+                    publicCells: number; 
+                }; 
+            } | null; 
+        }; 
+        block: { 
+            workchain: number; 
+            shard: string; 
+            seqno: number; 
+            rootHash: string; 
+            fileHash: string; 
+        }; 
+    }> {
         let res = await this.#axios.get(this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }), { adapter: this.#adapter, timeout: this.#timeout });
         let account = accountCodec.safeParse(res.data);
         if (!account.success) {
@@ -120,8 +227,38 @@ export class TonClient4 {
      * @param address account address
      * @returns account lite info
      */
-    async getAccountLite(seqno: number, address: Address) {
+    async getAccountLite(seqno: number, address: Address): Promise<{ 
+        account: { 
+            last: { 
+                hash: string; 
+                lt: string; 
+            } | null; 
+            state: { 
+                type: "uninit"; 
+            } | { 
+                type: "active"; 
+                codeHash: string; 
+                dataHash: string; 
+            } | { 
+                type: "frozen"; 
+                stateHash: string; 
+            }; 
+            balance: { 
+                coins: string; 
+            }; 
+            storageStat: { 
+                lastPaid: number; 
+                duePayment: string | null; 
+                used: { 
+                    bits: number; 
+                    cells: number; 
+                    publicCells: number; 
+                }; 
+            } | null; 
+        }; 
+    }> {
         let res = await this.#axios.get(this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }) + '/lite', { adapter: this.#adapter, timeout: this.#timeout });
+    
         let account = accountLiteCodec.safeParse(res.data);
         if (!account.success) {
             throw Error('Mailformed response');
@@ -134,7 +271,7 @@ export class TonClient4 {
      * @param address addres to check
      * @returns true if contract is in active state
      */
-    async isContractDeployed(seqno: number, address: Address) {
+    async isContractDeployed(seqno: number, address: Address): Promise<boolean> {
         let account = await this.getAccountLite(seqno, address);
 
         return account.account.state.type === 'active';
@@ -147,7 +284,16 @@ export class TonClient4 {
      * @param lt account last transaction lt
      * @returns account change info
      */
-    async isAccountChanged(seqno: number, address: Address, lt: bigint) {
+    async isAccountChanged(seqno: number, address: Address, lt: bigint): Promise<{
+        block: {
+            workchain: number;
+            seqno: number;
+            shard: string;
+            rootHash: string;
+            fileHash: string;
+        };
+        changed: boolean;
+    }> {
         let res = await this.#axios.get(this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }) + '/changed/' + lt.toString(10), { adapter: this.#adapter, timeout: this.#timeout });
         let changed = changedCodec.safeParse(res.data);
         if (!changed.success) {
@@ -163,7 +309,16 @@ export class TonClient4 {
      * @param hash last transaction hash
      * @returns unparsed transactions
      */
-    async getAccountTransactions(address: Address, lt: bigint, hash: Buffer) {
+    async getAccountTransactions(address: Address, lt: bigint, hash: Buffer): Promise<Array<{
+        block: {
+            workchain: number;
+            seqno: number;
+            shard: string;
+            rootHash: string;
+            fileHash: string;
+        };
+        tx: Transaction;
+    }>> {
         let res = await this.#axios.get(this.#endpoint + '/account/' + address.toString({ urlSafe: true }) + '/tx/' + lt.toString(10) + '/' + toUrlSafe(hash.toString('base64')), { adapter: this.#adapter, timeout: this.#timeout });
         let transactions = transactionsCodec.safeParse(res.data);
         if (!transactions.success) {
@@ -182,10 +337,15 @@ export class TonClient4 {
         }[] = [];
         let cells = Cell.fromBoc(Buffer.from(data.boc, 'base64'));
         for (let i = 0; i < data.blocks.length; i++) {
-            tx.push({
-                block: data.blocks[i],
-                tx: loadTransaction(cells[i].beginParse())
-            });
+            const block = data.blocks[i];
+            const transaction = cells[i]?.beginParse()
+
+            if (typeof block !== 'undefined' && typeof transaction !== 'undefined') {
+                tx.push({
+                    block,
+                    tx: loadTransaction(transaction)
+                });
+            }
         }
         return tx;
     }
@@ -198,7 +358,7 @@ export class TonClient4 {
      * @param count number of transactions to load
      * @returns parsed transactions
      */
-    async getAccountTransactionsParsed(address: Address, lt: bigint, hash: Buffer, count: number = 20) {
+    async getAccountTransactionsParsed(address: Address, lt: bigint, hash: Buffer, count: number = 20): Promise<ParsedTransactions> {
         let res = await this.#axios.get(
             this.#endpoint + '/account/' + address.toString({ urlSafe: true }) + '/tx/parsed/' + lt.toString(10) + '/' + toUrlSafe(hash.toString('base64')),
             {
@@ -224,7 +384,15 @@ export class TonClient4 {
      * @param ids optional config ids
      * @returns network config
      */
-    async getConfig(seqno: number, ids?: number[]) {
+    async getConfig(seqno: number, ids?: number[] | undefined): Promise<{ 
+        config: {
+            address: string;
+            cell: string;
+            globalBalance: {
+                coins: string;
+            };
+        };
+    }> {
         let tail = '';
         if (ids && ids.length > 0) {
             tail = '/' + [...ids].sort().join(',');
@@ -245,15 +413,51 @@ export class TonClient4 {
      * @param args method arguments
      * @returns method result
      */
-    async runMethod(seqno: number, address: Address, name: string, args?: TupleItem[]) {
+    async runMethod(seqno: number, address: Address, name: string, args?: TupleItem[] | undefined): Promise<{ 
+        exitCode: number;
+        result: TupleItem[];
+        resultRaw: string | null;
+        block: { 
+            workchain: number;
+            seqno: number;
+            shard: string;
+            rootHash: string;
+            fileHash: string;
+
+        };
+        shardBlock: { 
+            workchain: number;
+            seqno: number;
+            shard: string;
+            rootHash: string;
+            fileHash: string;
+        };
+        reader: TupleReader;
+    }> {
         let tail = args && args.length > 0 ? '/' + toUrlSafe(serializeTuple(args).toBoc({ idx: false, crc32: false }).toString('base64')) : '';
+        
         let url = this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }) + '/run/' + encodeURIComponent(name) + tail;
+
         let res = await this.#axios.get(url, { adapter: this.#adapter, timeout: this.#timeout });
+        
         let runMethod = runMethodCodec.safeParse(res.data);
+        
         if (!runMethod.success) {
             throw Error('Mailformed response');
         }
-        let resultTuple = runMethod.data.resultRaw ? parseTuple(Cell.fromBoc(Buffer.from(runMethod.data.resultRaw, 'base64'))[0]) : [];
+
+        const resultRaw = runMethod.data.resultRaw
+
+        let resultTuple: TupleItem[] = [];
+
+        if (resultRaw !== null) {
+            const tuple = Cell.fromBoc(Buffer.from(resultRaw, 'base64'))[0]
+
+            if (typeof tuple !== 'undefined') {
+                resultTuple = parseTuple(tuple);
+            }
+        }
+        
         return {
             exitCode: runMethod.data.exitCode,
             result: resultTuple,
@@ -269,7 +473,9 @@ export class TonClient4 {
      * @param message message boc
      * @returns message status
      */
-    async sendMessage(message: Buffer) {
+    async sendMessage(message: Buffer): Promise<{
+        status: any;
+    }> {
         let res = await this.#axios.post(this.#endpoint + '/send', { boc: message.toString('base64') }, { adapter: this.#adapter, timeout: this.#timeout });
         let send = sendCodec.safeParse(res.data);
         if (!send.success) {
@@ -283,8 +489,10 @@ export class TonClient4 {
      * @param contract contract
      * @returns opened contract
      */
-    open<T extends Contract>(contract: T) {
-        return openContract<T>(contract, (args) => createProvider(this, null, args.address, args.init));
+    open<T extends Contract>(contract: T): OpenedContract<T> {
+        return openContract<T>(contract, (args) => {
+            return createProvider(this, null, args.address, args.init);
+        });
     }
 
     /**
@@ -293,7 +501,7 @@ export class TonClient4 {
      * @param contract contract
      * @returns opened contract
      */
-    openAt<T extends Contract>(block: number, contract: T) {
+    openAt<T extends Contract>(block: number, contract: T): OpenedContract<T> {
         return openContract<T>(contract, (args) => createProvider(this, block, args.address, args.init));
     }
 
@@ -303,7 +511,7 @@ export class TonClient4 {
      * @param init optional init data
      * @returns provider
      */
-    provider(address: Address, init?: StateInit | null) {
+    provider(address: Address, init?: StateInit | null): ContractProvider {
         return createProvider(this, null, address, init ?? null);
     }
 
@@ -314,7 +522,7 @@ export class TonClient4 {
      * @param init optional init data
      * @returns provider
      */
-    providerAt(block: number, address: Address, init?: StateInit | null) {
+    providerAt(block: number, address: Address, init?: StateInit | null): ContractProvider {
         return createProvider(this, block, address, init ?? null);
     }
 }
@@ -370,7 +578,7 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
                 state: storage
             };
         },
-        async get(name, args) {
+        async get(name: string, args: Array<TupleItem>): Promise<ContractGetMethodResult> {
             let sq = block;
             if (sq === null) {
                 let res = await client.getLastBlock();
@@ -384,8 +592,7 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
                 stack: new TupleReader(method.result),
             };
         },
-        async external(message) {
-
+        async external(message: Cell): Promise<void> {
             // Resolve last
             let last = await client.getLastBlock();
 
@@ -407,13 +614,18 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
                 .toBoc();
             await client.sendMessage(pkg);
         },
-        async internal(via, message) {
-
+        async internal(via: Sender, message: {
+            value: bigint | string;
+            bounce?: Maybe<boolean> | undefined;
+            sendMode?: SendMode | undefined;
+            body?: Maybe<Cell | string> | undefined;
+        }): Promise<void> {
             // Resolve last
             let last = await client.getLastBlock();
 
             // Resolve init
             let neededInit: StateInit | null = null;
+
             if (init && (await client.getAccountLite(last.last.seqno, address)).account.state.type !== 'active') {
                 neededInit = init;
             }
@@ -453,7 +665,7 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
         open<T extends Contract>(contract: T): OpenedContract<T> {
             return openContract<T>(contract, (args) => createProvider(client, block, args.address, args.init ?? null));
         },
-        async getTransactions(address: Address, lt: bigint, hash: Buffer, limit?: number): Promise<Transaction[]> {
+        async getTransactions(address: Address, lt: bigint, hash: Buffer, limit?: number): Promise<Array<Transaction>> {
             // Resolve last
             const useLimit = typeof limit === 'number';
             if (useLimit && limit <= 0) {
@@ -461,13 +673,14 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
             }
 
             // Load transactions
-            let transactions: Transaction[] = [];
+            let transactions: Array<Transaction> = [];
+
             do {
                 const txs = await client.getAccountTransactions(address, lt, hash);
 
-                const firstTx = txs[0].tx;
-                const [firstLt, firstHash] = [firstTx.lt, firstTx.hash()];
-                const needSkipFirst = transactions.length > 0 && firstLt === lt && firstHash.equals(hash);
+                const firstTx = txs[0]?.tx;
+                const [firstLt, firstHash] = [firstTx?.lt, firstTx?.hash()];
+                const needSkipFirst = transactions.length > 0 && firstLt === lt && firstHash?.equals(hash);
                 if (needSkipFirst) {
                     txs.shift();
                 }
@@ -475,15 +688,19 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
                 if (txs.length === 0) {
                     break;
                 }
-                const lastTx = txs[txs.length - 1].tx;
-                const [lastLt, lastHash] = [lastTx.lt, lastTx.hash()];
-                if (lastLt === lt && lastHash.equals(hash)) {
+                const lastTx = txs[txs.length - 1]?.tx;
+                const [lastLt, lastHash] = [lastTx?.lt, lastTx?.hash()];
+                if (lastLt === lt && lastHash?.equals(hash)) {
                     break;
                 }
 
                 transactions.push(...txs.map(tx => tx.tx));
-                lt = lastLt;
-                hash = lastHash;
+                if (typeof lastLt !== 'undefined') {
+                    lt = lastLt;
+                }
+                if (typeof lastHash !== 'undefined') {
+                    hash = lastHash;
+                }
             } while (useLimit && transactions.length < limit);
 
             // Apply limit

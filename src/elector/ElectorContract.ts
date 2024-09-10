@@ -1,8 +1,17 @@
-import { Address, Cell, Contract, TupleReader, TupleBuilder, Dictionary, DictionaryValue, Slice, Builder, ContractProvider } from "@ton/core";
-
+import { 
+    Cell,
+    Address,
+    Dictionary,
+    TupleReader,
+    TupleBuilder,
+    type Contract,
+    Slice, Builder,
+    type DictionaryValue,
+    type ContractProvider 
+} from "@ton/core";
 
 const FrozenDictValue: DictionaryValue<{ address: Address, weight: bigint, stake: bigint }> = {
-    serialize(src: any, builder: Builder): void {
+    serialize(_src: any, _builder: Builder): void {
         throw Error("not implemented")
     },
     parse(src: Slice): { address: Address, weight: bigint, stake: bigint } {
@@ -14,7 +23,7 @@ const FrozenDictValue: DictionaryValue<{ address: Address, weight: bigint, stake
 }
 
 const EntitiesDictValue: DictionaryValue<{ stake: bigint, address: Address, adnl: Buffer }> = {
-    serialize(src: any, builder: Builder): void {
+    serialize(_src: any, _builder: Builder): void {
         throw Error("not implemented")
     },
     parse(src: Slice): { stake: bigint, address: Address, adnl: Buffer } {
@@ -29,7 +38,6 @@ const EntitiesDictValue: DictionaryValue<{ stake: bigint, address: Address, adnl
 
 
 export class ElectorContract implements Contract {
-
     // Please note that we are NOT loading address from config to avoid mistake and send validator money to a wrong contract
     readonly address: Address = Address.parseRaw('-1:3333333333333333333333333333333333333333333333333333333333333333');
     //readonly source: ContractSource = new UnknownContractSource('org.ton.elector', -1, 'Elector Contract');
@@ -40,7 +48,6 @@ export class ElectorContract implements Contract {
 
     constructor() {
     }
-
 
     async getReturnedStake(provider: ContractProvider, address: Address): Promise<bigint> {
         if (address.workChain !== -1) {
@@ -110,8 +117,8 @@ export class ElectorContract implements Contract {
             throw Error('Unexpected error');
         }
         const cell = Cell.fromBoc(account.state.data! as Buffer)[0];
-        const cs = cell.beginParse();
-        if (!cs.loadBit()) {
+        const cs = cell?.beginParse();
+        if (!cs?.loadBit()) {
             return null;
         }
         // (es~load_uint(32), es~load_uint(32), es~load_grams(), es~load_grams(), es~load_dict(), es~load_int(1), es~load_int(1));
@@ -203,7 +210,7 @@ export class ElectorContract implements Contract {
             // prod_proof:^(MERKLE_PROOF ShardState) = ProducerInfo;
             // no_blk_gen from_utime:uint32 prod_info:^ProducerInfo = ComplaintDescr;
             // no_blk_gen_diff prod_info_old:^ProducerInfo prod_info_new:^ProducerInfo = ComplaintDescr;
-            const description = unpackedComplaints.readCell();
+            // const description = unpackedComplaints.readCell();
             const createdAt = unpackedComplaints.readNumber();
             const severity = unpackedComplaints.readNumber();
             const rewardAddress = new Address(-1, Buffer.from(unpackedComplaints.readBigNumber().toString(16), 'hex'));

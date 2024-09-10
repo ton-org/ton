@@ -2,16 +2,16 @@ import {
     beginCell,
     Builder,
     loadOutList,
-    OutActionSendMsg,
+    type OutActionSendMsg,
     Slice,
     storeOutList
 } from '@ton/core';
 import {
     isOutActionExtended,
-    OutActionAddExtension,
-    OutActionExtended,
-    OutActionRemoveExtension,
-    OutActionSetIsPublicKeyEnabled
+    type OutActionAddExtension,
+    type OutActionExtended,
+    type OutActionRemoveExtension,
+    type OutActionSetIsPublicKeyEnabled
 } from "./WalletV5OutActions";
 
 const outActionSetIsPublicKeyEnabledTag = 0x20cbb95a;

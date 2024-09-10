@@ -1,4 +1,4 @@
-import { Address, Slice, Cell, Dictionary, DictionaryValue, Builder } from "@ton/core";
+import { Address, Slice, Cell, Dictionary, type DictionaryValue, Builder } from "@ton/core";
 
 export function configParseMasterAddress(slice: Slice | null | undefined) {
     if (slice) {
@@ -17,7 +17,7 @@ function readPublicKey(slice: Slice) {
 }
 
 const ValidatorDescriptionDictValue: DictionaryValue<{publicKey: Buffer, weight: bigint, adnlAddress: Buffer|null}> = {
-    serialize(src: any, builder: Builder): void {
+    serialize(_src: any, _builder: Builder): void {
         throw Error("not implemented")
     },
     parse(src: Slice): {publicKey: Buffer, weight: bigint, adnlAddress: Buffer|null} {
@@ -40,14 +40,27 @@ const ValidatorDescriptionDictValue: DictionaryValue<{publicKey: Buffer, weight:
     }
 }
 
-export function parseValidatorSet(slice: Slice) {
+export function parseValidatorSet(slice: Slice): {
+    timeSince: number;
+    timeUntil: number;
+    total: number;
+    main: number;
+    totalWeight: null | bigint;
+    list: Dictionary<number, {
+        publicKey: Buffer;
+        weight: bigint;
+        adnlAddress: Buffer | null;
+    }>;
+} | undefined {
     const header = slice.loadUint(8);
+
     if (header === 0x11) {
         const timeSince = slice.loadUint(32);
         const timeUntil = slice.loadUint(32);
         const total = slice.loadUint(16);
         const main = slice.loadUint(16);
         const list = slice.loadDictDirect(Dictionary.Keys.Uint(16), ValidatorDescriptionDictValue);
+
         return {
             timeSince,
             timeUntil,
@@ -58,11 +71,17 @@ export function parseValidatorSet(slice: Slice) {
         };
     } else if (header === 0x12) {
         const timeSince = slice.loadUint(32);
+        
         const timeUntil = slice.loadUint(32);
+        
         const total = slice.loadUint(16);
+        
         const main = slice.loadUint(16);
+        
         const totalWeight = slice.loadUintBig(64);
+        
         const list = slice.loadDict(Dictionary.Keys.Uint(16), ValidatorDescriptionDictValue);
+
         return {
             timeSince,
             timeUntil,
@@ -72,9 +91,16 @@ export function parseValidatorSet(slice: Slice) {
             list
         };
     }
+
+    return;
 }
 
-export function parseBridge(slice: Slice) {
+export function parseBridge(slice: Slice): {
+    bridgeAddress: Address;
+    oracleMultisigAddress: Address;
+    oracles: Map<string, Buffer>;
+    externalChainAddress: Buffer;
+} {
     const bridgeAddress = new Address(-1, slice.loadBuffer(32));
     const oracleMultisigAddress = new Address(-1, slice.loadBuffer(32));
     const oraclesDict = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Buffer(32));
@@ -91,18 +117,25 @@ export function parseBridge(slice: Slice) {
     }
 }
 
-export function configParseMasterAddressRequired(slice: Slice | null | undefined) {
+export function configParseMasterAddressRequired(slice: Slice | null | undefined): Address {
     if (!slice) {
         throw Error('Invalid config');
     }
+
     return configParseMasterAddress(slice)!;
 }
 
-export function configParse5(slice: Slice | null | undefined) {
+export function configParse5(slice: Slice | null | undefined): {
+    blackholeAddr: Address | null;
+    feeBurnNominator: number;
+    feeBurnDenominator: number;
+} {
     if (!slice) {
         throw Error('Invalid config');
     }
+
     const magic = slice.loadUint(8);
+
     if (magic === 0x01) {
         const blackholeAddr = slice.loadBit() ? new Address(-1, slice.loadBuffer(32)): null;
         const feeBurnNominator = slice.loadUint(32);
@@ -116,10 +149,15 @@ export function configParse5(slice: Slice | null | undefined) {
     throw new Error('Invalid config');
 }
 
-export function configParse13(slice: Slice | null | undefined) {
+export function configParse13(slice: Slice | null | undefined): {
+    deposit: bigint;
+    bitPrice: bigint;
+    cellPrice: bigint;
+} {
     if (!slice) {
         throw Error('Invalid config');
     }
+
     const magic = slice.loadUint(8);
     if (magic === 0x1a) {
         const deposit = slice.loadCoins();
@@ -134,7 +172,12 @@ export function configParse13(slice: Slice | null | undefined) {
     throw new Error('Invalid config');
 }
 
-export function configParse15(slice: Slice | null | undefined) {
+export function configParse15(slice: Slice | null | undefined): {
+    validatorsElectedFor: number;
+    electorsStartBefore: number;
+    electorsEndBefore: number;
+    stakeHeldFor: number;
+} {
     if (!slice) {
         throw Error('Invalid config');
     }
@@ -150,7 +193,11 @@ export function configParse15(slice: Slice | null | undefined) {
     };
 }
 
-export function configParse16(slice: Slice | null | undefined) {
+export function configParse16(slice: Slice | null | undefined): {
+    maxValidators: number;
+    maxMainValidators: number;
+    minValidators: number;
+} {
     if (!slice) {
         throw Error('Invalid config');
     }
@@ -165,7 +212,12 @@ export function configParse16(slice: Slice | null | undefined) {
     };
 }
 
-export function configParse17(slice: Slice | null | undefined) {
+export function configParse17(slice: Slice | null | undefined): {
+    minStake: bigint;
+    maxStake: bigint;
+    minTotalStake: bigint;
+    maxStakeFactor: number;
+} {
     if (!slice) {
         throw Error('Invalid config');
     }
@@ -190,8 +242,9 @@ export type StoragePrices = {
     mc_bit_price_ps: bigint,
     mc_cell_price_ps: bigint
 }
+
 const StoragePricesDictValue: DictionaryValue<StoragePrices> = {
-    serialize(src: any, builder: Builder): void {
+    serialize(_src: any, _builder: Builder): void {
         throw Error("not implemented")
     },
     parse(src: Slice): StoragePrices {
@@ -213,6 +266,7 @@ const StoragePricesDictValue: DictionaryValue<StoragePrices> = {
         }
     }
 }
+
 export function configParse18(slice: Slice | null | undefined): StoragePrices[] {
     if (!slice) {
         throw Error('Invalid config');
@@ -220,7 +274,10 @@ export function configParse18(slice: Slice | null | undefined): StoragePrices[] 
     return slice.loadDictDirect(Dictionary.Keys.Buffer(4), StoragePricesDictValue).values()
 }
 
-export function configParse8(slice: Slice | null | undefined) {
+export function configParse8(slice: Slice | null | undefined): {
+    version: number;
+    capabilities: bigint;
+} {
     if (!slice) {
         return {
             version: 0,
@@ -236,7 +293,19 @@ export function configParse8(slice: Slice | null | undefined) {
     }
 }
 
-export function configParse40(slice: Slice | null | undefined) {
+export function configParse40(slice: Slice | null | undefined): {
+    defaultFlatFine: bigint;
+    defaultProportionaFine: bigint;
+    severityFlatMult: number;
+    severityProportionalMult: number;
+    unfunishableInterval: number;
+    longInterval: number
+    longFlatMult: number
+    mediumInterval: number
+    mediumFlatMult: number
+    longProportionalMult: number
+    mediumProportionalMult: number;
+} | null {
     if (!slice) {
         return null;
     }
@@ -277,6 +346,7 @@ export function configParseWorkchainDescriptor(slice: Slice): WorkchainDescripto
     if (slice.loadUint(8) !== 0xA6) {
         throw Error('Invalid config');
     }
+
     const enabledSince = slice.loadUint(32);
     const actialMinSplit = slice.loadUint(8);
     const min_split = slice.loadUint(8);
@@ -334,7 +404,7 @@ export type WorkchainDescriptor = {
 }
 
 const WorkchainDescriptorDictValue: DictionaryValue<WorkchainDescriptor> = {
-    serialize(src: any, builder: Builder): void {
+    serialize(_src: any, _builder: Builder): void {
         throw Error("not implemented")
     },
     parse(src: Slice): WorkchainDescriptor {
@@ -380,33 +450,66 @@ const WorkchainDescriptorDictValue: DictionaryValue<WorkchainDescriptor> = {
     }
 }
 
-export function configParse12(slice: Slice | null | undefined) {
+export function configParse12(slice: Slice | null | undefined): Dictionary<number, WorkchainDescriptor> {
     if (!slice) {
         throw Error('Invalid config');
     }
 
     const wd = slice.loadDict(Dictionary.Keys.Uint(32), WorkchainDescriptorDictValue);
+
     if (wd) {
         return wd
     }
+
     throw Error('No workchains exist')
 }
 
-export function configParseValidatorSet(slice: Slice | null | undefined) {
+export function configParseValidatorSet(slice: Slice | null | undefined): {
+    timeSince: number;
+    timeUntil: number;
+    total: number;
+    main: number;
+    totalWeight: null | bigint;
+    list: Dictionary<number, {
+        publicKey: Buffer;
+        weight: bigint;
+        adnlAddress: Buffer | null;
+    }>;
+} | null | undefined {
     if (!slice) {
         return null;
     }
     return parseValidatorSet(slice);
 }
 
-export function configParseBridge(slice: Slice | null | undefined) {
+export function configParseBridge(slice: Slice | null | undefined): {
+    bridgeAddress: Address;
+    oracleMultisigAddress: Address;
+    oracles: Map<string, Buffer>;
+    externalChainAddress: Buffer;
+} | null {
     if (!slice) {
         return null;
     }
     return parseBridge(slice);
 }
 
-function parseGasLimitsInternal(slice: Slice) {
+function parseGasLimitsInternal(slice: Slice): { 
+    gasPrice: bigint;
+    gasLimit: bigint;
+    specialGasLimit: bigint;
+    gasCredit: bigint;
+    blockGasLimit: bigint;
+    freezeDueLimit: bigint;
+    deleteDueLimit: bigint;
+} | { 
+    gasPrice: bigint;
+    gasLimit: bigint;
+    gasCredit: bigint;
+    blockGasLimit: bigint;
+    freezeDueLimit: bigint;
+    deleteDueLimit: bigint;
+} {
     const tag = slice.loadUint(8);
     if (tag === 0xde) {
         const gasPrice = slice.loadUintBig(64);
@@ -446,7 +549,28 @@ function parseGasLimitsInternal(slice: Slice) {
 }
 
 export type GasLimitsPrices = ReturnType<typeof configParseGasLimitsPrices>;
-export function configParseGasLimitsPrices(slice: Slice | null | undefined) {
+
+export function configParseGasLimitsPrices(slice: Slice | null | undefined): { 
+    flatLimit: bigint;
+    flatGasPrice: bigint;
+    other: { 
+        gasPrice: bigint;
+        gasLimit: bigint;
+        specialGasLimit: bigint;
+        gasCredit: bigint;
+        blockGasLimit: bigint;
+        freezeDueLimit: bigint;
+        deleteDueLimit: bigint;
+    } | { 
+        gasPrice: bigint;
+        gasLimit: bigint;
+        gasCredit: bigint;
+        blockGasLimit: bigint;
+        freezeDueLimit: bigint;
+        deleteDueLimit: bigint;
+    };
+
+} {
     if (!slice) {
         throw Error('Invalid config');
     }
@@ -466,7 +590,15 @@ export function configParseGasLimitsPrices(slice: Slice | null | undefined) {
 }
 
 export type MsgPrices = ReturnType<typeof configParseMsgPrices>
-export function configParseMsgPrices(slice: Slice | null | undefined) {
+
+export function configParseMsgPrices(slice: Slice | null | undefined): {
+    lumpPrice: bigint;
+    bitPrice: bigint;
+    cellPrice: bigint;
+    ihrPriceFactor: number;
+    firstFrac: number;
+    nextFrac: number;
+} {
     if (!slice) {
         throw new Error('Invalid config');
     }
@@ -492,7 +624,19 @@ export function configParseMsgPrices(slice: Slice | null | undefined) {
 //   shard_validators_lifetime:uint32 shard_validators_num:uint32 = CatchainConfig;
 
 
-export function configParse28(slice: Slice | null | undefined) {
+export function configParse28(slice: Slice | null | undefined): { 
+    masterCatchainLifetime: number;
+    shardCatchainLifetime: number;
+    shardValidatorsLifetime: number;
+    shardValidatorsCount: number;
+} | { 
+    flags: number;
+    suffleMasterValidators: boolean;
+    masterCatchainLifetime: number;
+    shardCatchainLifetime: number;
+    shardValidatorsLifetime: number;
+    shardValidatorsCount: number;
+} {
     if (!slice) {
         throw new Error('Invalid config');
     }
@@ -546,7 +690,52 @@ export function configParse28(slice: Slice | null | undefined) {
 //   max_block_bytes:uint32 max_collated_bytes:uint32 
 //   proto_version:uint16 = ConsensusConfig;
 
-export function configParse29(slice: Slice | null | undefined) {
+export function configParse29(slice: Slice | null | undefined): { 
+    roundCandidates: number;
+    nextCandidateDelay: number;
+    consensusTimeout: number;
+    fastAttempts: number;
+    attemptDuration: number;
+    catchainMaxDeps: number;
+    maxBlockBytes: number;
+    maxColaltedBytes: number;
+} | { 
+    flags: number;
+    newCatchainIds: boolean;
+    roundCandidates: number;
+    nextCandidateDelay: number;
+    consensusTimeout: number;
+    fastAttempts: number;
+    attemptDuration: number;
+    catchainMaxDeps: number;
+    maxBlockBytes: number;
+    maxColaltedBytes: number;
+} | { 
+    flags: number;
+    newCatchainIds: boolean;
+    roundCandidates: number;
+    nextCandidateDelay: number;
+    consensusTimeout: number;
+    fastAttempts: number;
+    attemptDuration: number;
+    catchainMaxDeps: number;
+    maxBlockBytes: number;
+    maxColaltedBytes: number;
+    protoVersion: number;
+} | { 
+    flags: number;
+    newCatchainIds: boolean;
+    roundCandidates: number;
+    nextCandidateDelay: number;
+    consensusTimeout: number;
+    fastAttempts: number;
+    attemptDuration: number;
+    catchainMaxDeps: number;
+    maxBlockBytes: number;
+    maxColaltedBytes: number;
+    protoVersion: number;
+    catchainMaxBlocksCoeff: number;
+} {
     if (!slice) {
         throw new Error('Invalid config');
     }
@@ -650,7 +839,16 @@ export function configParse29(slice: Slice | null | undefined) {
 }
 
 // cfg_vote_cfg#36 min_tot_rounds:uint8 max_tot_rounds:uint8 min_wins:uint8 max_losses:uint8 min_store_sec:uint32 max_store_sec:uint32 bit_price:uint32 cell_price:uint32 = ConfigProposalSetup;
-export function parseProposalSetup(slice: Slice) {
+export function parseProposalSetup(slice: Slice): {
+    minTotalRounds: number;
+    maxTotalRounds: number;
+    minWins: number;
+    maxLoses: number;
+    minStoreSec: number;
+    maxStoreSec: number;
+    bitPrice: number;
+    cellPrice: number;
+} {
     const magic = slice.loadUint(8);
     if (magic !== 0x36) {
         throw new Error('Invalid config');
@@ -667,7 +865,28 @@ export function parseProposalSetup(slice: Slice) {
 }
 
 // cfg_vote_setup#91 normal_params:^ConfigProposalSetup critical_params:^ConfigProposalSetup = ConfigVotingSetup;
-export function parseVotingSetup(slice: Slice | null | undefined) {
+export function parseVotingSetup(slice: Slice | null | undefined): {
+    normalParams: {
+        minTotalRounds: number;
+        maxTotalRounds: number;
+        minWins: number;
+        maxLoses: number;
+        minStoreSec: number;
+        maxStoreSec: number;
+        bitPrice: number;
+        cellPrice: number;
+    };
+    criticalParams: {
+        minTotalRounds: number;
+        maxTotalRounds: number;
+        minWins: number;
+        maxLoses: number;
+        minStoreSec: number;
+        maxStoreSec: number;
+        bitPrice: number;
+        cellPrice: number;
+    };
+} {
     if (!slice) {
         throw new Error('Invalid config');
     }
@@ -702,7 +921,285 @@ export function loadConfigParamsAsSlice(configBase64: string): Map<number, Slice
     return params
 }
 
-export function parseFullConfig(configs: Map<number, Slice>) {
+export function parseFullConfig(configs: Map<number, Slice>): {
+    configAddress: Address;
+    electorAddress: Address;
+    minterAddress: Address | null;
+    feeCollectorAddress: Address | null;
+    dnsRootAddress: Address | null;
+    burningConfig: { 
+        blackholeAddr: Address | null;
+        feeBurnNominator: number;
+        feeBurnDenominator: number;
+
+    }; 
+    globalVersion: { 
+        version: number;
+        capabilities: bigint;
+    };
+     workchains: Dictionary<number, WorkchainDescriptor>;
+    voting: {
+        normalParams: {
+            minTotalRounds: number;
+            maxTotalRounds: number;
+            minWins: number;
+            maxLoses: number;
+            minStoreSec: number;
+            maxStoreSec: number;
+            bitPrice: number;
+            cellPrice: number;
+        };
+        criticalParams: {
+            minTotalRounds: number;
+            maxTotalRounds: number;
+            minWins: number;
+            maxLoses: number;
+            minStoreSec: number;
+            maxStoreSec: number;
+            bitPrice: number;
+            cellPrice: number;
+        };
+    };
+    validators: { 
+        minStake: bigint;
+        maxStake: bigint;
+        minTotalStake: bigint;
+        maxStakeFactor: number;
+        maxValidators: number;
+        maxMainValidators: number;
+        minValidators: number;
+        validatorsElectedFor: number;
+        electorsStartBefore: number;
+        electorsEndBefore: number;
+        stakeHeldFor: number;
+    }; 
+    storagePrices: StoragePrices[];
+    gasPrices: {
+        masterchain: {
+            flatLimit: bigint;
+            flatGasPrice: bigint;
+            other: {
+                gasPrice: bigint;
+                gasLimit: bigint;
+                specialGasLimit: bigint;
+                gasCredit: bigint;
+                blockGasLimit: bigint;
+                freezeDueLimit: bigint;
+                deleteDueLimit: bigint;
+            } | {
+                gasPrice: bigint;
+                gasLimit: bigint;
+                gasCredit: bigint;
+                blockGasLimit: bigint;
+                freezeDueLimit: bigint;
+                deleteDueLimit: bigint;
+            };
+        }; workchain: {
+            flatLimit: bigint;
+            flatGasPrice: bigint;
+            other: {
+                gasPrice: bigint;
+                gasLimit: bigint;
+                specialGasLimit: bigint;
+                gasCredit: bigint;
+                blockGasLimit: bigint;
+                freezeDueLimit: bigint;
+                deleteDueLimit: bigint;
+            } | {
+                gasPrice: bigint;
+                gasLimit: bigint;
+                gasCredit: bigint;
+                blockGasLimit: bigint;
+                freezeDueLimit: bigint;
+                deleteDueLimit: bigint;
+            };
+        };
+    };
+    msgPrices: { 
+        masterchain: { 
+            lumpPrice: bigint;
+            bitPrice: bigint;
+            cellPrice: bigint;
+            ihrPriceFactor: number;
+            firstFrac: number;
+            nextFrac: number;
+        }; 
+        workchain: { 
+            lumpPrice: bigint;
+            bitPrice: bigint;
+            cellPrice: bigint;
+            ihrPriceFactor: number;
+            firstFrac: number;
+            nextFrac: number;
+        }; 
+    };
+    validatorSets: {
+        prevValidators: {
+            timeSince: number;
+            timeUntil: number;
+            total: number;
+            main: number;
+            totalWeight: null | bigint;
+            list: Dictionary<number, {
+                publicKey: Buffer;
+                weight: bigint;
+                adnlAddress: Buffer | null;
+            }>;
+        } | null | undefined;
+        prevTempValidators: {
+            timeSince: number;
+            timeUntil: number;
+            total: number;
+            main: number;
+            totalWeight: null | bigint;
+            list: Dictionary<number, {
+                publicKey: Buffer;
+                weight: bigint;
+                adnlAddress: Buffer | null;
+            }>;
+        } | null | undefined;
+        currentValidators: {
+            timeSince: number;
+            timeUntil: number;
+            total: number;
+            main: number;
+            totalWeight: null | bigint;
+            list: Dictionary<number, {
+                publicKey: Buffer;
+                weight: bigint;
+                adnlAddress: Buffer | null;
+            }>;
+        } | null | undefined;
+        currentTempValidators: {
+            timeSince: number;
+            timeUntil: number;
+            total: number;
+            main: number;
+            totalWeight: null | bigint;
+            list: Dictionary<number, {
+                publicKey: Buffer;
+                weight: bigint;
+                adnlAddress: Buffer | null;
+            }>;
+        } | null | undefined;
+        nextValidators: {
+            timeSince: number;
+            timeUntil: number;
+            total: number;
+            main: number;
+            totalWeight: null | bigint;
+            list: Dictionary<number, {
+                publicKey: Buffer;
+                weight: bigint;
+                adnlAddress: Buffer | null;
+            }>;
+        } | null | undefined;
+        nextTempValidators: {
+            timeSince: number;
+            timeUntil: number;
+            total: number;
+            main: number;
+            totalWeight: null | bigint;
+            list: Dictionary<number, {
+                publicKey: Buffer;
+                weight: bigint;
+                adnlAddress: Buffer | null;
+            }>;
+        } | null | undefined;
+    };
+    validatorsPunish: { 
+        defaultFlatFine: bigint;
+        defaultProportionaFine: bigint;
+        severityFlatMult: number;
+        severityProportionalMult: number;
+        unfunishableInterval: number;
+        longInterval: number;
+        longFlatMult: number;
+        mediumInterval: number;
+        mediumFlatMult: number;
+        longProportionalMult: number;
+        mediumProportionalMult: number;
+    } | null;
+    bridges: { 
+        ethereum: { 
+            bridgeAddress: Address;
+            oracleMultisigAddress: Address;
+            oracles: Map<string, Buffer>;
+            externalChainAddress: Buffer;
+        } | null;
+        binance: { 
+            bridgeAddress: Address;
+            oracleMultisigAddress: Address;
+            oracles: Map<string, Buffer>;
+            externalChainAddress: Buffer;
+        } | null;
+        polygon: { 
+            bridgeAddress: Address;
+            oracleMultisigAddress: Address;
+            oracles: Map<string, Buffer>;
+            externalChainAddress: Buffer;
+        } | null;
+    }; 
+    catchain: { 
+        masterCatchainLifetime: number;
+        shardCatchainLifetime: number;
+        shardValidatorsLifetime: number;
+        shardValidatorsCount: number;
+    } | { 
+        flags: number;
+        suffleMasterValidators: boolean;
+        masterCatchainLifetime: number;
+        shardCatchainLifetime: number;
+        shardValidatorsLifetime: number;
+        shardValidatorsCount: number;
+    }; 
+    consensus: { 
+        roundCandidates: number;
+        nextCandidateDelay: number;
+        consensusTimeout: number;
+        fastAttempts: number;
+        attemptDuration: number;
+        catchainMaxDeps: number;
+        maxBlockBytes: number;
+        maxColaltedBytes: number;
+    } | { 
+        flags: number;
+        newCatchainIds: boolean;
+        roundCandidates: number;
+        nextCandidateDelay: number;
+        consensusTimeout: number;
+        fastAttempts: number;
+        attemptDuration: number;
+        catchainMaxDeps: number;
+        maxBlockBytes: number;
+        maxColaltedBytes: number;
+    } | { 
+        flags: number;
+        newCatchainIds: boolean;
+        roundCandidates: number;
+        nextCandidateDelay: number;
+        consensusTimeout: number;
+        fastAttempts: number;
+        attemptDuration: number;
+        catchainMaxDeps: number;
+        maxBlockBytes: number;
+        maxColaltedBytes: number;
+        protoVersion: number;
+    } | { 
+        flags: number;
+        newCatchainIds: boolean;
+        roundCandidates: number;
+        nextCandidateDelay: number;
+        consensusTimeout: number;
+        fastAttempts: number;
+        attemptDuration: number;
+        catchainMaxDeps: number;
+        maxBlockBytes: number;
+        maxColaltedBytes: number;
+        protoVersion: number;
+        catchainMaxBlocksCoeff: number;
+    };
+} {
     return {
         configAddress: configParseMasterAddressRequired(configs.get(0)),
         electorAddress: configParseMasterAddressRequired(configs.get(1)),

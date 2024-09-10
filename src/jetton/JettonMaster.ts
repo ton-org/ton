@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Address, beginCell, Contract, ContractProvider } from "@ton/core";
+import { Address, beginCell, Cell, type Contract, type ContractProvider } from "@ton/core";
 
 export class JettonMaster implements Contract {
 
@@ -25,13 +25,20 @@ export class JettonMaster implements Contract {
         return res.stack.readAddress();
     }
 
-    async getJettonData(provider: ContractProvider) {
+    async getJettonData(provider: ContractProvider): Promise<{
+        totalSupply: bigint;
+        mintable: boolean;
+        adminAddress: Address;
+        content: Cell;
+        walletCode: Cell;
+    }> {
         let res = await provider.get('get_jetton_data', []);
         let totalSupply = res.stack.readBigNumber();
         let mintable = res.stack.readBoolean();
         let adminAddress = res.stack.readAddress();
         let content = res.stack.readCell();
         let walletCode = res.stack.readCell();
+
         return {
             totalSupply,
             mintable,

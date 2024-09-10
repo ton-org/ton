@@ -10,20 +10,21 @@ import {
     Address,
     beginCell,
     Cell,
-    Contract,
+    type Contract,
     contractAddress,
-    ContractProvider,
+    type ContractProvider,
     Dictionary,
     internal,
-    MessageRelaxed,
-    OutActionSendMsg, Sender,
+    type MessageRelaxed,
+    type OutActionSendMsg, 
+    type Sender,
     SendMode
 } from "@ton/core";
-import {Maybe} from "../../utils/maybe";
-import {SendArgsSignable, SendArgsSigned} from "../signing/singer";
-import {OutActionWalletV5} from "./WalletV5OutActions";
+import type {Maybe} from "../../utils/maybe";
+import type {SendArgsSignable, SendArgsSigned} from "../signing/singer";
+import type {OutActionWalletV5} from "./WalletV5OutActions";
 import {createWalletTransferV5Beta} from "../signing/createWalletTransfer";
-import {storeWalletIdV5Beta, WalletIdV5Beta} from "./WalletV5BetaWalletId";
+import {storeWalletIdV5Beta, type WalletIdV5Beta} from "./WalletV5BetaWalletId";
 
 
 export type WalletV5BetaBasicSendArgs = {
@@ -93,6 +94,9 @@ export class WalletContractV5Beta implements Contract {
             .storeBuffer(this.publicKey, 32)
             .storeBit(0) // Empty plugins dict
             .endCell();
+        if (typeof code === 'undefined') {
+            throw new Error('Initialization Error: Code is undefined');
+        }
         this.init = { code, data };
         this.address = contractAddress(this.walletId.workchain, { code, data });
     }

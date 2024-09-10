@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Address, Contract, ContractProvider } from "@ton/core";
+import { Address, type Contract, type ContractProvider } from "@ton/core";
 
 export class JettonWallet implements Contract {
 

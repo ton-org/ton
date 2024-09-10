@@ -6,8 +6,19 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
-import { Maybe } from "../utils/maybe";
+import {
+    Address,
+    beginCell,
+    Cell,
+    type Contract,
+    contractAddress,
+    type ContractProvider,
+    internal,
+    type MessageRelaxed,
+    type Sender,
+    SendMode
+} from "@ton/core";
+import type { Maybe } from "../utils/maybe";
 import { createWalletTransferV1 } from "./signing/createWalletTransfer";
 
 export class WalletContractV1R3 implements Contract {
@@ -31,6 +42,10 @@ export class WalletContractV1R3 implements Contract {
             .storeUint(0, 32) // Seqno
             .storeBuffer(publicKey)
             .endCell();
+
+        if (typeof code === 'undefined') {
+            throw new Error('Initialization Error: Code is undefined');
+        }
         this.init = { code, data };
         this.address = contractAddress(workchain, { code, data });
     }

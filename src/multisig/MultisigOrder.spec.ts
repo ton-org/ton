@@ -1,6 +1,6 @@
 /* Made by @Gusarich and @Miandic */
 
-import { beginCell, Cell, MessageRelaxed, Address } from '@ton/core';
+import { beginCell, Cell, type MessageRelaxed, Address } from '@ton/core';
 import { getSecureRandomBytes, keyPairFromSeed, sign } from '@ton/crypto';
 import { testAddress } from '@ton/emulator';
 import { MultisigOrderBuilder } from './MultisigOrderBuilder';
@@ -12,7 +12,7 @@ function createInternalMessage(
     dest: Address,
     value: bigint,
     body: Cell,
-    mode: number = 3
+    // mode: number = 3
 ): MessageRelaxed {
     return {
         info: {
@@ -109,9 +109,18 @@ describe('MultisigOrder', () => {
             3
         );
         let order = orderBuilder.build();
-        order.sign(0, secretKeys[0]);
-        order.sign(1, secretKeys[1]);
-        order.sign(2, secretKeys[2]);
+        const firstSecretKey = secretKeys[0];
+        const secondSecretKey = secretKeys[1];
+        const thirdSecretKey = secretKeys[2];
+        if (firstSecretKey) {
+            order.sign(0, firstSecretKey);
+        }
+        if (secondSecretKey) {
+            order.sign(1, secondSecretKey);
+        }
+        if (thirdSecretKey) {
+            order.sign(2, thirdSecretKey);
+        }
         expect(Object.keys(order.signatures)).toHaveLength(3);
     });
 
@@ -145,9 +154,19 @@ describe('MultisigOrder', () => {
             3
         );
         let order1 = order1Builder.build();
-        order1.sign(0, secretKeys[0]);
-        order1.sign(1, secretKeys[1]);
-        order1.sign(2, secretKeys[2]);
+
+        const firstSecretKey = secretKeys[0];
+        const secondSecretKey = secretKeys[1];
+        const thirdSecretKey = secretKeys[2];
+        if (firstSecretKey) {
+            order1.sign(0, firstSecretKey);
+        }
+        if (secondSecretKey) {
+            order1.sign(1, secondSecretKey);
+        }
+        if (thirdSecretKey) {
+            order1.sign(2, thirdSecretKey);
+        }
         let order2Builder = new MultisigOrderBuilder(123);
         order2Builder.addMessage(
             createInternalMessage(
@@ -177,9 +196,17 @@ describe('MultisigOrder', () => {
             3
         );
         let order2 = order2Builder.build();
-        order2.sign(3, secretKeys[3]);
-        order2.sign(2, secretKeys[2]);
-        order2.sign(5, secretKeys[5]);
+        const fourthSecretKey = secretKeys[3];
+        const sixthSecretKey = secretKeys[5];
+        if (fourthSecretKey) {
+            order2.sign(3, fourthSecretKey);
+        }
+        if (thirdSecretKey) {
+            order2.sign(2, thirdSecretKey);
+        }
+        if (sixthSecretKey) {
+            order2.sign(5, sixthSecretKey);
+        }
         order1.unionSignatures(order2);
         expect(Object.keys(order1.signatures)).toHaveLength(5);
     });
@@ -214,9 +241,18 @@ describe('MultisigOrder', () => {
             3
         );
         let order = orderBuilder.build();
-        order.sign(0, secretKeys[0]);
-        order.sign(1, secretKeys[1]);
-        order.sign(2, secretKeys[2]);
+        const firstSecretKey = secretKeys[0];
+        const secondSecretKey = secretKeys[1];
+        const thirdSecretKey = secretKeys[2];
+        if (firstSecretKey) {
+            order.sign(0, firstSecretKey);
+        }
+        if (secondSecretKey) {
+            order.sign(1, secondSecretKey);
+        }
+        if (thirdSecretKey) {
+            order.sign(2, thirdSecretKey);
+        }
         order.clearSignatures();
         expect(order.signatures).toBeNull;
     });
@@ -284,12 +320,20 @@ describe('MultisigOrder', () => {
             3
         );
         let order = orderBuilder.build();
-        order.sign(0, secretKeys[0]);
-        order.addSignature(
-            1,
-            sign(order.payload.hash(), secretKeys[1]),
-            new MultisigWallet(publicKeys, 0, 123, 2)
-        );
+        const firstSecretKey = secretKeys[0];
+        const secondSecretKey = secretKeys[1];
+        if (firstSecretKey) {
+            order.sign(0, firstSecretKey);
+        }
+
+        if (secondSecretKey) {
+
+            order.addSignature(
+                1,
+                sign(order.payload.hash(), secondSecretKey),
+                new MultisigWallet(publicKeys, 0, 123, 2)
+            );
+        }
         expect(Object.keys(order.signatures)).toHaveLength(2);
     });
 
@@ -374,7 +418,10 @@ describe('MultisigOrder', () => {
             3
         );
         let order = orderBuilder.build();
-        order.sign(0, secretKeys[0]);
+        const firstSecretKey = secretKeys[0];
+        if (firstSecretKey) {
+            order.sign(0, firstSecretKey);
+        }
         expect(() =>
             order.addSignature(
                 1,
@@ -406,13 +453,16 @@ describe('MultisigOrder', () => {
             )
         )[0];
 
-        const order1 = MultisigOrder.fromCell(order1Cell);
-        const order2 = MultisigOrder.fromCell(order2Cell);
-        const order3 = MultisigOrder.fromCell(order3Cell);
+        if (order1Cell && order2Cell && order3Cell) {
+            const order1 = MultisigOrder.fromCell(order1Cell);
+            const order2 = MultisigOrder.fromCell(order2Cell);
+            const order3 = MultisigOrder.fromCell(order3Cell);
 
-        expect(order1.payload.refs).toHaveLength(1);
-        expect(Object.keys(order1.signatures)).toHaveLength(0);
-        expect(Object.keys(order2.signatures)).toHaveLength(1);
-        expect(Object.keys(order3.signatures)).toHaveLength(2);
+            expect(order1.payload.refs).toHaveLength(1);
+            expect(Object.keys(order1.signatures)).toHaveLength(0);
+            expect(Object.keys(order2.signatures)).toHaveLength(1);
+            expect(Object.keys(order3.signatures)).toHaveLength(2);
+        }
+
     });
 });

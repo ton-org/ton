@@ -7,9 +7,9 @@
  */
 
 import Prando from 'prando';
-import { keyPairFromSeed } from '@ton/crypto';
+import { keyPairFromSeed, type KeyPair } from '@ton/crypto';
 
-export function randomTestKey(seed: string) {
+export function randomTestKey(seed: string): KeyPair {
     let random = new Prando(seed);
     let res = Buffer.alloc(32);
     for (let i = 0; i < res.length; i++) {

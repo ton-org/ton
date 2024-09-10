@@ -12,8 +12,8 @@ export * from '@ton/core';
 // toncenter Client
 //
 
-export { HttpApi, HttpApiParameters } from './client/api/HttpApi';
-export { TonClient, TonClientParameters } from './client/TonClient';
+export { HttpApi, type HttpApiParameters } from './client/api/HttpApi';
+export { TonClient, type TonClientParameters } from './client/TonClient';
 
 //
 // API V4 Client
@@ -21,7 +21,7 @@ export { TonClient, TonClientParameters } from './client/TonClient';
 
 export {
     TonClient4,
-    TonClient4Parameters
+    type TonClient4Parameters
 } from './client/TonClient4';
 
 //
@@ -64,7 +64,11 @@ export { ElectorContract } from './elector/ElectorContract'
 // Config
 //
 
-export { GasLimitsPrices, StoragePrices, MsgPrices, WorkchainDescriptor,
+export {
+    type GasLimitsPrices,
+    type StoragePrices,
+    type MsgPrices,
+    type WorkchainDescriptor,
     configParse5, configParse8, configParse12, configParse13,
     configParse15, configParse16, configParse17, configParse18,
     configParse28, configParse29, configParse40,
@@ -73,10 +77,17 @@ export { GasLimitsPrices, StoragePrices, MsgPrices, WorkchainDescriptor,
     configParseValidatorSet, configParseWorkchainDescriptor,
     parseBridge, parseProposalSetup, parseValidatorSet, parseVotingSetup,
     parseFullConfig,
-    loadConfigParamById, loadConfigParamsAsSlice } from './config/ConfigParser'
+    loadConfigParamById, loadConfigParamsAsSlice
+} from './config/ConfigParser'
 
 //
 // Fees
 //
 
-export { computeExternalMessageFees, computeFwdFees, computeGasPrices, computeMessageForwardFees, computeStorageFees } from './utils/fees';
+export {
+    computeExternalMessageFees,
+    computeFwdFees,
+    computeGasPrices,
+    computeMessageForwardFees,
+    computeStorageFees
+} from './utils/fees';

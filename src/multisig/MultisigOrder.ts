@@ -74,8 +74,14 @@ export class MultisigOrder {
 
     public toCell(ownerId: number): Cell {
         let b = beginCell().storeBit(0);
+
         for (const ownerId in this.signatures) {
             const signature = this.signatures[ownerId];
+
+            if (typeof signature === 'undefined') {
+                continue;
+            }
+
             b = beginCell()
                 .storeBit(1)
                 .storeRef(

@@ -111,7 +111,7 @@ export function loadWalletIdV5R1(value: bigint | Buffer | Slice, networkGlobalId
     }
 }
 
-export function storeWalletIdV5R1(walletId: WalletIdV5R1) {
+export function storeWalletIdV5R1(walletId: WalletIdV5R1): (builder: Builder) => Builder {
     return (builder: Builder) => {
         let context;
         if (isWalletIdV5R1ClientContext(walletId.context)) {

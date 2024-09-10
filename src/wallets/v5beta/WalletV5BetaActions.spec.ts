@@ -3,16 +3,16 @@ import {
     SendMode,
     storeMessageRelaxed,
     Address,
-    OutAction,
-    MessageRelaxed,
-    OutActionSendMsg
+    type OutAction,
+    type MessageRelaxed,
+    type OutActionSendMsg
 } from "@ton/core";
 import {
     loadOutListExtendedV5Beta,
     storeOutActionExtendedV5Beta,
     storeOutListExtendedV5Beta
 } from "./WalletV5BetaActions";
-import {OutActionExtended} from "./WalletV5OutActions";
+import type {OutActionExtended} from "./WalletV5OutActions";
 
 const mockMessageRelaxed1: MessageRelaxed = {
     info: {
@@ -203,20 +203,20 @@ describe('Wallet V5Beta actions', () => {
         expect(expected.length).toEqual(actual.length);
         expected.forEach((item1, index) => {
             const item2 = actual[index];
-            expect(item1.type).toEqual(item2.type);
+            expect(item1.type).toEqual(item2?.type);
 
-            if (item1.type === 'sendMsg' && item2.type === 'sendMsg') {
+            if (item1.type === 'sendMsg' && item2?.type === 'sendMsg') {
                 expect(item1.mode).toEqual(item2.mode);
                 expect(item1.outMsg.body.equals(item2.outMsg.body)).toBeTruthy();
                 expect(item1.outMsg.info).toEqual(item2.outMsg.info);
                 expect(item1.outMsg.init).toEqual(item2.outMsg.init);
             }
 
-            if (item1.type === 'addExtension' && item2.type === 'addExtension') {
+            if (item1.type === 'addExtension' && item2?.type === 'addExtension') {
                 expect(item1.address.equals(item2.address)).toBeTruthy();
             }
 
-            if (item1.type === 'setIsPublicKeyEnabled' && item2.type === 'setIsPublicKeyEnabled') {
+            if (item1.type === 'setIsPublicKeyEnabled' && item2?.type === 'setIsPublicKeyEnabled') {
                 expect(item1.isEnabled).toEqual(item2.isEnabled);
             }
         })

@@ -6,8 +6,19 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
-import { Maybe } from "../utils/maybe";
+import {
+    Address,
+    beginCell,
+    Cell,
+    type Contract,
+    contractAddress,
+    type ContractProvider,
+    internal,
+    type MessageRelaxed,
+    type Sender,
+    SendMode
+} from "@ton/core";
+import type { Maybe } from "../utils/maybe";
 import { createWalletTransferV1 } from "./signing/createWalletTransfer";
 
 export class WalletContractV1R1 implements Contract {
@@ -31,6 +42,10 @@ export class WalletContractV1R1 implements Contract {
             .storeUint(0, 32) // Seqno
             .storeBuffer(publicKey)
             .endCell();
+
+        if (typeof code === 'undefined') {
+            throw new Error('Initialization Error: Code is undefined');
+        }
         this.init = { code, data };
         this.address = contractAddress(workchain, { code, data });
     }
@@ -46,10 +61,10 @@ export class WalletContractV1R1 implements Contract {
     /**
      * Get Wallet Seqno
      */
-    async getSeqno(provider: ContractProvider) {
+    async getSeqno(provider: ContractProvider): Promise<number | undefined> {
         let state = await provider.getState();
         if (state.state.type === 'active') {
-            return Cell.fromBoc(state.state.data!)[0].beginParse().loadUint(32);
+            return Cell.fromBoc(state.state.data!)[0]?.beginParse().loadUint(32);
         } else {
             return 0;
         }
@@ -103,6 +118,11 @@ export class WalletContractV1R1 implements Contract {
         return {
             send: async (args) => {
                 let seqno = await this.getSeqno(provider);
+
+                if (typeof seqno === 'undefined') {
+                    throw new Error('Seqno is undefined');
+                }
+
                 let transfer = this.createTransfer({
                     seqno,
                     secretKey,
@@ -115,6 +135,7 @@ export class WalletContractV1R1 implements Contract {
                         bounce: args.bounce
                     })
                 });
+
                 await this.send(provider, transfer);
             }
         };

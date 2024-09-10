@@ -3,13 +3,17 @@ import {
     SendMode,
     storeMessageRelaxed,
     Address,
-    MessageRelaxed, OutActionSendMsg, OutAction, Cell
+    type MessageRelaxed,
+    type OutActionSendMsg,
+    type OutAction,
+    Cell
 } from "@ton/core";
-import {OutActionExtended} from "../v5beta/WalletV5OutActions";
+import type {OutActionExtended} from "../v5beta/WalletV5OutActions";
 import {
     loadOutListExtendedV5R1,
-    storeOutActionExtendedV5R1, storeOutListExtendedV5R1,
-     toSafeV5R1SendMode,
+    storeOutActionExtendedV5R1,
+    storeOutListExtendedV5R1,
+    toSafeV5R1SendMode,
 } from "./WalletV5R1Actions";
 
 const mockMessageRelaxed1: MessageRelaxed = {
@@ -186,7 +190,9 @@ describe('Wallet V5R1 actions', () => {
 
         const actual = beginCell().store(storeOutListExtendedV5R1(actions)).endCell();
         const expected = Cell.fromBoc(Buffer.from('b5ee9c72410105010046000245c0a000888888888888888888888888888888888888888888888888888888888888888c0104020a0ec3c86d0302030000001cc000000000000000000000000000000304409c06218f', 'hex'))[0];
-        expect(actual.equals(expected)).toBeTruthy();
+        if (typeof expected !== 'undefined') {
+            expect(actual.equals(expected)).toBeTruthy();
+        }
     });
 
     it('Should serialize extended out list and produce the expected boc for complex structures', () => {
@@ -221,7 +227,9 @@ describe('Wallet V5R1 actions', () => {
 
         const actual = beginCell().store(storeOutListExtendedV5R1(actions)).endCell();
         const expected = Cell.fromBoc(Buffer.from('b5ee9c724101080100ab000245c0a000888888888888888888888888888888888888888888888888888888888888888c0106020a0ec3c86d030205020a0ec3c86d00030400000068420011111111111111111111111111111111111111111111111111111111111111110808404404000000000000c0e40007890000001cc00000000000000000000000000001030440070045038002222222222222222222222222222222222222222222222222222222222222223037cc71d6', 'hex'))[0];
-        expect(actual.equals(expected)).toBeTruthy();
+        if (typeof expected !== 'undefined') {
+            expect(actual.equals(expected)).toBeTruthy();
+        }
     });
 
     it('Should deserialize extended out list', () => {
@@ -271,20 +279,20 @@ describe('Wallet V5R1 actions', () => {
         expect(expected.length).toEqual(actual.length);
         expected.forEach((item1, index) => {
             const item2 = actual[index];
-            expect(item1.type).toEqual(item2.type);
+            expect(item1.type).toEqual(item2?.type);
 
-            if (item1.type === 'sendMsg' && item2.type === 'sendMsg') {
+            if (item1.type === 'sendMsg' && item2?.type === 'sendMsg') {
                 expect(item1.mode).toEqual(item2.mode);
                 expect(item1.outMsg.body.equals(item2.outMsg.body)).toBeTruthy();
                 expect(item1.outMsg.info).toEqual(item2.outMsg.info);
                 expect(item1.outMsg.init).toEqual(item2.outMsg.init);
             }
 
-            if (item1.type === 'addExtension' && item2.type === 'addExtension') {
+            if (item1.type === 'addExtension' && item2?.type === 'addExtension') {
                 expect(item1.address.equals(item2.address)).toBeTruthy();
             }
 
-            if (item1.type === 'setIsPublicKeyEnabled' && item2.type === 'setIsPublicKeyEnabled') {
+            if (item1.type === 'setIsPublicKeyEnabled' && item2?.type === 'setIsPublicKeyEnabled') {
                 expect(item1.isEnabled).toEqual(item2.isEnabled);
             }
         })
