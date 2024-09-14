@@ -28,20 +28,12 @@ export class JettonMaster implements Contract {
 
   async getJettonData(provider: ContractProvider) {
     let res = await provider.get("get_jetton_data", []);
-    let totalSupply = null,
-      mintable = null,
-      adminAddress = null,
-      content = null,
-      walletCode = null;
-    totalSupply = res.stack.readBigNumber();
-    mintable = res.stack.readBoolean();
-    content = res.stack.readCell();
-    walletCode = res.stack.readCell();
-    try {
-      adminAddress = res.stack.readAddress();
-    } catch (error) {
-      adminAddress = null;
-    }
+
+    const totalSupply = res.stack.readBigNumber();
+    const mintable = res.stack.readBoolean();
+    const content = res.stack.readCell();
+    const walletCode = res.stack.readCell();
+    const adminAddress = res.stack.readAddressOpt();
 
     return {
       totalSupply,
