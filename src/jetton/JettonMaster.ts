@@ -31,9 +31,9 @@ export class JettonMaster implements Contract {
 
     const totalSupply = res.stack.readBigNumber();
     const mintable = res.stack.readBoolean();
+    const adminAddress = res.stack.readAddressOpt();
     const content = res.stack.readCell();
     const walletCode = res.stack.readCell();
-    const adminAddress = res.stack.readAddressOpt();
 
     return {
       totalSupply,
