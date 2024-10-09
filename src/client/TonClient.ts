@@ -443,7 +443,11 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
             };
         },
         async get(name, args) {
-            let method = await client.callGetMethod(address, name, args);
+            if (typeof name !== 'string') {
+                throw new Error('Method name must be a string for TonClient provider');
+            }
+
+            let method = await client.runMethod(address, name, args);
             return { stack: method.stack };
         },
         async external(message) {

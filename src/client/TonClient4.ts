@@ -371,6 +371,10 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
             };
         },
         async get(name, args) {
+            if (typeof name !== 'string') {
+                throw new Error('Method name must be a string for TonClient4 provider');
+            }
+
             let sq = block;
             if (sq === null) {
                 let res = await client.getLastBlock();

@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] 
+
+This update requires `@ton/core` >0.59.0
+
+## Fixed 
+- `TonClient4` and `TonClient` providers restrict using method id as number
+- Updated typescript to 5.6.3
+
 ## [15.0.0] - 2024-08-16
 - Make spelling consistent for wallets
 
