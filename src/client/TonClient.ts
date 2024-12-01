@@ -29,7 +29,6 @@ import {
     OpenedContract
 } from '@ton/core';
 import { Maybe } from "../utils/maybe";
-import { parseStack } from "../parser";
 
 export type TonClientParameters = {
     /**
