@@ -1,26 +1,26 @@
 import { z } from 'zod';
 
 // Plain types for TON Virtual Machine values
-type TvmNumberDecimal = { '@type': 'tvm.numberDecimal', number: string };
-type TvmStackEntryNumber = { '@type': 'tvm.stackEntryNumber', number: TvmNumberDecimal };
+type NumberDecimal = { '@type': 'tvm.numberDecimal', number: string };
+type StackEntryNumber = { '@type': 'tvm.stackEntryNumber', number: NumberDecimal };
 
-type TvmSlice = { '@type': 'tvm.slice', bytes: string };
-type TvmStackEntrySlice = { '@type': 'tvm.stackEntrySlice', slice: TvmSlice };
+type Slice = { '@type': 'tvm.slice', bytes: string };
+type StackEntrySlice = { '@type': 'tvm.stackEntrySlice', slice: Slice };
 
-type TvmCell = { '@type': 'tvm.cell', bytes: string };
-type TvmStackEntryCell = { '@type': 'tvm.stackEntryCell', cell: TvmCell };
+type Cell = { '@type': 'tvm.cell', bytes: string };
+type StackEntryCell = { '@type': 'tvm.stackEntryCell', cell: Cell };
 
 // Structured types for TON Virtual Machine values
-export type TvmList = { '@type': 'tvm.list', elements: TvmValue[] };
-type TvmStackEntryList = { '@type': 'tvm.stackEntryList', list: TvmList };
+export type List = { '@type': 'tvm.list', elements: Value[] };
+type StackEntryList = { '@type': 'tvm.stackEntryList', list: List };
 
-export type TvmTuple = { '@type': 'tvm.tuple', elements: TvmValue[] };
-type TvmStackEntryTuple = { '@type': 'tvm.stackEntryTuple', tuple: TvmTuple };
+export type Tuple = { '@type': 'tvm.tuple', elements: Value[] };
+type StackEntryTuple = { '@type': 'tvm.stackEntryTuple', tuple: Tuple };
 
 // Union of all TON Virtual Machine values
-type TvmCommonValue = TvmNumberDecimal | TvmCell | TvmSlice | TvmList | TvmTuple;
-type TvmStackEntryValue = TvmStackEntryCell | TvmStackEntryNumber | TvmStackEntrySlice | TvmStackEntryList | TvmStackEntryTuple;
-export type TvmValue = TvmCommonValue | TvmStackEntryValue;
+type CommonValue = NumberDecimal | Cell | Slice | List | Tuple;
+type StackEntryValue = StackEntryCell | StackEntryNumber | StackEntrySlice | StackEntryList | StackEntryTuple;
+export type Value = CommonValue | StackEntryValue;
 
 
 // zod definitions
@@ -48,10 +48,10 @@ type SliceStackItem = z.infer<typeof sliceSchema>;
 const builderSchema = z.tuple([z.literal('builder'), serializedCellSchema]);
 type BuilderStackItem = z.infer<typeof builderSchema>;
 
-const tupleSchema = z.tuple([z.literal('tuple'), z.unknown() as z.ZodType<TvmTuple>]);
+const tupleSchema = z.tuple([z.literal('tuple'), z.unknown() as z.ZodType<Tuple>]);
 type TupleStackItem = z.infer<typeof tupleSchema>;
 
-const listSchema = z.tuple([z.literal('list'), z.unknown() as z.ZodType<TvmList>]);
+const listSchema = z.tuple([z.literal('list'), z.unknown() as z.ZodType<List>]);
 type ListStackItem = z.infer<typeof listSchema>;
 
 export const stackItemSchema = z.union([
