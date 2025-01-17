@@ -448,6 +448,7 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
             await via.send({
                 to: address,
                 value,
+                ec: message.ec,
                 bounce,
                 sendMode: message.sendMode,
                 init: neededInit,

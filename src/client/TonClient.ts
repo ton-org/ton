@@ -512,6 +512,7 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
                 value,
                 bounce,
                 sendMode: message.sendMode,
+                ec: message.ec,
                 init: neededInit,
                 body
             });
