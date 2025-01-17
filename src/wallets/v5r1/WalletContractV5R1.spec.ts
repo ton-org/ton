@@ -13,6 +13,7 @@ import {Buffer} from "buffer";
 import {createTestClient4} from "../../utils/createTestClient4";
 import {TonClient4} from "../../client/TonClient4";
 import {WalletContractV5R1} from "./WalletContractV5R1";
+import { tillNextSeqno } from "../../utils/testWallets";
 
 const getExtensionsArray = async (wallet: OpenedContract<WalletContractV5R1>) => {
     try {
@@ -63,6 +64,26 @@ describe('WalletContractV5R1', () => {
         expect(sendMode).toBe(SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS);
 
         await wallet.send(transfer);
+        await tillNextSeqno(wallet, seqno);
+    });
+
+    it('should perform extra currency transfer', async () => {
+        const seqno = await wallet.getSeqno();
+        const transfer = wallet.createTransfer({
+            seqno,
+            secretKey: walletKey.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+            messages: [internal({
+                bounce: false,
+                to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
+                value: '0.01',
+                ec: [[100, BigInt(10 ** 6)]],
+                body: 'Hello extra currency w5r1!'
+            })]
+        });
+
+        await wallet.send(transfer);
+        await tillNextSeqno(wallet, seqno);
     });
 
     it('should perform single transfer with async signing', async () => {
