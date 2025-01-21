@@ -364,8 +364,19 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
                 throw Error('Unsupported state');
             }
 
+            let ecMap: { [k: number]: bigint } | null = null;
+
+            if(state.account.balance.currencies) {
+                ecMap = {};
+                let currencies = state.account.balance.currencies;
+                for(let [k, v] of Object.entries(currencies)) {
+                    ecMap[Number(k)] = BigInt(v);
+                }
+            }
+
             return {
                 balance: BigInt(state.account.balance.coins),
+                ec: ecMap,
                 last: last,
                 state: storage
             };
@@ -562,7 +573,8 @@ const accountCodec = z.object({
             z.object({ type: z.literal('frozen'), stateHash: z.string() })
         ]),
         balance: z.object({
-            coins: z.string()
+            coins: z.string(),
+            currencies: z.record(z.string(), z.string())
         }),
         last: z.union([
             z.null(),
@@ -590,7 +602,8 @@ const accountLiteCodec = z.object({
             z.object({ type: z.literal('frozen'), stateHash: z.string() })
         ]),
         balance: z.object({
-            coins: z.string()
+            coins: z.string(),
+            currencies: z.record(z.string(), z.string())
         }),
         last: z.union([
             z.null(),
