@@ -43,6 +43,20 @@ describeConditional('TonClient', () => {
         console.log(info, shardInfo, wcShards);
     });
 
+    it('should get extra currency info', async () => {
+        // EC is rolled out only in testned yet
+        let testClient = new TonClient({
+            endpoint: 'https://testnet.toncenter.com/api/v2/jsonRPC'
+        });
+
+        let testAddr = Address.parse("0:D36CFC9E0C57F43C1A719CB9F540ED87A694693AE1535B7654B645F52814AFD7");
+
+        let res = await testClient.getContractState(testAddr);
+        let expectedEc =res.extra_currencies.find(e => e.id == 100)!;
+        expect(expectedEc).not.toBeUndefined();
+        expect(BigInt(expectedEc.amount)).toBe(10000000n);
+    });
+
     it('should locate source/result tx', async () => {
         let source = Address.parse('UQDDT0TOC4PMp894jtCo3-d1-8ltSjXMX2EuWww_pCNibsUH');
         let createdLt = '37508996000002';
