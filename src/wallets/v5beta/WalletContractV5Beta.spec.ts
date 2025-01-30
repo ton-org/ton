@@ -74,7 +74,7 @@ describe('WalletContractV5Beta', () => {
                 bounce: false,
                 to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
                 value: '0.01',
-                ec: [[100, BigInt(10 ** 6)]],
+                extracurrency: {100: BigInt(10 ** 6)},
                 body: 'Hello extra currency w5beta!'
             })]
         });

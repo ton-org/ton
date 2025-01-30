@@ -62,7 +62,7 @@ describe('WalletContractV2R1', () => {
             messages: [internal({
                 to: 'kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt',
                 value: '0.01',
-                ec: [[100, BigInt(10 ** 6)]],
+                extracurrency: {100: BigInt(10 ** 6)},
                 body: 'Hello, extra currency v2r1!'
             })]
         });

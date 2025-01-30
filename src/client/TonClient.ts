@@ -26,7 +26,8 @@ import {
     TupleItem,
     TupleReader,
     StateInit,
-    OpenedContract
+    OpenedContract,
+    ExtraCurrency
 } from '@ton/core';
 import { Maybe } from "../utils/maybe";
 
@@ -409,7 +410,7 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
             let state = await client.getContractState(address);
             let balance = state.balance;
             let last = state.lastTransaction ? { lt: BigInt(state.lastTransaction.lt), hash: Buffer.from(state.lastTransaction.hash, 'base64') } : null;
-            let ecMap: { [k: number]: bigint } | null = null;
+            let ecMap: ExtraCurrency | null = null;
 
             let storage: {
                 type: 'uninit';
@@ -449,7 +450,7 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
 
             return {
                 balance,
-                ec: ecMap,
+                extracurrency: ecMap,
                 last,
                 state: storage,
             };
@@ -524,7 +525,7 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
                 value,
                 bounce,
                 sendMode: message.sendMode,
-                ec: message.ec,
+                extracurrency: message.extracurrency,
                 init: neededInit,
                 body
             });

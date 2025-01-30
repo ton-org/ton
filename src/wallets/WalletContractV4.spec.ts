@@ -69,7 +69,7 @@ describe('WalletContractV4', () => {
             messages: [internal({
                 to: 'kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt',
                 value: '0.01',
-                ec: [[100, BigInt(10 ** 6)]], // EC id 100, value 0.01 for testnet EC
+                extracurrency: {100: BigInt(10 ** 6)},
                 body: 'Hello extra currency v4'
             })]
         });
