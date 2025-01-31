@@ -110,6 +110,7 @@ export class WalletContractV1R1 implements Contract {
                     message: internal({
                         to: args.to,
                         value: args.value,
+                        extracurrency: args.extracurrency,
                         init: args.init,
                         body: args.body,
                         bounce: args.bounce

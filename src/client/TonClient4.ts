@@ -7,7 +7,7 @@
  */
 
 import axios, { AxiosAdapter, InternalAxiosRequestConfig, AxiosInstance } from "axios";
-import { Address, beginCell, Cell, comment, Contract, ContractProvider, ContractState, external, loadTransaction, openContract, OpenedContract, parseTuple, serializeTuple, StateInit, storeMessage, toNano, Transaction, TupleItem, TupleReader } from "@ton/core";
+import { Address, beginCell, Cell, comment, Contract, ContractProvider, ContractState, external, ExtraCurrency, loadTransaction, openContract, OpenedContract, parseTuple, serializeTuple, StateInit, storeMessage, toNano, Transaction, TupleItem, TupleReader } from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { toUrlSafe } from "../utils/toUrlSafe";
 import { z } from 'zod';
@@ -364,8 +364,19 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
                 throw Error('Unsupported state');
             }
 
+            let ecMap: ExtraCurrency | null = null;
+
+            if(state.account.balance.currencies) {
+                ecMap = {};
+                let currencies = state.account.balance.currencies;
+                for(let [k, v] of Object.entries(currencies)) {
+                    ecMap[Number(k)] = BigInt(v);
+                }
+            }
+
             return {
                 balance: BigInt(state.account.balance.coins),
+                extracurrency: ecMap,
                 last: last,
                 state: storage
             };
@@ -448,6 +459,7 @@ function createProvider(client: TonClient4, block: number | null, address: Addre
             await via.send({
                 to: address,
                 value,
+                extracurrency: message.extracurrency,
                 bounce,
                 sendMode: message.sendMode,
                 init: neededInit,
@@ -561,7 +573,8 @@ const accountCodec = z.object({
             z.object({ type: z.literal('frozen'), stateHash: z.string() })
         ]),
         balance: z.object({
-            coins: z.string()
+            coins: z.string(),
+            currencies: z.record(z.string(), z.string())
         }),
         last: z.union([
             z.null(),
@@ -589,7 +602,8 @@ const accountLiteCodec = z.object({
             z.object({ type: z.literal('frozen'), stateHash: z.string() })
         ]),
         balance: z.object({
-            coins: z.string()
+            coins: z.string(),
+            currencies: z.record(z.string(), z.string())
         }),
         last: z.union([
             z.null(),

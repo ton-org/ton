@@ -10,6 +10,7 @@ import { randomTestKey } from "../utils/randomTestKey";
 import { createTestClient4 } from "../utils/createTestClient4";
 import { Address, internal } from "@ton/core";
 import { WalletContractV1R2 } from "./WalletContractV1R2";
+import { tillNextSeqno } from "../utils/testWallets";
 
 describe('WalletContractV1R2', () => {
     it('should has balance and correct address', async () => {
@@ -44,5 +45,30 @@ describe('WalletContractV1R2', () => {
 
         // Perform transfer
         await contract.send(transfer);
+        await tillNextSeqno(contract, seqno);
+    });
+
+    it('should perform extra currency transfer', async () => {
+        // Create contract
+        let client = createTestClient4();
+        let key = randomTestKey('v4-treasure');
+        let contract = client.open(WalletContractV1R2.create({ workchain: 0, publicKey: key.publicKey }));
+
+        // Prepare transfer
+        let seqno = await contract.getSeqno();
+        let transfer = contract.createTransfer({
+            seqno,
+            secretKey: key.secretKey,
+            message: internal({
+                to: 'kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt',
+                value: '0.01',
+                extracurrency: {100: BigInt(10 ** 6)},
+                body: 'Hello, extra currency v1r2!'
+            })
+        });
+
+        // Perform transfer
+        await contract.send(transfer);
+        await tillNextSeqno(contract, seqno);
     });
 });

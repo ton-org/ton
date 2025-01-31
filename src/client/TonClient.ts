@@ -26,7 +26,8 @@ import {
     TupleItem,
     TupleReader,
     StateInit,
-    OpenedContract
+    OpenedContract,
+    ExtraCurrency
 } from '@ton/core';
 import { Maybe } from "../utils/maybe";
 
@@ -302,6 +303,7 @@ export class TonClient {
         let state = info.state as 'frozen' | 'active' | 'uninitialized';
         return {
             balance,
+            extra_currencies: info.extra_currencies,
             state,
             code: info.code !== '' ? Buffer.from(info.code, 'base64') : null,
             data: info.data !== '' ? Buffer.from(info.data, 'base64') : null,
@@ -408,6 +410,8 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
             let state = await client.getContractState(address);
             let balance = state.balance;
             let last = state.lastTransaction ? { lt: BigInt(state.lastTransaction.lt), hash: Buffer.from(state.lastTransaction.hash, 'base64') } : null;
+            let ecMap: ExtraCurrency | null = null;
+
             let storage: {
                 type: 'uninit';
             } | {
@@ -436,8 +440,17 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
             } else {
                 throw Error('Unsupported state');
             }
+
+            if(state.extra_currencies.length > 0) {
+                ecMap = {};
+                for(let ec of state.extra_currencies) {
+                    ecMap[ec.id] = BigInt(ec.amount);
+                }
+            }
+
             return {
                 balance,
+                extracurrency: ecMap,
                 last,
                 state: storage,
             };
@@ -512,6 +525,7 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
                 value,
                 bounce,
                 sendMode: message.sendMode,
+                extracurrency: message.extracurrency,
                 init: neededInit,
                 body
             });
