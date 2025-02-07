@@ -24,11 +24,11 @@ const blockIdExt = z.object({
 
 const addressInformation = z.object({
     balance: z.union([z.number(), z.string()]),
-    extra_currencies: z.array(z.object({
+    extra_currencies: z.optional(z.array(z.object({
         '@type': z.literal("extraCurrency"),
         id: z.number(),
         amount: z.string()
-    })),
+    }))),
     state: z.union([z.literal('active'), z.literal('uninitialized'), z.literal('frozen')]),
     data: z.string(),
     code: z.string(),

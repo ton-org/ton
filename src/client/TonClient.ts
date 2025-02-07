@@ -441,7 +441,7 @@ function createProvider(client: TonClient, address: Address, init: StateInit | n
                 throw Error('Unsupported state');
             }
 
-            if(state.extra_currencies.length > 0) {
+            if(state.extra_currencies && state.extra_currencies.length > 0) {
                 ecMap = {};
                 for(let ec of state.extra_currencies) {
                     ecMap[ec.id] = BigInt(ec.amount);

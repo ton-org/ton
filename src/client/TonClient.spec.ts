@@ -5,7 +5,7 @@ let describeConditional = process.env.TEST_CLIENTS ? describe : describe.skip;
 
 describeConditional('TonClient', () => {
     let client = new TonClient({
-        endpoint: 'https://mainnet.tonhubapi.com/jsonRPC',
+        endpoint: 'https://toncenter.com/api/v2/jsonRPC',
     });
     const testAddress = Address.parse('EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N');
 
@@ -43,6 +43,10 @@ describeConditional('TonClient', () => {
         console.log(info, shardInfo, wcShards);
     });
 
+    it('should check contract is deployed', async () => {
+        expect(await client.isContractDeployed(testAddress)).toBe(true);
+    });
+
     it('should get extra currency info', async () => {
         // EC is rolled out only in testned yet
         let testClient = new TonClient({
@@ -52,7 +56,7 @@ describeConditional('TonClient', () => {
         let testAddr = Address.parse("0:D36CFC9E0C57F43C1A719CB9F540ED87A694693AE1535B7654B645F52814AFD7");
 
         let res = await testClient.getContractState(testAddr);
-        let expectedEc =res.extra_currencies.find(e => e.id == 100)!;
+        let expectedEc = res.extra_currencies?.find(e => e.id == 100)!;
         expect(expectedEc).not.toBeUndefined();
         expect(BigInt(expectedEc.amount)).toBe(10000000n);
     });
