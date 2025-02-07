@@ -5,7 +5,7 @@ let describeConditional = process.env.TEST_CLIENTS ? describe : describe.skip;
 
 describeConditional('TonClient', () => {
     let client = new TonClient({
-        endpoint: 'https://mainnet.tonhubapi.com/jsonRPC',
+        endpoint: 'https://toncenter.com/api/v2/jsonRPC',
     });
     const testAddress = Address.parse('EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N');
 
