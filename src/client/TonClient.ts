@@ -30,6 +30,7 @@ import {
     ExtraCurrency
 } from '@ton/core';
 import { Maybe } from "../utils/maybe";
+import { StackItem, Value } from "../utils/stack";
 
 export type TonClientParameters = {
     /**
@@ -340,16 +341,17 @@ export class TonClient {
     }
 }
 
-function parseStackEntry(x: any): any {
+function parseStackEntry(x: Value): TupleItem {
     const typeName = x['@type'];
     switch(typeName) {
         case 'tvm.list':
+            return { type: 'tuple', items: x.elements.map(parseStackEntry) }
         case 'tvm.tuple':
-            return x.elements.map(parseStackEntry);
+            return { type: 'tuple', items: x.elements.map(parseStackEntry) };
         case 'tvm.cell':
-            return Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0];
+            return { type: 'cell', cell: Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0] }
         case 'tvm.slice':
-            return Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0];
+            return { type: 'slice', cell: Cell.fromBoc(Buffer.from(x.bytes, 'base64'))[0] }
         case 'tvm.stackEntryCell':
             return parseStackEntry(x.cell);
         case 'tvm.stackEntrySlice':
@@ -361,13 +363,13 @@ function parseStackEntry(x: any): any {
         case 'tvm.stackEntryNumber':
             return parseStackEntry(x.number);
         case 'tvm.numberDecimal':
-            return BigInt(x.number);
+            return { type: 'int', value: BigInt(x.number) }
         default:
             throw Error('Unsupported item type: ' + typeName);
     }
 }
 
-function parseStackItem(s: any): TupleItem {
+function parseStackItem(s: StackItem): TupleItem {
     if (s[0] === 'num') {
         let val = s[1] as string;
         if (val.startsWith('-')) {
@@ -394,11 +396,11 @@ function parseStackItem(s: any): TupleItem {
     }
 }
 
-function parseStack(src: any[]) {
+function parseStack(src: unknown[]) {
     let stack: TupleItem[] = [];
 
     for (let s of src) {
-        stack.push(parseStackItem(s));
+        stack.push(parseStackItem(s as StackItem));
     }
 
     return new TupleReader(stack);
