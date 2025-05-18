@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import axios, { AxiosAdapter, InternalAxiosRequestConfig, AxiosInstance, AxiosError } from "axios";
+import axios, { AxiosAdapter, InternalAxiosRequestConfig, AxiosInstance } from "axios";
 import { Address, beginCell, Cell, comment, Contract, ContractProvider, ContractState, external, ExtraCurrency, loadTransaction, openContract, OpenedContract, parseTuple, serializeTuple, StateInit, storeMessage, toNano, Transaction, TupleItem, TupleReader } from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { toUrlSafe } from "../utils/toUrlSafe";
