@@ -14,6 +14,7 @@ import {Buffer} from "buffer";
 import {createTestClient4} from "../../utils/createTestClient4";
 import {TonClient4} from "../../client/TonClient4";
 import { tillNextSeqno } from "../../utils/testWallets";
+import { handleTest500 } from "../../utils/handleTest500";
 
 const getExtensionsArray = async (wallet: OpenedContract<WalletContractV5Beta>) => {
     try {
@@ -65,22 +66,27 @@ describe('WalletContractV5Beta', () => {
     });
 
     it('should perform extra currency transfer', async () => {
-        const seqno = await wallet.getSeqno();
-        const transfer = wallet.createTransfer({
-            seqno,
-            secretKey: walletKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-            messages: [internal({
-                bounce: false,
-                to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
-                value: '0.01',
-                extracurrency: {100: BigInt(10 ** 6)},
-                body: 'Hello extra currency w5beta!'
-            })]
-        });
+        try {
+            const seqno = await wallet.getSeqno();
+            const transfer = wallet.createTransfer({
+                seqno,
+                secretKey: walletKey.secretKey,
+                sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                messages: [internal({
+                    bounce: false,
+                    to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
+                    value: '0.01',
+                    extracurrency: {100: BigInt(10 ** 6)},
+                    body: 'Hello extra currency w5beta!'
+                })]
+            });
 
-        await wallet.send(transfer);
-        await tillNextSeqno(wallet, seqno);
+            await wallet.send(transfer);
+            await tillNextSeqno(wallet, seqno);
+        }
+        catch(err) {
+            handleTest500(err);
+        }
     });
 
 
@@ -132,62 +138,66 @@ describe('WalletContractV5Beta', () => {
     });
 
     it('should add extension', async () => {
-        const extensionKey = randomTestKey('v5-treasure-extension');
-        const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
+        try {
+            const extensionKey = randomTestKey('v5-treasure-extension');
+            const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
 
+            let seqno = await wallet.getSeqno();
+            const extensions = await getExtensionsArray(wallet);
 
-        let seqno = await wallet.getSeqno();
-        const extensions = await getExtensionsArray(wallet);
+            const extensionAlreadyAdded = extensions.some(address => address.equals(extensionContract.address));
 
-        const extensionAlreadyAdded = extensions.some(address => address.equals(extensionContract.address));
+            if (!extensionAlreadyAdded) {
+                await wallet.sendAddExtension({
+                    seqno,
+                    secretKey: walletKey.secretKey,
+                    extensionAddress: extensionContract.address
+                });
 
-        if (!extensionAlreadyAdded) {
-            await wallet.sendAddExtension({
-                seqno,
-                secretKey: walletKey.secretKey,
-                extensionAddress: extensionContract.address
-            });
+                const waitUntilExtensionAdded = async (attempt = 0): Promise<void> => {
+                    if (attempt >= 20) {
+                        throw new Error('Extension was not added in 20 blocks');
+                    }
+                    const extensions = await getExtensionsArray(wallet);
+                    const extensionAdded = extensions.some(address => address.equals(extensionContract.address));
+                    if (extensionAdded) {
+                        return;
+                    }
 
-            const waitUntilExtensionAdded = async (attempt = 0): Promise<void> => {
-                if (attempt >= 20) {
-                    throw new Error('Extension was not added in 20 blocks');
+                    await new Promise(r => setTimeout(r, 1500));
+                    return waitUntilExtensionAdded(attempt + 1);
                 }
-                const extensions = await getExtensionsArray(wallet);
-                const extensionAdded = extensions.some(address => address.equals(extensionContract.address));
-                if (extensionAdded) {
-                    return;
-                }
 
-                await new Promise(r => setTimeout(r, 1500));
-                return waitUntilExtensionAdded(attempt + 1);
+                await waitUntilExtensionAdded();
             }
 
-            await waitUntilExtensionAdded();
+            seqno = await wallet.getSeqno();
+
+            const extensionsSeqno = await extensionContract.getSeqno();
+            await extensionContract.sendTransfer({
+                seqno: extensionsSeqno,
+                secretKey: extensionKey.secretKey,
+                sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                messages: [internal({
+                    to: wallet.address,
+                    value: '0.02',
+                    body: wallet.createTransfer({
+                        seqno: seqno,
+                        authType: 'extension',
+                        sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                        messages: [internal({
+                            bounce: false,
+                            to: '0QD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgoHo',
+                            value: '0.03',
+                            body: 'Hello world from plugin'
+                        })]
+                    })
+                })]
+            });
         }
-
-        seqno = await wallet.getSeqno();
-
-        const extensionsSeqno = await extensionContract.getSeqno();
-        await extensionContract.sendTransfer({
-            seqno: extensionsSeqno,
-            secretKey: extensionKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-            messages: [internal({
-                to: wallet.address,
-                value: '0.02',
-                body: wallet.createTransfer({
-                    seqno: seqno,
-                    authType: 'extension',
-                    sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-                    messages: [internal({
-                        bounce: false,
-                        to: '0QD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgoHo',
-                        value: '0.03',
-                        body: 'Hello world from plugin'
-                    })]
-                })
-            })]
-        });
+        catch(err) {
+            handleTest500(err);
+        }
     }, 60000);
 
     it('should remove extension', async () => {
@@ -210,164 +220,173 @@ describe('WalletContractV5Beta', () => {
     });
 
     it('should send internal transfer via relayer', async () => {
-        const relaerKey = randomTestKey('v5-treasure-relayer');
-        const relayerContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: relaerKey.publicKey }));
+        try {
+            const relaerKey = randomTestKey('v5-treasure-relayer');
+            const relayerContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: relaerKey.publicKey }));
 
+            const seqno = await wallet.getSeqno();
 
-        const seqno = await wallet.getSeqno();
-
-        const relayerSeqno = await relayerContract.getSeqno();
-        await relayerContract.sendTransfer({
-            seqno: relayerSeqno,
-            secretKey: relaerKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-            messages: [internal({
-                to: wallet.address,
-                value: '0.03',
-                body: wallet.createTransfer({
-                    seqno: seqno,
-                    secretKey: walletKey.secretKey,
-                    authType: 'internal',
-                    sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-                    messages: [internal({
-                        bounce: false,
-                        to: '0QD2NmD_lH5f5u1Kj3KfGyTvhZSX0Eg6qp2a5IQUKXxOG4so',
-                        value: '0.04',
-                        body: 'Hello world from relayer'
-                    })]
-                })
-            })]
-        });
+            const relayerSeqno = await relayerContract.getSeqno();
+            await relayerContract.sendTransfer({
+                seqno: relayerSeqno,
+                secretKey: relaerKey.secretKey,
+                sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                messages: [internal({
+                    to: wallet.address,
+                    value: '0.03',
+                    body: wallet.createTransfer({
+                        seqno: seqno,
+                        secretKey: walletKey.secretKey,
+                        authType: 'internal',
+                        sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                        messages: [internal({
+                            bounce: false,
+                            to: '0QD2NmD_lH5f5u1Kj3KfGyTvhZSX0Eg6qp2a5IQUKXxOG4so',
+                            value: '0.04',
+                            body: 'Hello world from relayer'
+                        })]
+                    })
+                })]
+            });
+        }
+        catch(err) {
+            handleTest500(err);
+        }
     });
 
 
     it('should disable secret key auth, send extension-auth tx, and enable it again', async () => {
-        /* firstly add an extension that will take the control over the wallet */
-        const extensionKey = randomTestKey('v5-treasure-extension');
-        const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
+        try {
+            /* firstly add an extension that will take the control over the wallet */
+            const extensionKey = randomTestKey('v5-treasure-extension');
+            const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
 
-        let seqno = await wallet.getSeqno();
-        const extensions = await getExtensionsArray(wallet);
+            let seqno = await wallet.getSeqno();
+            const extensions = await getExtensionsArray(wallet);
 
-        const extensionAlreadyAdded = extensions.some(address => address.equals(extensionContract.address));
+            const extensionAlreadyAdded = extensions.some(address => address.equals(extensionContract.address));
 
-        if (!extensionAlreadyAdded) {
-            await wallet.sendAddExtension({
-                seqno,
-                secretKey: walletKey.secretKey,
-                extensionAddress: extensionContract.address
-            });
+            if (!extensionAlreadyAdded) {
+                await wallet.sendAddExtension({
+                    seqno,
+                    secretKey: walletKey.secretKey,
+                    extensionAddress: extensionContract.address
+                });
 
-            const waitUntilExtensionAdded = async (attempt = 0): Promise<void> => {
-                if (attempt >= 20) {
-                    throw new Error('Extension was not added in 20 blocks');
+                const waitUntilExtensionAdded = async (attempt = 0): Promise<void> => {
+                    if (attempt >= 20) {
+                        throw new Error('Extension was not added in 20 blocks');
+                    }
+                    const extensions = await getExtensionsArray(wallet);
+                    const extensionAdded = extensions.some(address => address.equals(extensionContract.address));
+                    if (extensionAdded) {
+                        return;
+                    }
+
+                    await new Promise(r => setTimeout(r, 1500));
+                    return waitUntilExtensionAdded(attempt + 1);
                 }
-                const extensions = await getExtensionsArray(wallet);
-                const extensionAdded = extensions.some(address => address.equals(extensionContract.address));
-                if (extensionAdded) {
+
+                await waitUntilExtensionAdded();
+            }
+
+            /* disable secret key auth */
+            seqno = await wallet.getSeqno();
+            const isInitiallyEnabled = await wallet.getIsSecretKeyAuthEnabled();
+
+            const waitUntilAuthValue = async (target: 'enabled' | 'disabled', attempt = 0): Promise<void> => {
+                if (attempt >= 20) {
+                    throw new Error('Auth permissions were not changed in 20 blocks');
+                }
+                const isEnabledNow = await wallet.getIsSecretKeyAuthEnabled();
+                if ((target === 'enabled' && isEnabledNow ) || (target === 'disabled' && !isEnabledNow)) {
                     return;
                 }
 
                 await new Promise(r => setTimeout(r, 1500));
-                return waitUntilExtensionAdded(attempt + 1);
+                return waitUntilAuthValue(target, attempt + 1);
             }
 
-            await waitUntilExtensionAdded();
-        }
-
-        /* disable secret key auth */
-        seqno = await wallet.getSeqno();
-        const isInitiallyEnabled = await wallet.getIsSecretKeyAuthEnabled();
-
-        const waitUntilAuthValue = async (target: 'enabled' | 'disabled', attempt = 0): Promise<void> => {
-            if (attempt >= 20) {
-                throw new Error('Auth permissions were not changed in 20 blocks');
-            }
-            const isEnabledNow = await wallet.getIsSecretKeyAuthEnabled();
-            if ((target === 'enabled' && isEnabledNow ) || (target === 'disabled' && !isEnabledNow)) {
-                return;
-            }
-
-            await new Promise(r => setTimeout(r, 1500));
-            return waitUntilAuthValue(target, attempt + 1);
-        }
-
-        if (isInitiallyEnabled) {
-            await wallet.sendActionsBatch({
-                seqno,
-                secretKey: walletKey.secretKey,
-                actions: [
-                    {
-                        type: 'setIsPublicKeyEnabled',
-                        isEnabled: false
-                    }
-                ]
-            });
-
-            await waitUntilAuthValue('disabled');
-        }
-
-        /* should fail direct secret-key auth transfer from the wallet */
-        seqno = await wallet.getSeqno();
-        const transfer = wallet.createTransfer({
-            seqno: seqno,
-            secretKey: walletKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-            messages: [internal({
-                bounce: false,
-                to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
-                value: '0.01',
-                body: 'Hello world single transfer that SHOULD FAIL!'
-            })]
-        });
-
-        await expect(wallet.send(transfer)).rejects.toThrow();
-
-        /* should perform transfer from the extension and enable auth by secret key  */
-
-        const extensionsSeqno = await extensionContract.getSeqno();
-        await extensionContract.sendTransfer({
-            seqno: extensionsSeqno,
-            secretKey: extensionKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-            messages: [internal({
-                to: wallet.address,
-                value: '0.03',
-                body: wallet.createRequest({
+            if (isInitiallyEnabled) {
+                await wallet.sendActionsBatch({
                     seqno,
-                    authType: 'extension',
+                    secretKey: walletKey.secretKey,
                     actions: [
                         {
-                          type: 'setIsPublicKeyEnabled',
-                          isEnabled: true
-                        },
-                        {
-                        type: "sendMsg",
-                        mode: SendMode.IGNORE_ERRORS + SendMode.PAY_GAS_SEPARATELY,
-                        outMsg: internal({
-                            bounce: false,
-                            to: '0QD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgoHo',
-                            value: '0.03',
-                            body: 'Hello world from plugin that controls the wallet!'
-                        })
-                    }]
-                })
-            })]
-        });
+                            type: 'setIsPublicKeyEnabled',
+                            isEnabled: false
+                        }
+                    ]
+                });
 
-        await waitUntilAuthValue('enabled');
+                await waitUntilAuthValue('disabled');
+            }
 
-        /* should fail direct secret-key auth transfer from the wallet */
-        await wallet.sendTransfer({
-            seqno: seqno + 1,
-            secretKey: walletKey.secretKey,
-            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-            messages: [internal({
-                bounce: false,
-                to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
-                value: '0.01',
-                body: 'Hello world single transfer after sk auth enabled!'
-            })]
-        });
+            /* should fail direct secret-key auth transfer from the wallet */
+            seqno = await wallet.getSeqno();
+            const transfer = wallet.createTransfer({
+                seqno: seqno,
+                secretKey: walletKey.secretKey,
+                sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                messages: [internal({
+                    bounce: false,
+                    to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
+                    value: '0.01',
+                    body: 'Hello world single transfer that SHOULD FAIL!'
+                })]
+            });
+
+            await expect(wallet.send(transfer)).rejects.toThrow();
+
+            /* should perform transfer from the extension and enable auth by secret key  */
+
+            const extensionsSeqno = await extensionContract.getSeqno();
+            await extensionContract.sendTransfer({
+                seqno: extensionsSeqno,
+                secretKey: extensionKey.secretKey,
+                sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                messages: [internal({
+                    to: wallet.address,
+                    value: '0.03',
+                    body: wallet.createRequest({
+                        seqno,
+                        authType: 'extension',
+                        actions: [
+                            {
+                              type: 'setIsPublicKeyEnabled',
+                              isEnabled: true
+                            },
+                            {
+                            type: "sendMsg",
+                            mode: SendMode.IGNORE_ERRORS + SendMode.PAY_GAS_SEPARATELY,
+                            outMsg: internal({
+                                bounce: false,
+                                to: '0QD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgoHo',
+                                value: '0.03',
+                                body: 'Hello world from plugin that controls the wallet!'
+                            })
+                        }]
+                    })
+                })]
+            });
+
+            await waitUntilAuthValue('enabled');
+
+            /* should fail direct secret-key auth transfer from the wallet */
+            await wallet.sendTransfer({
+                seqno: seqno + 1,
+                secretKey: walletKey.secretKey,
+                sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+                messages: [internal({
+                    bounce: false,
+                    to: 'UQB-2r0kM28L4lmq-4V8ppQGcnO1tXC7FZmbnDzWZVBkp6jE',
+                    value: '0.01',
+                    body: 'Hello world single transfer after sk auth enabled!'
+                })]
+            });
+        }
+        catch(err) {
+            handleTest500(err);
+        }
     }, 120000);
 });
