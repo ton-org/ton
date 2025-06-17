@@ -561,7 +561,7 @@ const storageStatCodec = z.object({
     used: z.object({
         bits: z.number(),
         cells: z.number(),
-        publicCells: z.number()
+        publicCells: z.number().optional()
     })
 });
 
