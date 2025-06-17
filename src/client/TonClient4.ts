@@ -560,7 +560,8 @@ const storageStatCodec = z.object({
     duePayment: z.union([z.null(), z.string()]),
     used: z.object({
         bits: z.number(),
-        cells: z.number()
+        cells: z.number(),
+        publicCells: z.number().optional()
     })
 });
 
