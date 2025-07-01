@@ -13,6 +13,9 @@ import { configParse5, configParse13, configParse17, configParse18, configParseV
 const client = createTestClient4("mainnet");
 const KNOWN_BLOCK = 31091335;
 
+const TESTNET_BLOCK = 32762926
+const testnetClient = createTestClient4("testnet");
+
 describe('ConfigContract', () => {
 
     // for some reason api returns 500 for this reques
@@ -54,6 +57,44 @@ describe('ConfigContract', () => {
                 vmVersion: -1
             },
             workchain_v2: undefined
+        });
+    });
+
+    it('should return correct workchain_v2 description', async () => {
+        const serializedConfigsCell = (await testnetClient.getConfig(TESTNET_BLOCK, [12])).config.cell;
+
+        const config12 = configParse12(loadConfigParamById(serializedConfigsCell, 12).beginParse());
+        const wcData   = config12.get(0)!;
+
+        expect(wcData.workchain_v2).not.toBeUndefined();
+
+        // https://test-explorer.toncenter.com/config?workchain=-1&shard=8000000000000000&seqno=32764024&roothash=B17E08E4F2C06630D5DF348BE2D2545784515B772AB645CE9A05DA37AFB80D48&filehash=5A60AAA67F3F20BB7F1DAA5A14CEA90CDDA508FB3B18B64EF1144183833B8618#configparam12
+
+        expect(wcData).toEqual({
+            enabledSince: 1573821854,
+            actialMinSplit: 0,
+            min_split: 0,
+            max_split: 0,
+            basic: true,
+            active: true,
+            accept_msgs: true,
+            flags: 0,
+            zerostateRootHash: Buffer.from('55b13f6d0e1d0c34c9c2160f6f918e92d82bf9ddcf8de2e4c94a3fdf39d15446', 'hex'),
+            zerostateFileHash: Buffer.from('ee0bedfe4b32761fb35e9e1d8818ea720cad1a0e7b4d2ed673c488e72e910342', 'hex'),
+            version: 0,
+            format: {
+                vmMode: 0n,
+                vmVersion: -1
+            },
+            workchain_v2:  {
+                split_merge_timings: {
+                    split_merge_delay: 100,
+                    split_merge_interval: 100,
+                    min_split_merge_interval: 30,
+                    max_split_merge_delay: 1000,
+                },
+                persistent_state_split_depth: 4
+            }
         });
     });
     
@@ -114,10 +155,8 @@ describe('ConfigContract', () => {
         parseFullConfig(loadConfigParamsAsSlice(serializedConfigsCell));
     });
     it('should not raise error when parsing testnet config', async () => {
-        const testnetBlock = 32762926
-        const testnetClient = createTestClient4("testnet");
 
-        const serializedConfigsCell = (await testnetClient.getConfig(testnetBlock)).config.cell;
+        const serializedConfigsCell = (await testnetClient.getConfig(TESTNET_BLOCK)).config.cell;
 
         parseFullConfig(loadConfigParamsAsSlice(serializedConfigsCell));
     });
