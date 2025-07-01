@@ -290,10 +290,11 @@ export function configParseWorkchainDescriptor(slice: Slice): WorkchainDescripto
     const version = slice.loadUint(32);
 
     // Only basic format supported
-    if (slice.loadBit()) {
+    if (!slice.loadUint(4)) {
         throw Error('Invalid config');
     }
-    const vmVersion = slice.loadUint(32);
+
+    const vmVersion = slice.loadInt(32);
     const vmMode = slice.loadUintBig(64);
 
     return {

@@ -50,8 +50,8 @@ describe('ConfigContract', () => {
             zerostateFileHash: Buffer.from('ee0bedfe4b32761fb35e9e1d8818ea720cad1a0e7b4d2ed673c488e72e910342', 'hex'),
             version: 0,
             format: {
-                vmMode: 16140901064495857664n,
-                vmVersion: 1073741823,
+                vmMode: 0n,
+                vmVersion: -1
             },
             
         });
