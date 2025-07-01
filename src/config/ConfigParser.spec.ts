@@ -53,7 +53,7 @@ describe('ConfigContract', () => {
                 vmMode: 0n,
                 vmVersion: -1
             },
-            
+            workchain_v2: undefined
         });
     });
     
@@ -111,6 +111,14 @@ describe('ConfigContract', () => {
 
     it('should not reise error when loading full config', async () => {
         const serializedConfigsCell = (await client.getConfig(KNOWN_BLOCK)).config.cell;
+        parseFullConfig(loadConfigParamsAsSlice(serializedConfigsCell));
+    });
+    it('should not raise error when parsing testnet config', async () => {
+        const testnetBlock = 32762926
+        const testnetClient = createTestClient4("testnet");
+
+        const serializedConfigsCell = (await testnetClient.getConfig(testnetBlock)).config.cell;
+
         parseFullConfig(loadConfigParamsAsSlice(serializedConfigsCell));
     });
 });
