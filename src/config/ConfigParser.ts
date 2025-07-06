@@ -274,7 +274,9 @@ export function configParse40(slice: Slice | null | undefined) {
 
 
 export function configParseWorkchainDescriptor(slice: Slice): WorkchainDescriptor {
-    if (slice.loadUint(8) !== 0xA6) {
+    const constructorTag = slice.loadUint(8);
+
+    if (!(constructorTag == 0xA6 || constructorTag == 0xA7)) {
         throw Error('Invalid config');
     }
     const enabledSince = slice.loadUint(32);
@@ -290,11 +292,28 @@ export function configParseWorkchainDescriptor(slice: Slice): WorkchainDescripto
     const version = slice.loadUint(32);
 
     // Only basic format supported
-    if (slice.loadBit()) {
+    if (!slice.loadUint(4)) {
         throw Error('Invalid config');
     }
-    const vmVersion = slice.loadUint(32);
+
+    const vmVersion = slice.loadInt(32);
     const vmMode = slice.loadUintBig(64);
+
+    let extension: WorkchainDescriptor['workchain_v2'] = undefined;
+
+    if(constructorTag == 0xA7) {
+        const splitMergeTimings = parseWorkchainSplitMergeTimings(slice)
+        const stateSplitDepth   = slice.loadUint(8);
+
+        if(stateSplitDepth > 63) {
+            throw RangeError(`Invalid persistent_state_split_depth: ${stateSplitDepth} expected <= 63`);
+        }
+
+        extension = {
+            split_merge_timings: splitMergeTimings,
+            persistent_state_split_depth: stateSplitDepth
+        }
+    }
 
     return {
         enabledSince,
@@ -311,10 +330,23 @@ export function configParseWorkchainDescriptor(slice: Slice): WorkchainDescripto
         format: {
             vmVersion,
             vmMode
-        }
+        },
+        workchain_v2: extension
     };
 }
 
+/*
+wc_split_merge_timings#0
+  split_merge_delay:uint32 split_merge_interval:uint32
+  min_split_merge_interval:uint32 max_split_merge_delay:uint32
+  = WcSplitMergeTimings;
+*/
+export type WcSplitMergeTimings = {
+    split_merge_delay: number,
+    split_merge_interval: number,
+    min_split_merge_interval: number,
+    max_split_merge_delay: number
+}
 export type WorkchainDescriptor = {
     enabledSince: number,
     actialMinSplit: number,
@@ -330,53 +362,30 @@ export type WorkchainDescriptor = {
     format: {
         vmVersion: number,
         vmMode: bigint
+    },
+    workchain_v2?: { // Result of https://github.com/ton-blockchain/ton/commit/774371bdc9f6107fd05106c1fd559e8903e0513d
+        split_merge_timings: WcSplitMergeTimings,
+        persistent_state_split_depth: number
     }
 }
 
+function parseWorkchainSplitMergeTimings(slice: Slice) : WcSplitMergeTimings {
+    if(slice.loadUint(4) !== 0){
+        throw Error(`Invalid WcSplitMergeTimings tag expected 0!`);
+    }
+    return {
+        split_merge_delay: slice.loadUint(32),
+        split_merge_interval: slice.loadUint(32),
+        min_split_merge_interval: slice.loadUint(32),
+        max_split_merge_delay: slice.loadUint(32)
+    }
+}
 const WorkchainDescriptorDictValue: DictionaryValue<WorkchainDescriptor> = {
     serialize(src: any, builder: Builder): void {
         throw Error("not implemented")
     },
     parse(src: Slice): WorkchainDescriptor {
-        if (src.loadUint(8) !== 0xA6) {
-            throw Error('Invalid config');
-        }
-        const enabledSince = src.loadUint(32);
-        const actialMinSplit = src.loadUint(8);
-        const min_split = src.loadUint(8);
-        const max_split = src.loadUint(8);
-        const basic = src.loadBit();
-        const active = src.loadBit();
-        const accept_msgs = src.loadBit();
-        const flags = src.loadUint(13);
-        const zerostateRootHash = src.loadBuffer(32);
-        const zerostateFileHash = src.loadBuffer(32);
-        const version = src.loadUint(32);
-    
-        // Only basic format supported
-        if (src.loadBit()) {
-            throw Error('Invalid config');
-        }
-        const vmVersion = src.loadUint(32);
-        const vmMode = src.loadUintBig(64);
-    
-        return {
-            enabledSince,
-            actialMinSplit,
-            min_split,
-            max_split,
-            basic,
-            active,
-            accept_msgs,
-            flags,
-            zerostateRootHash,
-            zerostateFileHash,
-            version,
-            format: {
-                vmVersion,
-                vmMode
-            }
-        };
+        return configParseWorkchainDescriptor(src)
     }
 }
 
