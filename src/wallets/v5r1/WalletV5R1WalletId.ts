@@ -67,7 +67,7 @@ export function loadWalletIdV5R1(value: bigint | Buffer | Slice, networkGlobalId
     const val = new BitReader(
         new BitString(
             typeof value === 'bigint' ?
-                Buffer.from(value.toString(16), 'hex') :
+                Buffer.from(value.toString(16).padStart(8, '0'), 'hex') :
                 value instanceof Slice ? value.loadBuffer(4) : value,
             0,
             32
