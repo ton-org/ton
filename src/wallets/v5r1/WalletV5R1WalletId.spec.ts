@@ -54,6 +54,42 @@ describe('Wallet V5R1 wallet id', () => {
 
         expect(expected).toEqual(actual);
     });
+    it('Should deserialize correctly in all modes', async () => {
+        const getRandom = (min:number, max:number) => {
+            return Math.round(Math.random() * (max - min) + min);
+        }
+
+        const subwalletMax = (2 ** 15) - 1;
+        const randomSubwallet = () => getRandom(1, subwalletMax - 2);
+        const randomBunch = Array(10).fill(0).map(randomSubwallet);
+
+        for(let networkId of [-239, -3]) {
+            for(let testWc of [0, -1]) {
+                for(let testSubwallet of [0, subwalletMax, ...randomBunch]) {
+                    const expected: WalletIdV5R1<WalletIdV5R1ClientContext> = {
+                        networkGlobalId: networkId,
+                        context: {
+                            walletVersion: 'v5r1',
+                            workchain: testWc,
+                            subwalletNumber: testSubwallet
+                        }
+                    }
+                    const packed = beginCell().store(storeWalletIdV5R1(expected)).endCell();
+
+                    let unpacked = loadWalletIdV5R1(packed.beginParse(), networkId);
+                    expect(unpacked).toEqual(expected);
+
+                    const intVal = BigInt(packed.beginParse().loadInt(32));
+                    unpacked     = loadWalletIdV5R1(intVal, networkId);
+                    expect(unpacked).toEqual(expected);
+
+                    const buffVal = packed.beginParse().loadBuffer(4);
+                    unpacked      = loadWalletIdV5R1(buffVal, networkId);
+                    expect(unpacked).toEqual(expected);
+                }
+            }
+        }
+    });
 
     it('Should serialise wallet id', () => {
         const walletId: WalletIdV5R1<WalletIdV5R1CustomContext> = {
