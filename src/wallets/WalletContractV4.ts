@@ -6,9 +6,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
+import {
+    Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode,
+    StateInit, TupleReader
+} from "@ton/core";
 import { Maybe } from "../utils/maybe";
-import { createWalletTransferV4 } from "./signing/createWalletTransfer";
+import { createWalletPluginActionV4, createWalletTransferV4 } from "./signing/createWalletTransfer";
 import { SendArgsSignable, SendArgsSigned } from "./signing/singer";
 
 
@@ -19,8 +22,36 @@ export type WalletV4BasicSendArgs = {
     timeout?: Maybe<number>,
 }
 
+export type WalletV4PluginArgs = {
+    seqno: number,
+    pluginAction: WalletV4PluginAction
+    sendMode?: Maybe<SendMode>,
+    timeout?: Maybe<number>,
+}
+
+export type WalletV4PluginAction = {
+    action: 'deployAndInstall',
+    workchain: number,
+    stateInit: StateInit,
+    body: Cell,
+    forwardAmount: bigint
+} | {
+    action: 'install',
+    address: Address,
+    forwardAmount: bigint,
+    queryId?: bigint,
+} | {
+    action: 'uninstall',
+    address: Address,
+    forwardAmount: bigint,
+    queryId?: bigint,
+}
+
 export type Wallet4SendArgsSigned = WalletV4BasicSendArgs & SendArgsSigned;
 export type Wallet4SendArgsSignable = WalletV4BasicSendArgs & SendArgsSignable;
+
+export type Wallet4PluginArgsSigned = WalletV4PluginArgs & SendArgsSigned;
+export type Wallet4PluginArgsSignable = WalletV4PluginArgs & SendArgsSignable;
 
 export class WalletContractV4 implements Contract {
 
@@ -78,6 +109,43 @@ export class WalletContractV4 implements Contract {
         }
     }
 
+    async getIsPluginInstalled(provider: ContractProvider, pluginAddress: Address) {
+        const state = await provider.getState();
+        if (state.state.type !== 'active') {
+            return false;
+        }
+
+        const wc = BigInt(pluginAddress.workChain);
+        const addrHash = BigInt('0x' + pluginAddress.hash.toString('hex'));
+        const res = await provider.get('is_plugin_installed', [
+            { type: 'int', value: wc },
+            { type: 'int', value: addrHash }
+        ]);
+
+        return res.stack.readBoolean();
+    }
+
+    async getPluginList(provider: ContractProvider) {
+        const state = await provider.getState();
+        if (state.state.type !== 'active') {
+            return [];
+        }
+
+        const res = await provider.get('get_plugin_list', []);
+        const listReader = new TupleReader(res.stack.readLispList());
+        const plugins: Address[] = [];
+
+        while (listReader.remaining > 0) {
+            const entry = listReader.readTuple();
+            const workchain = entry.readNumber();
+            const addrHash = entry.readBigNumber();
+            const addressHex = addrHash.toString(16).padStart(64, '0');
+            plugins.push(Address.parseRaw(`${workchain}:${addressHex}`));
+        }
+
+        return plugins;
+    }
+
     /**
      * Send signed transfer
      */
@@ -110,6 +178,19 @@ export class WalletContractV4 implements Contract {
         });
     }
 
+    async sendPluginAction(provider: ContractProvider, args: Wallet4PluginArgsSigned) {
+        const action = this.createPluginAction(args);
+        await this.send(provider, action);
+    }
+
+    createPluginAction<T extends Wallet4PluginArgsSigned | Wallet4PluginArgsSignable>(args:T ){
+        return createWalletPluginActionV4<T>({
+            ...args,
+            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
+            walletId: this.walletId
+        });
+    }
+
     /**
      * Create sender
      */
@@ -133,5 +214,41 @@ export class WalletContractV4 implements Contract {
                 await this.send(provider, transfer);
             }
         };
+    }
+
+    async sendPluginRequestFunds(provider: ContractProvider, sender: Sender, args: {
+        forwardAmount: bigint,
+        toncoinsToWithdraw: bigint,
+        queryId?: bigint,
+        sendMode?: SendMode
+    }) {
+        await provider.internal(sender, {
+            value: args.forwardAmount,
+            body: this.createPluginRequestFundsMessage(args),
+            sendMode: args.sendMode
+        })
+    }
+
+    createPluginRequestFundsMessage(args: { toncoinsToWithdraw: bigint, queryId?: bigint }) {
+        return beginCell()
+            .storeUint(0x706c7567, 32)
+            .storeUint(args.queryId ?? 0, 64)
+            .storeCoins(args.toncoinsToWithdraw)
+            .storeDict(null)
+            .endCell();
+    }
+
+    async sendPluginRemovePlugin(provider: ContractProvider, sender: Sender, amount: bigint, queryId?: bigint) {
+        await provider.internal(sender, {
+            value: amount,
+            body: this.createPluginRemovePluginMessage(queryId),
+        })
+    }
+
+    createPluginRemovePluginMessage(queryId?: bigint) {
+        return beginCell()
+            .storeUint(0x64737472, 32)
+            .storeUint(queryId ?? 0, 64)
+            .endCell()
     }
 }

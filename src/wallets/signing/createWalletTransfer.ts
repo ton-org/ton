@@ -6,7 +6,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { beginCell, Builder, Cell, MessageRelaxed, OutActionSendMsg, storeMessageRelaxed } from "@ton/core";
+import {
+    beginCell,
+    Builder,
+    Cell,
+    MessageRelaxed,
+    OutActionSendMsg,
+    storeMessageRelaxed,
+    storeStateInit
+} from "@ton/core";
 import { sign } from "@ton/crypto";
 import { Maybe } from "../../utils/maybe";
 import {
@@ -20,7 +28,12 @@ import {
     storeOutListExtendedV5Beta
 } from "../v5beta/WalletV5BetaActions";
 import { signPayload } from "./singer";
-import { Wallet4SendArgsSignable, Wallet4SendArgsSigned } from "../WalletContractV4";
+import {
+    Wallet4PluginArgsSignable,
+    Wallet4PluginArgsSigned,
+    Wallet4SendArgsSignable,
+    Wallet4SendArgsSigned
+} from "../WalletContractV4";
 import { WalletV3SendArgsSignable, WalletV3SendArgsSigned } from "../WalletContractV3Types";
 import {OutActionExtended} from "../v5beta/WalletV5OutActions";
 import {
@@ -169,6 +182,53 @@ export function createWalletTransferV4<T extends Wallet4SendArgsSignable | Walle
         signingMessage,
         packSignatureToFront,
     ) as T extends Wallet4SendArgsSignable ? Promise<Cell> : Cell;
+}
+
+export function createWalletPluginActionV4<T extends Wallet4PluginArgsSigned | Wallet4PluginArgsSignable>(
+    args: T & { sendMode: number, walletId: number }
+) {
+    let signingMessage = beginCell()
+        .storeUint(args.walletId, 32);
+    if (args.seqno === 0) {
+        for (let i = 0; i < 32; i++) {
+            signingMessage.storeBit(1);
+        }
+    } else {
+        signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
+    }
+    signingMessage.storeUint(args.seqno, 32);
+
+    switch (args.pluginAction.action) {
+        case 'deployAndInstall':
+            signingMessage.storeUint(1, 8);
+            signingMessage.storeInt(args.pluginAction.workchain, 8);
+            signingMessage.storeCoins(args.pluginAction.forwardAmount);
+            signingMessage.storeRef(beginCell().store(storeStateInit(args.pluginAction.stateInit)));
+            signingMessage.storeRef(args.pluginAction.body);
+            break;
+        case 'install':
+            signingMessage.storeUint(2, 8);
+            signingMessage.storeInt(args.pluginAction.address.workChain, 8);
+            signingMessage.storeBuffer(args.pluginAction.address.hash);
+            signingMessage.storeCoins(args.pluginAction.forwardAmount);
+            signingMessage.storeUint(args.pluginAction.queryId ?? 0n, 64);
+            break;
+        case 'uninstall':
+            signingMessage.storeUint(3, 8);
+            signingMessage.storeInt(args.pluginAction.address.workChain, 8);
+            signingMessage.storeBuffer(args.pluginAction.address.hash);
+            signingMessage.storeCoins(args.pluginAction.forwardAmount);
+            signingMessage.storeUint(args.pluginAction.queryId ?? 0n, 64);
+            break;
+        default:
+            throw new Error(`Unsupported plugin action`);
+    }
+
+    return signPayload(
+        args,
+        signingMessage,
+        packSignatureToFront,
+    ) as T extends Wallet4PluginArgsSignable ? Promise<Cell> : Cell;
 }
 
 export function createWalletTransferV5Beta<T extends WalletV5BetaSendArgs>(
