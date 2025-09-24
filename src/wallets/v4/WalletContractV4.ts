@@ -85,7 +85,7 @@ export class WalletContractV4 implements Contract {
         }
     }
 
-    async getIsPluginInstalled(provider: ContractProvider, pluginAddress: Address) {
+    async getIsExtensionInstalled(provider: ContractProvider, pluginAddress: Address) {
         const state = await provider.getState();
         if (state.state.type !== 'active') {
             return false;
@@ -101,7 +101,7 @@ export class WalletContractV4 implements Contract {
         return res.stack.readBoolean();
     }
 
-    async getPluginList(provider: ContractProvider) {
+    async getExtensionsArray(provider: ContractProvider) {
         const state = await provider.getState();
         if (state.state.type !== 'active') {
             return [];
@@ -209,7 +209,7 @@ export class WalletContractV4 implements Contract {
         };
     }
 
-    async sendPluginRequestFunds(provider: ContractProvider, sender: Sender, args: {
+    async sendExtensionRequestFunds(provider: ContractProvider, sender: Sender, args: {
         forwardAmount: bigint,
         toncoinsToWithdraw: bigint,
         queryId?: bigint,
@@ -217,12 +217,12 @@ export class WalletContractV4 implements Contract {
     }) {
         await provider.internal(sender, {
             value: args.forwardAmount,
-            body: this.createPluginRequestFundsMessage(args),
+            body: this.createExtensionRequestFundsMessage(args),
             sendMode: args.sendMode
         })
     }
 
-    createPluginRequestFundsMessage(args: { toncoinsToWithdraw: bigint, queryId?: bigint }) {
+    createExtensionRequestFundsMessage(args: { toncoinsToWithdraw: bigint, queryId?: bigint }) {
         return beginCell()
             .storeUint(0x706c7567, 32)
             .storeUint(args.queryId ?? 0, 64)
@@ -231,14 +231,14 @@ export class WalletContractV4 implements Contract {
             .endCell();
     }
 
-    async sendPluginRemovePlugin(provider: ContractProvider, sender: Sender, amount: bigint, queryId?: bigint) {
+    async sendExtensionRemoveExtension(provider: ContractProvider, sender: Sender, amount: bigint, queryId?: bigint) {
         await provider.internal(sender, {
             value: amount,
-            body: this.createPluginRemovePluginMessage(queryId),
+            body: this.createExtensionRemovePluginMessage(queryId),
         })
     }
 
-    createPluginRemovePluginMessage(queryId?: bigint) {
+    createExtensionRemovePluginMessage(queryId?: bigint) {
         return beginCell()
             .storeUint(0x64737472, 32)
             .storeUint(queryId ?? 0, 64)

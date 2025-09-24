@@ -111,7 +111,7 @@ describe('WalletContractV4', () => {
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
                 action: {
-                    type: 'installPlugin',
+                    type: 'addExtension',
                     address: randomAddress,
                     forwardAmount: toNano('0.01'),
                 }
@@ -121,8 +121,8 @@ describe('WalletContractV4', () => {
         })
 
         it('should return plugin in get methods', async () => {
-            expect(await contract.getIsPluginInstalled(randomAddress)).toBeTruthy();
-            const plugins = await contract.getPluginList();
+            expect(await contract.getIsExtensionInstalled(randomAddress)).toBeTruthy();
+            const plugins = await contract.getExtensionsArray();
             expect(plugins.find(plugin => plugin.equals(randomAddress))).toBeTruthy();
         })
 
@@ -132,7 +132,7 @@ describe('WalletContractV4', () => {
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
                 action: {
-                    type: 'uninstallPlugin',
+                    type: 'removeExtension',
                     address: randomAddress,
                     forwardAmount: toNano('0.01'),
                 }
@@ -141,8 +141,8 @@ describe('WalletContractV4', () => {
         })
 
         it('should return plugin in get methods', async () => {
-            expect(await contract.getIsPluginInstalled(randomAddress)).toBeFalsy();
-            const plugins = await contract.getPluginList();
+            expect(await contract.getIsExtensionInstalled(randomAddress)).toBeFalsy();
+            const plugins = await contract.getExtensionsArray();
             plugins.forEach(plugin => {
                 expect(plugin.equals(randomAddress)).toBeFalsy();
             })
@@ -154,7 +154,7 @@ describe('WalletContractV4', () => {
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
                 action: {
-                    type: 'deployAndInstallPlugin',
+                    type: 'addAndDeployExtension',
                     workchain: 0,
                     stateInit: extensionContract.init,
                     body: beginCell().endCell(),
@@ -167,7 +167,7 @@ describe('WalletContractV4', () => {
 
         it('should withdraw funds by extension request', async () => {
             let seqno = await contract.getSeqno();
-            await extensionContract.sendPluginRequestFunds(
+            await extensionContract.sendExtensionRequestFunds(
                 extensionContract.sender(walletKey.secretKey),
                 {
                     forwardAmount: toNano('0.01'),
@@ -180,7 +180,7 @@ describe('WalletContractV4', () => {
         it('should delete extension by extension request', async () => {
             let seqno = await extensionContract.getSeqno();
 
-            await extensionContract.sendPluginRemovePlugin(
+            await extensionContract.sendExtensionRemoveExtension(
                 extensionContract.sender(walletKey.secretKey),
                 toNano('0.01')
             );
