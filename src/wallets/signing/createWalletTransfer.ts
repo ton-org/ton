@@ -28,12 +28,6 @@ import {
     storeOutListExtendedV5Beta
 } from "../v5beta/WalletV5BetaActions";
 import { signPayload } from "./singer";
-import {
-    Wallet4PluginArgsSignable,
-    Wallet4PluginArgsSigned,
-    Wallet4SendArgsSignable,
-    Wallet4SendArgsSigned
-} from "../WalletContractV4";
 import { WalletV3SendArgsSignable, WalletV3SendArgsSigned } from "../WalletContractV3Types";
 import {OutActionExtended} from "../v5beta/WalletV5OutActions";
 import {
@@ -44,6 +38,11 @@ import {
     WalletV5R1SendArgs
 } from "../v5r1/WalletContractV5R1";
 import {patchV5R1ActionsSendMode, storeOutListExtendedV5R1} from "../v5r1/WalletV5R1Actions";
+import {
+    storeExtendedAction,
+    WalletV4ExtendedSendArgsSignable,
+    WalletV4ExtendedSendArgsSigned
+} from "../v4/WalletContractV4Actions";
 
 
 function packSignatureToFront(signature: Buffer, signingMessage: Builder): Cell {
@@ -152,40 +151,8 @@ export function createWalletTransferV3<T extends WalletV3SendArgsSignable | Wall
     ) as T extends WalletV3SendArgsSignable ? Promise<Cell> : Cell;
 }
 
-export function createWalletTransferV4<T extends Wallet4SendArgsSignable | Wallet4SendArgsSigned>(
-    args: T & { sendMode: number, walletId: number }
-) {
-
-    // Check number of messages
-    if (args.messages.length > 4) {
-        throw Error("Maximum number of messages in a single transfer is 4");
-    }
-
-    let signingMessage = beginCell()
-        .storeUint(args.walletId, 32);
-    if (args.seqno === 0) {
-        for (let i = 0; i < 32; i++) {
-            signingMessage.storeBit(1);
-        }
-    } else {
-        signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
-    }
-    signingMessage.storeUint(args.seqno, 32);
-    signingMessage.storeUint(0, 8); // Simple order
-    for (let m of args.messages) {
-        signingMessage.storeUint(args.sendMode, 8);
-        signingMessage.storeRef(beginCell().store(storeMessageRelaxed(m)));
-    }
-
-    return signPayload(
-        args,
-        signingMessage,
-        packSignatureToFront,
-    ) as T extends Wallet4SendArgsSignable ? Promise<Cell> : Cell;
-}
-
-export function createWalletPluginActionV4<T extends Wallet4PluginArgsSigned | Wallet4PluginArgsSignable>(
-    args: T & { sendMode: number, walletId: number }
+export function createWalletTransferV4<T extends WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable>(
+    args: T & { walletId: number }
 ) {
     let signingMessage = beginCell()
         .storeUint(args.walletId, 32);
@@ -197,38 +164,13 @@ export function createWalletPluginActionV4<T extends Wallet4PluginArgsSigned | W
         signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
     }
     signingMessage.storeUint(args.seqno, 32);
-
-    switch (args.pluginAction.action) {
-        case 'deployAndInstall':
-            signingMessage.storeUint(1, 8);
-            signingMessage.storeInt(args.pluginAction.workchain, 8);
-            signingMessage.storeCoins(args.pluginAction.forwardAmount);
-            signingMessage.storeRef(beginCell().store(storeStateInit(args.pluginAction.stateInit)));
-            signingMessage.storeRef(args.pluginAction.body);
-            break;
-        case 'install':
-            signingMessage.storeUint(2, 8);
-            signingMessage.storeInt(args.pluginAction.address.workChain, 8);
-            signingMessage.storeBuffer(args.pluginAction.address.hash);
-            signingMessage.storeCoins(args.pluginAction.forwardAmount);
-            signingMessage.storeUint(args.pluginAction.queryId ?? 0n, 64);
-            break;
-        case 'uninstall':
-            signingMessage.storeUint(3, 8);
-            signingMessage.storeInt(args.pluginAction.address.workChain, 8);
-            signingMessage.storeBuffer(args.pluginAction.address.hash);
-            signingMessage.storeCoins(args.pluginAction.forwardAmount);
-            signingMessage.storeUint(args.pluginAction.queryId ?? 0n, 64);
-            break;
-        default:
-            throw new Error(`Unsupported plugin action`);
-    }
+    signingMessage.store(storeExtendedAction(args.action));
 
     return signPayload(
         args,
         signingMessage,
         packSignatureToFront,
-    ) as T extends Wallet4PluginArgsSignable ? Promise<Cell> : Cell;
+    ) as T extends WalletV4ExtendedSendArgsSignable ? Promise<Cell> : Cell;
 }
 
 export function createWalletTransferV5Beta<T extends WalletV5BetaSendArgs>(

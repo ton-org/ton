@@ -6,12 +6,12 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { randomTestKey } from "../utils/randomTestKey";
-import { tillNextSeqno } from "../utils/testWallets";
+import { randomTestKey } from "../../utils/randomTestKey";
+import { tillNextSeqno } from "../../utils/testWallets";
 import { WalletContractV4 } from "./WalletContractV4";
-import { createTestClient4 } from "../utils/createTestClient4";
+import { createTestClient4 } from "../../utils/createTestClient4";
 import {Address, beginCell, internal, OpenedContract, toNano} from "@ton/core";
-import {TonClient4} from "../client/TonClient4";
+import {TonClient4} from "../../client/TonClient4";
 import {KeyPair} from "@ton/crypto";
 
 describe('WalletContractV4', () => {
@@ -107,11 +107,11 @@ describe('WalletContractV4', () => {
 
         it('should install plugin', async () => {
             let seqno = await contract.getSeqno();
-            await contract.sendPluginAction({
+            await contract.sendExtendedAction({
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
-                pluginAction: {
-                    action: 'install',
+                action: {
+                    type: 'installPlugin',
                     address: randomAddress,
                     forwardAmount: toNano('0.01'),
                 }
@@ -128,11 +128,11 @@ describe('WalletContractV4', () => {
 
         it('should uninstall plugin', async () => {
             let seqno = await contract.getSeqno();
-            await contract.sendPluginAction({
+            await contract.sendExtendedAction({
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
-                pluginAction: {
-                    action: 'uninstall',
+                action: {
+                    type: 'uninstallPlugin',
                     address: randomAddress,
                     forwardAmount: toNano('0.01'),
                 }
@@ -150,11 +150,11 @@ describe('WalletContractV4', () => {
 
         it('should install and deploy plugin', async () => {
             let seqno = await contract.getSeqno();
-            await contract.sendPluginAction({
+            await contract.sendExtendedAction({
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
-                pluginAction: {
-                    action: 'deployAndInstall',
+                action: {
+                    type: 'deployAndInstallPlugin',
                     workchain: 0,
                     stateInit: extensionContract.init,
                     body: beginCell().endCell(),
