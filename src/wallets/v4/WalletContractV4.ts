@@ -208,6 +208,49 @@ export class WalletContractV4 implements Contract {
             }
         };
     }
+    
+    async sendAddPlugin<T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & { action: { type: 'addPlugin' } }>(
+        provider: ContractProvider, args: T
+    ) {
+        const request = await this.createAddPlugin(args);
+        return await this.send(provider, request);
+    }
+
+    async sendRemovePlugin<T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & { action: { type: 'removePlugin' } }>(
+        provider: ContractProvider,
+        args: T
+    ) {
+        const request = await this.createRemovePlugin(args);
+        return await this.send(provider, request);
+    }
+
+    async sendAddAndDeployPlugin<
+        T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & { action: { type: 'addAndDeployPlugin' } }
+    >(
+        provider: ContractProvider,
+        args: T
+    ) {
+        const request = await this.createAddAndDeployPlugin(args);
+        return await this.send(provider, request);
+    }
+
+    createAddPlugin<T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & {
+        action: { type: 'addPlugin' }
+    }>(args: T) {
+        return this.createRequest(args)
+    }
+
+    createRemovePlugin<T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & {
+        action: { type: 'removePlugin' }
+    }>(args: T) {
+        return this.createRequest(args)
+    }
+
+    createAddAndDeployPlugin<T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & {
+        action: { type: 'addAndDeployPlugin' }
+    }>(args: T) {
+        return this.createRequest(args)
+    }
 
     async sendPluginRequestFunds(provider: ContractProvider, sender: Sender, args: {
         forwardAmount: bigint,
