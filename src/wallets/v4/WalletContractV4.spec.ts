@@ -90,14 +90,14 @@ describe('WalletContractV4', () => {
 
         let randomAddress: Address;
 
-        let extensionKey: KeyPair;
-        let extensionContract: OpenedContract<WalletContractV4>;
+        let pluginKey: KeyPair;
+        let pluginContract: OpenedContract<WalletContractV4>;
 
         beforeEach(() => {
             client = createTestClient4();
             walletKey = randomTestKey('v4-treasure');
             contract = client.open(WalletContractV4.create({ workchain: 0, publicKey: walletKey.publicKey }));
-            extensionContract = client.open(WalletContractV4.create({ workchain: 0, publicKey: walletKey.publicKey }));
+            pluginContract = client.open(WalletContractV4.create({ workchain: 0, publicKey: walletKey.publicKey }));
 
             randomAddress = WalletContractV4.create({
                 workchain: 0,
@@ -111,7 +111,7 @@ describe('WalletContractV4', () => {
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
                 action: {
-                    type: 'addExtension',
+                    type: 'addPlugin',
                     address: randomAddress,
                     forwardAmount: toNano('0.01'),
                 }
@@ -121,8 +121,8 @@ describe('WalletContractV4', () => {
         })
 
         it('should return plugin in get methods', async () => {
-            expect(await contract.getIsExtensionInstalled(randomAddress)).toBeTruthy();
-            const plugins = await contract.getExtensionsArray();
+            expect(await contract.getIsPluginInstalled(randomAddress)).toBeTruthy();
+            const plugins = await contract.getPluginsArray();
             expect(plugins.find(plugin => plugin.equals(randomAddress))).toBeTruthy();
         })
 
@@ -132,7 +132,7 @@ describe('WalletContractV4', () => {
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
                 action: {
-                    type: 'removeExtension',
+                    type: 'removePlugin',
                     address: randomAddress,
                     forwardAmount: toNano('0.01'),
                 }
@@ -141,8 +141,8 @@ describe('WalletContractV4', () => {
         })
 
         it('should return plugin in get methods', async () => {
-            expect(await contract.getIsExtensionInstalled(randomAddress)).toBeFalsy();
-            const plugins = await contract.getExtensionsArray();
+            expect(await contract.getIsPluginInstalled(randomAddress)).toBeFalsy();
+            const plugins = await contract.getPluginsArray();
             plugins.forEach(plugin => {
                 expect(plugin.equals(randomAddress)).toBeFalsy();
             })
@@ -154,9 +154,9 @@ describe('WalletContractV4', () => {
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
                 action: {
-                    type: 'addAndDeployExtension',
+                    type: 'addAndDeployPlugin',
                     workchain: 0,
-                    stateInit: extensionContract.init,
+                    stateInit: pluginContract.init,
                     body: beginCell().endCell(),
                     forwardAmount: toNano('0.1'),
                 }
@@ -165,10 +165,10 @@ describe('WalletContractV4', () => {
             await tillNextSeqno(contract, seqno);
         })
 
-        it('should withdraw funds by extension request', async () => {
+        it('should withdraw funds by plugin request', async () => {
             let seqno = await contract.getSeqno();
-            await extensionContract.sendExtensionRequestFunds(
-                extensionContract.sender(walletKey.secretKey),
+            await pluginContract.sendPluginRequestFunds(
+                pluginContract.sender(walletKey.secretKey),
                 {
                     forwardAmount: toNano('0.01'),
                     toncoinsToWithdraw: toNano('0.05')
@@ -177,11 +177,11 @@ describe('WalletContractV4', () => {
             await tillNextSeqno(contract, seqno);
         })
 
-        it('should delete extension by extension request', async () => {
-            let seqno = await extensionContract.getSeqno();
+        it('should delete plugin by plugin request', async () => {
+            let seqno = await pluginContract.getSeqno();
 
-            await extensionContract.sendExtensionRemoveExtension(
-                extensionContract.sender(walletKey.secretKey),
+            await pluginContract.sendPluginRemovePlugin(
+                pluginContract.sender(walletKey.secretKey),
                 toNano('0.01')
             );
 

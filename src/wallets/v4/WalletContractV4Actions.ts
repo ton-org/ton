@@ -23,18 +23,18 @@ export type WalletV4ExtendedAction =
         messages: MessageRelaxed[]
         sendMode?: Maybe<SendMode>,
     } | {
-        type: 'addAndDeployExtension',
+        type: 'addAndDeployPlugin',
         workchain: number,
         stateInit: StateInit,
         body: Cell,
         forwardAmount: bigint
     } | {
-        type: 'addExtension',
+        type: 'addPlugin',
         address: Address,
         forwardAmount: bigint,
         queryId?: bigint,
     } | {
-        type: 'removeExtension',
+        type: 'removePlugin',
         address: Address,
         forwardAmount: bigint,
         queryId?: bigint,
@@ -53,21 +53,21 @@ export function storeExtendedAction(action: WalletV4ExtendedAction) {
                     builder.storeRef(beginCell().store(storeMessageRelaxed(m)));
                 }
                 break;
-            case 'addAndDeployExtension':
+            case 'addAndDeployPlugin':
                 builder.storeUint(1, 8);
                 builder.storeInt(action.workchain, 8);
                 builder.storeCoins(action.forwardAmount);
                 builder.storeRef(beginCell().store(storeStateInit(action.stateInit)));
                 builder.storeRef(action.body);
                 break;
-            case 'addExtension':
+            case 'addPlugin':
                 builder.storeUint(2, 8);
                 builder.storeInt(action.address.workChain, 8);
                 builder.storeBuffer(action.address.hash);
                 builder.storeCoins(action.forwardAmount);
                 builder.storeUint(action.queryId ?? 0n, 64);
                 break;
-            case 'removeExtension':
+            case 'removePlugin':
                 builder.storeUint(3, 8);
                 builder.storeInt(action.address.workChain, 8);
                 builder.storeBuffer(action.address.hash);
