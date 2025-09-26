@@ -13,7 +13,6 @@ import { SendArgsSignable, SendArgsSigned } from "../signing/singer";
 
 export type WalletV4ExtendedSendArgs = {
     seqno: number,
-    action: OutActionWalletV4
     timeout?: Maybe<number>,
 }
 
@@ -42,6 +41,7 @@ export type OutActionWalletV4 =
 
 export type WalletV4SendArgsSigned = WalletV4ExtendedSendArgs & SendArgsSigned;
 export type WalletV4SendArgsSignable = WalletV4ExtendedSendArgs & SendArgsSignable;
+export type WalletV4SendArgs = WalletV4SendArgsSigned | WalletV4SendArgsSignable;
 
 export function storeExtendedAction(action: OutActionWalletV4) {
     return (builder: Builder) => {

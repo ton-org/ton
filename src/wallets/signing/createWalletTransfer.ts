@@ -39,7 +39,8 @@ import {
 } from "../v5r1/WalletContractV5R1";
 import {patchV5R1ActionsSendMode, storeOutListExtendedV5R1} from "../v5r1/WalletV5R1Actions";
 import {
-    storeExtendedAction,
+    OutActionWalletV4,
+    storeExtendedAction, WalletV4SendArgs,
     WalletV4SendArgsSignable,
     WalletV4SendArgsSigned
 } from "../v4/WalletContractV4Actions";
@@ -151,7 +152,7 @@ export function createWalletTransferV3<T extends WalletV3SendArgsSignable | Wall
     ) as T extends WalletV3SendArgsSignable ? Promise<Cell> : Cell;
 }
 
-export function createWalletTransferV4<T extends WalletV4SendArgsSigned | WalletV4SendArgsSignable>(
+export function createWalletTransferV4<T extends WalletV4SendArgs & { action: OutActionWalletV4 }>(
     args: T & { walletId: number }
 ) {
     let signingMessage = beginCell()

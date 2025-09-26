@@ -14,7 +14,8 @@ import { Maybe } from "../../utils/maybe";
 import { createWalletTransferV4 } from "../signing/createWalletTransfer";
 import { SendArgsSignable, SendArgsSigned } from "../signing/singer";
 import {
-    WalletV4ExtendedSendArgs,
+    OutActionWalletV4,
+    WalletV4ExtendedSendArgs, WalletV4SendArgs,
     WalletV4SendArgsSignable,
     WalletV4SendArgsSigned
 } from "./WalletContractV4Actions";
@@ -172,12 +173,12 @@ export class WalletContractV4 implements Contract {
         }
     }
 
-    async sendRequest<T extends WalletV4SendArgsSigned>(provider: ContractProvider, args: T) {
-        const action = this.createRequest(args);
+    async sendRequest<T extends WalletV4SendArgs & { action: OutActionWalletV4 }>(provider: ContractProvider, args: T) {
+        const action = await this.createRequest(args);
         await this.send(provider, action);
     }
 
-    createRequest<T extends WalletV4SendArgsSigned | WalletV4SendArgsSignable>(args:T ){
+    createRequest<T extends WalletV4SendArgs & { action: OutActionWalletV4 }>(args:T ){
         return createWalletTransferV4<T>({
             ...args,
             walletId: this.walletId
@@ -209,14 +210,22 @@ export class WalletContractV4 implements Contract {
         };
     }
     
-    async sendAddPlugin<T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & { action: { type: 'addPlugin' } }>(
+    async sendAddPlugin<T extends WalletV4SendArgs & {
+        address: Address,
+        forwardAmount: bigint,
+        queryId?: bigint,
+    }>(
         provider: ContractProvider, args: T
     ) {
         const request = await this.createAddPlugin(args);
         return await this.send(provider, request);
     }
 
-    async sendRemovePlugin<T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & { action: { type: 'removePlugin' } }>(
+    async sendRemovePlugin<T extends WalletV4SendArgs & {
+        address: Address,
+        forwardAmount: bigint,
+        queryId?: bigint,
+    }>(
         provider: ContractProvider,
         args: T
     ) {
@@ -225,7 +234,12 @@ export class WalletContractV4 implements Contract {
     }
 
     async sendAddAndDeployPlugin<
-        T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & { action: { type: 'addAndDeployPlugin' } }
+        T extends WalletV4SendArgs & {
+            workchain: number,
+            stateInit: StateInit,
+            body: Cell,
+            forwardAmount: bigint
+        }
     >(
         provider: ContractProvider,
         args: T
@@ -234,22 +248,54 @@ export class WalletContractV4 implements Contract {
         return await this.send(provider, request);
     }
 
-    createAddPlugin<T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & {
-        action: { type: 'addPlugin' }
+    createAddPlugin<T extends WalletV4SendArgs & {
+        address: Address,
+        forwardAmount: bigint,
+        queryId?: bigint,
     }>(args: T) {
-        return this.createRequest(args)
+        return this.createRequest({
+            action: {
+                type: 'addPlugin',
+                address: args.address,
+                forwardAmount: args.forwardAmount,
+                queryId: args.queryId,
+            },
+            ...args
+        })
     }
 
-    createRemovePlugin<T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & {
-        action: { type: 'removePlugin' }
+    createRemovePlugin<T extends WalletV4SendArgs & {
+        address: Address,
+        forwardAmount: bigint,
+        queryId?: bigint,
     }>(args: T) {
-        return this.createRequest(args)
+        return this.createRequest({
+            action: {
+                type: 'removePlugin',
+                address: args.address,
+                forwardAmount: args.forwardAmount,
+                queryId: args.queryId,
+            },
+            ...args
+        })
     }
 
-    createAddAndDeployPlugin<T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & {
-        action: { type: 'addAndDeployPlugin' }
+    createAddAndDeployPlugin<T extends WalletV4SendArgs & {
+        workchain: number,
+        stateInit: StateInit,
+        body: Cell,
+        forwardAmount: bigint
     }>(args: T) {
-        return this.createRequest(args)
+        return this.createRequest({
+            action: {
+                type: 'addAndDeployPlugin',
+                workchain: args.workchain,
+                stateInit: args.stateInit,
+                body: args.body,
+                forwardAmount: args.forwardAmount
+            },
+            ...args
+        })
     }
 
     async sendPluginRequestFunds(provider: ContractProvider, sender: Sender, args: {
