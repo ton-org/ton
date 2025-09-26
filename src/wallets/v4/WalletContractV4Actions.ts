@@ -13,11 +13,11 @@ import { SendArgsSignable, SendArgsSigned } from "../signing/singer";
 
 export type WalletV4ExtendedSendArgs = {
     seqno: number,
-    action: WalletV4ExtendedAction
+    action: OutActionWalletV4
     timeout?: Maybe<number>,
 }
 
-export type WalletV4ExtendedAction =
+export type OutActionWalletV4 =
     {
         type: 'sendMsg',
         messages: MessageRelaxed[]
@@ -40,10 +40,10 @@ export type WalletV4ExtendedAction =
         queryId?: bigint,
     };
 
-export type WalletV4ExtendedSendArgsSigned = WalletV4ExtendedSendArgs & SendArgsSigned;
-export type WalletV4ExtendedSendArgsSignable = WalletV4ExtendedSendArgs & SendArgsSignable;
+export type WalletV4SendArgsSigned = WalletV4ExtendedSendArgs & SendArgsSigned;
+export type WalletV4SendArgsSignable = WalletV4ExtendedSendArgs & SendArgsSignable;
 
-export function storeExtendedAction(action: WalletV4ExtendedAction) {
+export function storeExtendedAction(action: OutActionWalletV4) {
     return (builder: Builder) => {
         switch (action.type) {
             case 'sendMsg':

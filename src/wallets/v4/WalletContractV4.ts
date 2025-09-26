@@ -15,8 +15,8 @@ import { createWalletTransferV4 } from "../signing/createWalletTransfer";
 import { SendArgsSignable, SendArgsSigned } from "../signing/singer";
 import {
     WalletV4ExtendedSendArgs,
-    WalletV4ExtendedSendArgsSignable,
-    WalletV4ExtendedSendArgsSigned
+    WalletV4SendArgsSignable,
+    WalletV4SendArgsSigned
 } from "./WalletContractV4Actions";
 
 export type WalletV4BasicSendArgs = {
@@ -172,12 +172,12 @@ export class WalletContractV4 implements Contract {
         }
     }
 
-    async sendExtendedAction<T extends WalletV4ExtendedSendArgsSigned>(provider: ContractProvider, args: T) {
+    async sendRequest<T extends WalletV4SendArgsSigned>(provider: ContractProvider, args: T) {
         const action = this.createRequest(args);
         await this.send(provider, action);
     }
 
-    createRequest<T extends WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable>(args:T ){
+    createRequest<T extends WalletV4SendArgsSigned | WalletV4SendArgsSignable>(args:T ){
         return createWalletTransferV4<T>({
             ...args,
             walletId: this.walletId
@@ -209,14 +209,14 @@ export class WalletContractV4 implements Contract {
         };
     }
     
-    async sendAddPlugin<T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & { action: { type: 'addPlugin' } }>(
+    async sendAddPlugin<T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & { action: { type: 'addPlugin' } }>(
         provider: ContractProvider, args: T
     ) {
         const request = await this.createAddPlugin(args);
         return await this.send(provider, request);
     }
 
-    async sendRemovePlugin<T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & { action: { type: 'removePlugin' } }>(
+    async sendRemovePlugin<T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & { action: { type: 'removePlugin' } }>(
         provider: ContractProvider,
         args: T
     ) {
@@ -225,7 +225,7 @@ export class WalletContractV4 implements Contract {
     }
 
     async sendAddAndDeployPlugin<
-        T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & { action: { type: 'addAndDeployPlugin' } }
+        T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & { action: { type: 'addAndDeployPlugin' } }
     >(
         provider: ContractProvider,
         args: T
@@ -234,19 +234,19 @@ export class WalletContractV4 implements Contract {
         return await this.send(provider, request);
     }
 
-    createAddPlugin<T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & {
+    createAddPlugin<T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & {
         action: { type: 'addPlugin' }
     }>(args: T) {
         return this.createRequest(args)
     }
 
-    createRemovePlugin<T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & {
+    createRemovePlugin<T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & {
         action: { type: 'removePlugin' }
     }>(args: T) {
         return this.createRequest(args)
     }
 
-    createAddAndDeployPlugin<T extends (WalletV4ExtendedSendArgsSigned | WalletV4ExtendedSendArgsSignable) & {
+    createAddAndDeployPlugin<T extends (WalletV4SendArgsSigned | WalletV4SendArgsSignable) & {
         action: { type: 'addAndDeployPlugin' }
     }>(args: T) {
         return this.createRequest(args)
@@ -265,7 +265,7 @@ export class WalletContractV4 implements Contract {
         })
     }
 
-    createPluginRequestFundsMessage(args: { toncoinsToWithdraw: bigint, queryId?: bigint }) {
+    private createPluginRequestFundsMessage(args: { toncoinsToWithdraw: bigint, queryId?: bigint }) {
         return beginCell()
             .storeUint(0x706c7567, 32)
             .storeUint(args.queryId ?? 0, 64)
@@ -281,7 +281,7 @@ export class WalletContractV4 implements Contract {
         })
     }
 
-    createPluginRemovePluginMessage(queryId?: bigint) {
+    private createPluginRemovePluginMessage(queryId?: bigint) {
         return beginCell()
             .storeUint(0x64737472, 32)
             .storeUint(queryId ?? 0, 64)

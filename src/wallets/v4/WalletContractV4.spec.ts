@@ -107,7 +107,7 @@ describe('WalletContractV4', () => {
 
         it('should install plugin', async () => {
             let seqno = await contract.getSeqno();
-            await contract.sendExtendedAction({
+            await contract.sendRequest({
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
                 action: {
@@ -128,7 +128,7 @@ describe('WalletContractV4', () => {
 
         it('should uninstall plugin', async () => {
             let seqno = await contract.getSeqno();
-            await contract.sendExtendedAction({
+            await contract.sendRequest({
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
                 action: {
@@ -150,7 +150,7 @@ describe('WalletContractV4', () => {
 
         it('should install and deploy plugin', async () => {
             let seqno = await contract.getSeqno();
-            await contract.sendExtendedAction({
+            await contract.sendRequest({
                 seqno: await contract.getSeqno(),
                 secretKey: walletKey.secretKey,
                 action: {
