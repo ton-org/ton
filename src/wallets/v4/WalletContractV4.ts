@@ -148,29 +148,18 @@ export class WalletContractV4 implements Contract {
      * Create signed transfer
      */
     createTransfer<T extends Wallet4SendArgsSigned | Wallet4SendArgsSignable>(args:T ){
-        if ('secretKey' in args) {
-            return this.createRequest({
-                seqno: args.seqno,
-                timeout: args.timeout,
-                action: {
-                    type: 'sendMsg',
-                    messages: args.messages,
-                    sendMode: args.sendMode,
-                },
-                secretKey: args.secretKey,
-            }) as T extends SendArgsSignable ? Promise<Cell> : Cell;
-        } else {
-            return this.createRequest({
-                seqno: args.seqno,
-                timeout: args.timeout,
-                action: {
-                    type: 'sendMsg',
-                    messages: args.messages,
-                    sendMode: args.sendMode,
-                },
-                signer: args.signer,
-            }) as T extends SendArgsSignable ? Promise<Cell> : Cell;
-        }
+        return this.createRequest({
+            seqno: args.seqno,
+            timeout: args.timeout,
+            action: {
+                type: 'sendMsg',
+                messages: args.messages,
+                sendMode: args.sendMode,
+            },
+            ...('secretKey' in args
+                ? { secretKey: args.secretKey }
+                : { signer: args.signer })
+        }) as T extends SendArgsSignable ? Promise<Cell> : Cell;
     }
 
     async sendRequest<T extends WalletV4SendArgs & { action: OutActionWalletV4 }>(provider: ContractProvider, args: T) {
