@@ -6,8 +6,11 @@ import {
     Cell,
     MessageRelaxed,
     SendMode,
-    StateInit, storeMessageRelaxed,
-    storeStateInit
+    StateInit,
+    loadMessageRelaxed,
+    loadStateInit,
+    storeMessageRelaxed,
+    storeStateInit, Slice
 } from "@ton/core";
 import { SendArgsSignable, SendArgsSigned } from "../signing/singer";
 
@@ -16,28 +19,39 @@ export type WalletV4ExtendedSendArgs = {
     timeout?: Maybe<number>,
 }
 
+export interface OutActionSendMsg {
+    type: 'sendMsg',
+    messages: MessageRelaxed[]
+    sendMode?: Maybe<SendMode>,
+}
+
+export interface OutActionAddAndDeployPlugin {
+    type: 'addAndDeployPlugin',
+    workchain: number,
+    stateInit: StateInit,
+    body: Cell,
+    forwardAmount: bigint
+}
+
+export interface OutActionAddPlugin {
+    type: 'addPlugin',
+    address: Address,
+    forwardAmount: bigint,
+    queryId?: bigint,
+}
+
+export interface OutActionRemovePlugin {
+    type: 'removePlugin',
+    address: Address,
+    forwardAmount: bigint,
+    queryId?: bigint,
+}
+
 export type OutActionWalletV4 =
-    {
-        type: 'sendMsg',
-        messages: MessageRelaxed[]
-        sendMode?: Maybe<SendMode>,
-    } | {
-        type: 'addAndDeployPlugin',
-        workchain: number,
-        stateInit: StateInit,
-        body: Cell,
-        forwardAmount: bigint
-    } | {
-        type: 'addPlugin',
-        address: Address,
-        forwardAmount: bigint,
-        queryId?: bigint,
-    } | {
-        type: 'removePlugin',
-        address: Address,
-        forwardAmount: bigint,
-        queryId?: bigint,
-    };
+    | OutActionSendMsg
+    | OutActionAddAndDeployPlugin
+    | OutActionAddPlugin
+    | OutActionRemovePlugin;
 
 export type WalletV4SendArgsSigned = WalletV4ExtendedSendArgs & SendArgsSigned;
 export type WalletV4SendArgsSignable = WalletV4ExtendedSendArgs & SendArgsSignable;
@@ -77,5 +91,85 @@ export function storeExtendedAction(action: OutActionWalletV4) {
             default:
                 throw new Error(`Unsupported plugin action`);
         }
+    }
+}
+
+export function loadExtendedAction(slice: Slice): OutActionWalletV4 {
+    const actionType = slice.loadUint(8);
+    switch (actionType) {
+        case 0: {
+            const messages: MessageRelaxed[] = [];
+            let sendModeValue: SendMode | undefined = undefined;
+
+            while (slice.remainingRefs > 0) {
+                if (slice.remainingBits < 8) {
+                    throw new Error('Invalid sendMsg action: insufficient bits for send mode');
+                }
+
+                const mode = slice.loadUint(8) as SendMode;
+                const messageCell = slice.loadRef();
+                const message = loadMessageRelaxed(messageCell.beginParse());
+
+                if (sendModeValue === undefined) {
+                    sendModeValue = mode;
+                } else if (sendModeValue !== mode) {
+                    throw new Error('Invalid sendMsg action: mixed send modes are not supported');
+                }
+
+                messages.push(message);
+            }
+
+            return {
+                type: 'sendMsg',
+                messages,
+                sendMode: sendModeValue,
+            };
+        }
+
+        case 1: {
+            const workchain = slice.loadInt(8);
+            const forwardAmount = slice.loadCoins();
+            const stateInit = loadStateInit(slice.loadRef().beginParse());
+            const body = slice.loadRef();
+
+            return {
+                type: 'addAndDeployPlugin',
+                workchain,
+                stateInit,
+                body,
+                forwardAmount,
+            };
+        }
+
+        case 2: {
+            const workchain = slice.loadInt(8);
+            const hash = slice.loadBuffer(32);
+            const forwardAmount = slice.loadCoins();
+            const queryId = slice.loadUintBig(64);
+
+            return {
+                type: 'addPlugin',
+                address: new Address(workchain, hash),
+                forwardAmount,
+                queryId: queryId === 0n ? undefined : queryId,
+            };
+        }
+
+        case 3: {
+            const workchain = slice.loadInt(8);
+            const hash = slice.loadBuffer(32);
+            const forwardAmount = slice.loadCoins();
+            const queryId = slice.loadUintBig(64);
+
+            return {
+                type: 'removePlugin',
+                address: new Address(workchain, hash),
+                forwardAmount,
+                queryId: queryId === 0n ? undefined : queryId,
+            };
+        }
+
+        default:
+            throw new Error(`Unsupported action with opcode ${actionType}`);
     }
 }

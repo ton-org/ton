@@ -109,18 +109,17 @@ export class WalletContractV4 implements Contract {
         }
 
         const res = await provider.get('get_plugin_list', []);
-        const listReader = new TupleReader(res.stack.readLispList());
-        const plugins: Address[] = [];
 
-        while (listReader.remaining > 0) {
-            const entry = listReader.readTuple();
+        return res.stack.readLispList().map(item => {
+            if (item.type !== 'tuple') {
+                throw Error('Not a tuple');
+            }
+            const entry = new TupleReader(item.items);
             const workchain = entry.readNumber();
             const addrHash = entry.readBigNumber();
             const addressHex = addrHash.toString(16).padStart(64, '0');
-            plugins.push(Address.parseRaw(`${workchain}:${addressHex}`));
-        }
-
-        return plugins;
+            return Address.parseRaw(`${workchain}:${addressHex}`);
+        });
     }
 
     /**
