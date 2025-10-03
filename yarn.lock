@@ -1072,7 +1072,7 @@ __metadata:
     webpack: ^5.51.2
     zod: ^3.21.4
   peerDependencies:
-    "@ton/core": ^0.62.0
+    "@ton/core": ">=0.62.0 <1.0.0"
     "@ton/crypto": ">=3.2.0"
   languageName: unknown
   linkType: soft
