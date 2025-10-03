@@ -6,7 +6,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { beginCell, Builder, Cell, MessageRelaxed, OutActionSendMsg, storeMessageRelaxed } from "@ton/core";
+import {
+    beginCell,
+    Builder,
+    Cell,
+    MessageRelaxed,
+    OutActionSendMsg,
+    storeMessageRelaxed,
+    storeStateInit
+} from "@ton/core";
 import { sign } from "@ton/crypto";
 import { Maybe } from "../../utils/maybe";
 import {
@@ -20,7 +28,6 @@ import {
     storeOutListExtendedV5Beta
 } from "../v5beta/WalletV5BetaActions";
 import { signPayload } from "./singer";
-import { Wallet4SendArgsSignable, Wallet4SendArgsSigned } from "../WalletContractV4";
 import { WalletV3SendArgsSignable, WalletV3SendArgsSigned } from "../WalletContractV3Types";
 import {OutActionExtended} from "../v5beta/WalletV5OutActions";
 import {
@@ -31,6 +38,12 @@ import {
     WalletV5R1SendArgs
 } from "../v5r1/WalletContractV5R1";
 import {patchV5R1ActionsSendMode, storeOutListExtendedV5R1} from "../v5r1/WalletV5R1Actions";
+import {
+    OutActionWalletV4,
+    storeExtendedAction, WalletV4SendArgs,
+    WalletV4SendArgsSignable,
+    WalletV4SendArgsSigned
+} from "../v4/WalletContractV4Actions";
 
 
 function packSignatureToFront(signature: Buffer, signingMessage: Builder): Cell {
@@ -139,15 +152,9 @@ export function createWalletTransferV3<T extends WalletV3SendArgsSignable | Wall
     ) as T extends WalletV3SendArgsSignable ? Promise<Cell> : Cell;
 }
 
-export function createWalletTransferV4<T extends Wallet4SendArgsSignable | Wallet4SendArgsSigned>(
-    args: T & { sendMode: number, walletId: number }
+export function createWalletTransferV4<T extends WalletV4SendArgs & { action: OutActionWalletV4 }>(
+    args: T & { walletId: number }
 ) {
-
-    // Check number of messages
-    if (args.messages.length > 4) {
-        throw Error("Maximum number of messages in a single transfer is 4");
-    }
-
     let signingMessage = beginCell()
         .storeUint(args.walletId, 32);
     if (args.seqno === 0) {
@@ -158,17 +165,13 @@ export function createWalletTransferV4<T extends Wallet4SendArgsSignable | Walle
         signingMessage.storeUint(args.timeout || Math.floor(Date.now() / 1e3) + 60, 32); // Default timeout: 60 seconds
     }
     signingMessage.storeUint(args.seqno, 32);
-    signingMessage.storeUint(0, 8); // Simple order
-    for (let m of args.messages) {
-        signingMessage.storeUint(args.sendMode, 8);
-        signingMessage.storeRef(beginCell().store(storeMessageRelaxed(m)));
-    }
+    signingMessage.store(storeExtendedAction(args.action));
 
     return signPayload(
         args,
         signingMessage,
         packSignatureToFront,
-    ) as T extends Wallet4SendArgsSignable ? Promise<Cell> : Cell;
+    ) as T extends WalletV4SendArgsSignable ? Promise<Cell> : Cell;
 }
 
 export function createWalletTransferV5Beta<T extends WalletV5BetaSendArgs>(
