@@ -1,6 +1,6 @@
 {
   "name": "@ton/ton",
-  "version": "15.3.1",
+  "version": "15.4.0",
   "repository": "https://github.com/ton-org/ton.git",
   "author": "Whales Corp. <developers@whalescorp.com>",
   "license": "MIT",
@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "@release-it/keep-a-changelog": "^5.0.0",
-    "@ton/core": "^0.60.0",
+    "@ton/core": "^0.62.0",
     "@ton/crypto": "3.2.0",
     "@ton/emulator": "^2.1.1",
     "@types/jest": "^27.0.1",
@@ -47,7 +47,7 @@
     "zod": "^3.21.4"
   },
   "peerDependencies": {
-    "@ton/core": ">=0.60.0",
+    "@ton/core": ">=0.62.0 <1.0.0",
     "@ton/crypto": ">=3.2.0"
   },
   "publishConfig": {
