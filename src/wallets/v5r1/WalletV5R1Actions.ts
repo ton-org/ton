@@ -80,7 +80,7 @@ export function storeOutListExtendedV5R1(actions: (OutActionExtended | OutAction
     const basicActions = actions.filter(isOutActionBasic);
 
     return (builder: Builder) => {
-        const outListPacked = basicActions.length ? beginCell().store(storeOutList(basicActions.slice().reverse())) : null;
+        const outListPacked = basicActions.length ? beginCell().store(storeOutList(basicActions)) : null;
         builder.storeMaybeRef(outListPacked);
 
         if (extendedActions.length === 0) {
