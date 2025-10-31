@@ -133,14 +133,19 @@ export function configParse7(slice: Slice | null | undefined) {
     if (!slice) {
         throw Error('Invalid config');
     }
-    return slice.loadDictDirect(Dictionary.Keys.Uint(32), Dictionary.Values.BigVarUint(5));
+    const extraCurrencies = slice.loadDict(Dictionary.Keys.BigUint(32), Dictionary.Values.BigVarUint(5));
+    return [...extraCurrencies].map(e => ({
+      id: e[0],
+      amount: e[1],
+    }))
 }
 
-export function configParseParamsIds(slice: Slice | null | undefined) {
+export function configParseParamsIds(slice: Slice | null | undefined, unsigned: boolean) {
     if (!slice) {
         throw Error('Invalid config');
     }
-    return slice.loadDictDirect(Dictionary.Keys.Uint(32), Dictionary.Values.Uint(0)).keys();
+    const key = unsigned ? Dictionary.Keys.Uint(32) : Dictionary.Keys.Int(32)
+    return slice.loadDictDirect(key, Dictionary.Values.Uint(0)).keys();
 }
 
 export function configParse13(slice: Slice | null | undefined) {
@@ -915,8 +920,8 @@ export function parseFullConfig(configs: Map<number, Slice>) {
         extraCurrenciesMintPrices: configParse6(configs.get(6)),
         extraCurrencies: configParse7(configs.get(7)),
         globalVersion: configParse8(configs.get(8)),
-        configMandatoryParams: configParseParamsIds(configs.get(9)),
-        configCriticalParams: configParseParamsIds(configs.get(10)),
+        configMandatoryParams: configParseParamsIds(configs.get(9), true),
+        configCriticalParams: configParseParamsIds(configs.get(10), false),
         voting: parseVotingSetup(configs.get(11)),
         workchains: configParse12(configs.get(12)),
         complaintCost: configParse13(configs.get(13)),
