@@ -143,7 +143,7 @@ export function configParse7(slice: Slice | null | undefined) {
 }
 
 // _ mandatory_params:(Hashmap 32 True) = ConfigParam 9;
-export function configParse9(slice: Slice | null | undefined, unsigned: boolean) {
+export function configParse9(slice: Slice | null | undefined) {
     if (!slice) {
         throw Error('Invalid config');
     }
@@ -151,7 +151,7 @@ export function configParse9(slice: Slice | null | undefined, unsigned: boolean)
 }
 
 // _ critical_params:(Hashmap 32 True) = ConfigParam 10;
-export function configParse10(slice: Slice | null | undefined, unsigned: boolean) {
+export function configParse10(slice: Slice | null | undefined) {
     if (!slice) {
         throw Error('Invalid config');
     }
@@ -1029,8 +1029,8 @@ export function parseFullConfig(configs: Map<number, Slice>) {
         extraCurrenciesMintPrices: configParse6(configs.get(6)),
         extraCurrencies: configParse7(configs.get(7)),
         globalVersion: configParse8(configs.get(8)),
-        configMandatoryParams: configParse9(configs.get(9), true),
-        configCriticalParams: configParse10(configs.get(10), false),
+        configMandatoryParams: configParse9(configs.get(9)),
+        configCriticalParams: configParse10(configs.get(10)),
         voting: parseVotingSetup(configs.get(11)),
         workchains: configParse12(configs.get(12)),
         complaintCost: configParse13(configs.get(13)),
