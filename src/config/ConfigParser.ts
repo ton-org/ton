@@ -116,6 +116,33 @@ export function configParse5(slice: Slice | null | undefined) {
     throw new Error('Invalid config');
 }
 
+export function configParse6(slice: Slice | null | undefined) {
+    if (!slice) {
+        // no param in mainnet for now, so throwing will cause crash of parseFullConfig()
+        return null
+    }
+    const mintNewPrice = slice.loadCoins();
+    const mintAddPrice = slice.loadCoins();
+    return {
+        mintNewPrice,
+        mintAddPrice
+    };
+}
+
+export function configParse7(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+    return slice.loadDictDirect(Dictionary.Keys.Uint(32), Dictionary.Values.BigVarUint(5));
+}
+
+export function configParseParamsIds(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+    return slice.loadDictDirect(Dictionary.Keys.Uint(32), Dictionary.Values.Uint(0)).keys();
+}
+
 export function configParse13(slice: Slice | null | undefined) {
     if (!slice) {
         throw Error('Invalid config');
@@ -129,6 +156,22 @@ export function configParse13(slice: Slice | null | undefined) {
             deposit,
             bitPrice,
             cellPrice
+        };
+    }
+    throw new Error('Invalid config');
+}
+
+export function configParse14(slice: Slice | null | undefined) {
+     if (!slice) {
+        throw Error('Invalid config');
+    }
+    const magic = slice.loadUint(8);
+    if (magic === 0x6b) {
+        const masterchainBlockFee = slice.loadCoins();
+        const workchainBlockFee = slice.loadCoins();
+        return {
+            masterchainBlockFee,
+            workchainBlockFee
         };
     }
     throw new Error('Invalid config');
@@ -415,6 +458,55 @@ export function configParseBridge(slice: Slice | null | undefined) {
     return parseBridge(slice);
 }
 
+export function configParseTokenBridge(slice: Slice | null | undefined) {
+    if (!slice) {
+        return null;
+    }
+        
+    const magic = slice.loadUint(8)
+    if (magic !== 0x01) {
+        throw new Error('Invalid msg prices param');
+    }
+
+    const bridgeAddress = new Address(-1, slice.loadBuffer(32))
+    const oracleAddress = new Address(-1, slice.loadBuffer(32))
+
+    const oraclesRaw = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Buffer(32))
+    const oracles = [...oraclesRaw].map(e => ({
+      addr: new Address(-1, e[0]),
+      pubkey: e[1],
+    }))
+
+    const flags = slice.loadUintBig(8)
+
+    const pricesRef = slice.loadRef().beginParse()
+
+    const bridgeBurnFee = pricesRef.loadCoins()
+    const bridgeMintFee = pricesRef.loadCoins()
+    const walletMinTonsForStorage = pricesRef.loadCoins()
+    const walletGasConsumption = pricesRef.loadCoins()
+    const minterMinTonsForStorage = pricesRef.loadCoins()
+    const discoverGasConsumption = pricesRef.loadCoins()
+
+    const externalChainAddress = slice.loadBuffer(32)
+
+    return {
+        bridgeAddress,
+        oracleAddress,
+        oracles,
+        flags,
+        tokenBridgeParams: {
+            bridgeBurnFee,
+            bridgeMintFee,
+            walletMinTonsForStorage,
+            walletGasConsumption,
+            minterMinTonsForStorage,
+            discoverGasConsumption
+        },
+        externalChainAddress
+    }
+}
+
 function parseGasLimitsInternal(slice: Slice) {
     const tag = slice.loadUint(8);
     if (tag === 0xde) {
@@ -472,6 +564,46 @@ export function configParseGasLimitsPrices(slice: Slice | null | undefined) {
     } else {
         throw Error('Invalid config');
     }
+}
+
+function configParseLimitParams(slice: Slice) {
+    const paramsLimitTag = slice.loadUint(8);
+
+    if (paramsLimitTag === 0xc3) {
+        const underload = slice.loadUintBig(32);
+        const softLimit = slice.loadUintBig(32);
+        const hardLimit = slice.loadUintBig(32);
+
+        return {
+            underload,
+            softLimit,
+            hardLimit
+        };
+    }
+    throw Error('Invalid config');
+}
+
+export type BlockLimits = ReturnType<typeof configParseBlockLimits>;
+export function configParseBlockLimits(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+
+    const blockLimitTag = slice.loadUint(8);
+
+    if (blockLimitTag === 0x5d) {
+        const bytes = configParseLimitParams(slice);
+        const gas = configParseLimitParams(slice);
+        const ltDelta = configParseLimitParams(slice);
+
+        return {
+            bytes,
+            gas,
+            ltDelta
+        };
+    }
+
+    throw Error('Invalid config');
 }
 
 export type MsgPrices = ReturnType<typeof configParseMsgPrices>
@@ -658,6 +790,67 @@ export function configParse29(slice: Slice | null | undefined) {
     throw new Error('Invalid config');
 }
 
+export function configParse31(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+
+    const rawAddrsDict = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Uint(0))
+    
+    return [...rawAddrsDict].map(e => new Address(-1, e[0]))
+}
+
+export function configParse44(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+    const magic = slice.loadUint(8);
+    if (magic !== 0x00) {
+        throw new Error('Invalid config');
+    }
+
+    // buffer36 = uint288
+    const rawAddrsDict = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Uint(0));
+    const suspendedUntil = slice.loadUintBig(32);
+    
+    // uint288 = [wc:int32 addr:uint256]
+    const constructedAddrs = [...rawAddrsDict].map(e => new Address(
+      e[0].readInt32BE(),
+      e[0].subarray(4),
+    ));
+
+    return {
+        addresses: constructedAddrs,
+        suspendedUntil
+    };
+}
+
+export function configParse45(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+    const magic = slice.loadUint(8);
+    if (magic !== 0xc0) {
+        throw new Error('Invalid config');
+    }
+
+    const precompiledContracts = slice.loadDict(Dictionary.Keys.Buffer(32), {
+      serialize: () => { throw Error('not implemented') },
+      parse: (src: Slice) => {
+        const tag = src.loadUint(8);
+        if (tag === 0xb0) {
+            return src.loadUintBig(64);
+        }
+        throw new Error('Invalid config');
+      },
+    })
+
+    return [...precompiledContracts].map((e) => ({
+        hash: e[0],
+        gasUsed: e[1]
+    }))
+}
+
 // cfg_vote_cfg#36 min_tot_rounds:uint8 max_tot_rounds:uint8 min_wins:uint8 max_losses:uint8 min_store_sec:uint32 max_store_sec:uint32 bit_price:uint32 cell_price:uint32 = ConfigProposalSetup;
 export function parseProposalSetup(slice: Slice) {
     const magic = slice.loadUint(8);
@@ -719,9 +912,15 @@ export function parseFullConfig(configs: Map<number, Slice>) {
         feeCollectorAddress: configParseMasterAddress(configs.get(3)),
         dnsRootAddress: configParseMasterAddress(configs.get(4)),
         burningConfig: configParse5(configs.get(5)),
+        extraCurrenciesMintPrices: configParse6(configs.get(6)),
+        extraCurrencies: configParse7(configs.get(7)),
         globalVersion: configParse8(configs.get(8)),
-        workchains: configParse12(configs.get(12)),
+        configMandatoryParams: configParseParamsIds(configs.get(9)),
+        configCriticalParams: configParseParamsIds(configs.get(10)),
         voting: parseVotingSetup(configs.get(11)),
+        workchains: configParse12(configs.get(12)),
+        complaintCost: configParse13(configs.get(13)),
+        blockCreationRewards: configParse14(configs.get(14)),
         validators: {
             ...configParse15(configs.get(15)),
             ...configParse16(configs.get(16)),
@@ -732,10 +931,17 @@ export function parseFullConfig(configs: Map<number, Slice>) {
             masterchain: configParseGasLimitsPrices(configs.get(20)),
             workchain: configParseGasLimitsPrices(configs.get(21)),
         },
+        blockLimits : {
+            masterchain: configParseBlockLimits(configs.get(22)),
+            workchain: configParseBlockLimits(configs.get(23)),
+        },
         msgPrices: {
             masterchain: configParseMsgPrices(configs.get(24)),
             workchain: configParseMsgPrices(configs.get(25)),
         },
+        catchain: configParse28(configs.get(28)),
+        consensus: configParse29(configs.get(29)),
+        fundamentalSmartContracts: configParse31(configs.get(31)),
         validatorSets: {
             prevValidators: configParseValidatorSet(configs.get(32)),
             prevTempValidators: configParseValidatorSet(configs.get(33)),
@@ -745,17 +951,17 @@ export function parseFullConfig(configs: Map<number, Slice>) {
             nextTempValidators: configParseValidatorSet(configs.get(37))
         },
         validatorsPunish: configParse40(configs.get(40)),
+        suspended: configParse44(configs.get(44)),
+        precompiledContracts: configParse45(configs.get(45)),
         bridges: {
             ethereum: configParseBridge(configs.get(71)),
             binance: configParseBridge(configs.get(72)),
             polygon: configParseBridge(configs.get(73))
         },
-        catchain: configParse28(configs.get(28)),
-        consensus: configParse29(configs.get(29))
-        // TODO: mint_new_price:Grams mint_add_price:Grams = ConfigParam 6;
-        // TODO: to_mint:ExtraCurrencyCollection = ConfigParam 7
-        // TODO: mandatory_params:(Hashmap 32 True) = ConfigParam 9
-        // TODO: critical_params:(Hashmap 32 True) = ConfigParam 10
-        // TODO: BlockCreateFees = ConfigParam 14
+        tokenBridges: {
+            ethereum: configParseTokenBridge(configs.get(79)),
+            binance: configParseTokenBridge(configs.get(81)),
+            polygon: configParseTokenBridge(configs.get(82)),
+        }
     };
 }
