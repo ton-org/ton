@@ -1,4 +1,4 @@
-import { Address, Slice, Cell, Dictionary, DictionaryValue, Builder } from "@ton/core";
+import { Address, Slice, Cell, Dictionary, DictionaryValue, Builder, loadExtraCurrency } from "@ton/core";
 
 export function configParseMasterAddress(slice: Slice | null | undefined) {
     if (slice) {
@@ -116,22 +116,83 @@ export function configParse5(slice: Slice | null | undefined) {
     throw new Error('Invalid config');
 }
 
+// _ mint_new_price:Grams mint_add_price:Grams = ConfigParam 6;
+export function configParse6(slice: Slice | null | undefined) {
+    if (!slice) {
+        // no param in mainnet for now, so throwing will cause crash of parseFullConfig()
+        return null
+    }
+    const mintNewPrice = slice.loadCoins();
+    const mintAddPrice = slice.loadCoins();
+    return {
+        mintNewPrice,
+        mintAddPrice
+    };
+}
+
+// extra_currencies$_ dict:(HashmapE 32 (VarUInteger 32)) = ExtraCurrencyCollection;
+// _ to_mint:ExtraCurrencyCollection = ConfigParam 7;
+export function configParse7(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+    
+    return {
+        toMint: loadExtraCurrency(slice.loadRef()),
+    }
+}
+
+// _ mandatory_params:(Hashmap 32 True) = ConfigParam 9;
+export function configParse9(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+    return new Set(slice.loadDictDirect(Dictionary.Keys.Int(32), Dictionary.Values.Uint(0)).keys());
+}
+
+// _ critical_params:(Hashmap 32 True) = ConfigParam 10;
+export function configParse10(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+    return new Set(slice.loadDictDirect(Dictionary.Keys.Int(32), Dictionary.Values.Uint(0)).keys());
+}
+
 export function configParse13(slice: Slice | null | undefined) {
     if (!slice) {
         throw Error('Invalid config');
     }
     const magic = slice.loadUint(8);
-    if (magic === 0x1a) {
-        const deposit = slice.loadCoins();
-        const bitPrice = slice.loadCoins();
-        const cellPrice = slice.loadCoins();
-        return {
-            deposit,
-            bitPrice,
-            cellPrice
-        };
+    if (magic !== 0x1a) {
+        throw new Error('Invalid config');
     }
-    throw new Error('Invalid config');
+
+    const deposit = slice.loadCoins();
+    const bitPrice = slice.loadCoins();
+    const cellPrice = slice.loadCoins();
+    return {
+        deposit,
+        bitPrice,
+        cellPrice
+    };
+}
+// block_grams_created#6b masterchain_block_fee:Grams basechain_block_fee:Grams = BlockCreateFees;
+// _ BlockCreateFees = ConfigParam 14;
+export function configParse14(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+    const magic = slice.loadUint(8);
+    if (magic !== 0x6b) {
+        throw new Error('Invalid config');
+    }
+
+    const masterchainBlockFee = slice.loadCoins();
+    const workchainBlockFee = slice.loadCoins();
+    return {
+        masterchainBlockFee,
+        workchainBlockFee
+    };
 }
 
 export function configParse15(slice: Slice | null | undefined) {
@@ -415,6 +476,83 @@ export function configParseBridge(slice: Slice | null | undefined) {
     return parseBridge(slice);
 }
 
+export function loadJettonBridgeParams(slice: Slice | null | undefined) {
+    if (!slice) {
+        return null;
+    }
+        
+    const magic = slice.loadUint(8)
+
+    // jetton_bridge_params_v0#00 bridge_address:bits256 oracles_address:bits256 oracles:(HashmapE 256 uint256)
+    // state_flags:uint8 burn_bridge_fee:Coins = JettonBridgeParams;
+    if (magic === 0x00) {
+        const bridgeAddress = new Address(-1, slice.loadBuffer(32))
+        const oracleAddress = new Address(-1, slice.loadBuffer(32))
+
+        const oraclesRaw = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Buffer(32))
+        const oracles = [...oraclesRaw].map(e => ({
+          addr: new Address(-1, e[0]),
+          pubkey: e[1],
+        }))
+
+        const flags = slice.loadUint(8)
+
+        const bridgeBurnFee = slice.loadCoins()
+
+        return {
+            bridgeAddress,
+            oracleAddress,
+            oracles,
+            flags,
+            bridgeBurnFee
+        }
+    }
+
+    // jetton_bridge_params_v1#01 bridge_address:bits256 oracles_address:bits256 oracles:(HashmapE 256 uint256)
+    // state_flags:uint8 prices:^JettonBridgePrices external_chain_address:bits256 = JettonBridgeParams;
+    if (magic === 0x01) {
+        const bridgeAddress = new Address(-1, slice.loadBuffer(32))
+        const oracleAddress = new Address(-1, slice.loadBuffer(32))
+
+        const oraclesRaw = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Buffer(32))
+        const oracles = [...oraclesRaw].map(e => ({
+          addr: new Address(-1, e[0]),
+          pubkey: e[1],
+        }))
+
+        const flags = slice.loadUint(8)
+
+        const pricesRef = slice.loadRef().beginParse()
+
+        const bridgeBurnFee = pricesRef.loadCoins()
+        const bridgeMintFee = pricesRef.loadCoins()
+        const walletMinTonsForStorage = pricesRef.loadCoins()
+        const walletGasConsumption = pricesRef.loadCoins()
+        const minterMinTonsForStorage = pricesRef.loadCoins()
+        const discoverGasConsumption = pricesRef.loadCoins()
+
+        const externalChainAddress = slice.loadBuffer(32)
+
+        return {
+            bridgeAddress,
+            oracleAddress,
+            oracles,
+            flags,
+            jettonBridgePrices: {
+                bridgeBurnFee,
+                bridgeMintFee,
+                walletMinTonsForStorage,
+                walletGasConsumption,
+                minterMinTonsForStorage,
+                discoverGasConsumption
+            },
+            externalChainAddress
+        }
+    }
+
+    throw new Error('Invalid msg prices param');
+}
+
 function parseGasLimitsInternal(slice: Slice) {
     const tag = slice.loadUint(8);
     if (tag === 0xde) {
@@ -472,6 +610,102 @@ export function configParseGasLimitsPrices(slice: Slice | null | undefined) {
     } else {
         throw Error('Invalid config');
     }
+}
+
+
+export type LimitParams = {
+    underload: number;
+    softLimit: number;
+    hardLimit: number;
+}
+// param_limits#c3 underload:# soft_limit:# { underload <= soft_limit }
+// hard_limit:# { soft_limit <= hard_limit } = ParamLimits;
+function configParseLimitParams(slice: Slice): LimitParams {
+    const paramsLimitTag = slice.loadUint(8);
+
+    if (paramsLimitTag !== 0xc3) {
+        throw Error('Invalid config');
+    }
+
+    const underload = slice.loadUint(32);
+    const softLimit = slice.loadUint(32);
+    const hardLimit = slice.loadUint(32);
+
+    if ((underload > softLimit) || (softLimit > hardLimit)) {
+        throw Error('Incosistent limitParams');
+    }
+
+    return {
+        underload,
+        softLimit,
+        hardLimit
+    };
+
+}
+
+export type BlockLimits = {
+    bytes: LimitParams;
+    gas: LimitParams;
+    ltDelta: LimitParams;
+    collatedData?: LimitParams;
+    importedMsgQueue?: {
+        maxBytes: number;
+        maxMsgs: number;
+    }
+};
+export function configParseBlockLimits(slice: Slice | null | undefined): BlockLimits {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+
+    const blockLimitTag = slice.loadUint(8);
+
+    // block_limits#5d bytes:ParamLimits gas:ParamLimits lt_delta:ParamLimits = BlockLimits;
+    if (blockLimitTag === 0x5d) {
+        const bytes = configParseLimitParams(slice);
+        const gas = configParseLimitParams(slice);
+        const ltDelta = configParseLimitParams(slice);
+
+        return {
+            bytes,
+            gas,
+            ltDelta
+        };
+    }
+
+    // imported_msg_queue_limits#d3 max_bytes:# max_msgs:# = ImportedMsgQueueLimits;
+
+    // block_limits_v2#5e bytes:ParamLimits gas:ParamLimits lt_delta:ParamLimits
+    // collated_data:ParamLimits imported_msg_queue:ImportedMsgQueueLimits = BlockLimits;
+    if (blockLimitTag === 0x5e) {
+        const bytes = configParseLimitParams(slice);
+        const gas = configParseLimitParams(slice);
+        const ltDelta = configParseLimitParams(slice);
+        const collatedData = configParseLimitParams(slice);
+
+        const importedMsgQueueTag = slice.loadUint(8);
+
+        if (importedMsgQueueTag !== 0xd3) {
+            throw Error('Invalid config'); 
+        }
+
+
+        const maxBytes = slice.loadUint(32)
+        const maxMsgs = slice.loadUint(32)
+
+        return {
+            bytes,
+            gas,
+            ltDelta,
+            collatedData,
+            importedMsgQueue: {
+                maxBytes,
+                maxMsgs
+            }
+        };  
+    }
+
+    throw Error('Invalid config');
 }
 
 export type MsgPrices = ReturnType<typeof configParseMsgPrices>
@@ -658,6 +892,75 @@ export function configParse29(slice: Slice | null | undefined) {
     throw new Error('Invalid config');
 }
 
+// _ fundamental_smc_addr:(HashmapE 256 True) = ConfigParam 31;
+export function configParse31(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+
+    const rawAddrsDict = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Uint(0))
+    // only masterchain addrs here - https://docs.ton.org/v3/documentation/network/config-params/overview#param-31
+    return [...rawAddrsDict].map(e => new Address(-1, e[0]))
+}
+
+// suspended_address_list#00 addresses:(HashmapE 288 Unit) suspended_until:uint32 = SuspendedAddressList;
+// _ SuspendedAddressList = ConfigParam 44;
+export function configParse44(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+    const magic = slice.loadUint(8);
+    if (magic !== 0x00) {
+        throw new Error('Invalid config');
+    }
+
+    // buffer36 = uint288
+    const rawAddrsDict = slice.loadDict(Dictionary.Keys.Buffer(36), Dictionary.Values.Uint(0));
+    const suspendedUntil = slice.loadUint(32);
+    
+    // uint288 = [wc:int32 addr:uint256]
+    const constructedAddrs = [...rawAddrsDict].map(e => new Address(
+      e[0].readInt32BE(),
+      e[0].subarray(4),
+    ));
+
+    return {
+        addresses: constructedAddrs,
+        suspendedUntil
+    };
+}
+
+const PrecompiledContractsDictValue: DictionaryValue<bigint> = {
+    serialize: () => { throw Error('not implemented') },
+    parse: (src: Slice) => {
+        const tag = src.loadUint(8);
+        if (tag !== 0xb0) {
+            throw new Error('Invalid config');
+        }
+        return src.loadUintBig(64);
+    },
+}
+ 
+// precompiled_smc#b0 gas_usage:uint64 = PrecompiledSmc; 
+// precompiled_contracts_config#c0 list:(HashmapE 256 PrecompiledSmc) = PrecompiledContractsConfig;
+// _ PrecompiledContractsConfig = ConfigParam 45;
+export function configParse45(slice: Slice | null | undefined) {
+    if (!slice) {
+        throw Error('Invalid config');
+    }
+    const magic = slice.loadUint(8);
+    if (magic !== 0xc0) {
+        throw new Error('Invalid config');
+    }
+
+    const precompiledContracts = slice.loadDict(Dictionary.Keys.Buffer(32), PrecompiledContractsDictValue)
+
+    return [...precompiledContracts].map((e) => ({
+        hash: e[0],
+        gasUsed: e[1]
+    }))
+}
+
 // cfg_vote_cfg#36 min_tot_rounds:uint8 max_tot_rounds:uint8 min_wins:uint8 max_losses:uint8 min_store_sec:uint32 max_store_sec:uint32 bit_price:uint32 cell_price:uint32 = ConfigProposalSetup;
 export function parseProposalSetup(slice: Slice) {
     const magic = slice.loadUint(8);
@@ -719,9 +1022,15 @@ export function parseFullConfig(configs: Map<number, Slice>) {
         feeCollectorAddress: configParseMasterAddress(configs.get(3)),
         dnsRootAddress: configParseMasterAddress(configs.get(4)),
         burningConfig: configParse5(configs.get(5)),
+        extraCurrenciesMintPrices: configParse6(configs.get(6)),
+        extraCurrencies: configParse7(configs.get(7)),
         globalVersion: configParse8(configs.get(8)),
-        workchains: configParse12(configs.get(12)),
+        configMandatoryParams: configParse9(configs.get(9)),
+        configCriticalParams: configParse10(configs.get(10)),
         voting: parseVotingSetup(configs.get(11)),
+        workchains: configParse12(configs.get(12)),
+        complaintCost: configParse13(configs.get(13)),
+        blockCreationRewards: configParse14(configs.get(14)),
         validators: {
             ...configParse15(configs.get(15)),
             ...configParse16(configs.get(16)),
@@ -732,10 +1041,17 @@ export function parseFullConfig(configs: Map<number, Slice>) {
             masterchain: configParseGasLimitsPrices(configs.get(20)),
             workchain: configParseGasLimitsPrices(configs.get(21)),
         },
+        blockLimits: {
+            masterchain: configParseBlockLimits(configs.get(22)),
+            workchain: configParseBlockLimits(configs.get(23)),
+        },
         msgPrices: {
             masterchain: configParseMsgPrices(configs.get(24)),
             workchain: configParseMsgPrices(configs.get(25)),
         },
+        catchain: configParse28(configs.get(28)),
+        consensus: configParse29(configs.get(29)),
+        fundamentalSmcAddr: configParse31(configs.get(31)),
         validatorSets: {
             prevValidators: configParseValidatorSet(configs.get(32)),
             prevTempValidators: configParseValidatorSet(configs.get(33)),
@@ -745,17 +1061,17 @@ export function parseFullConfig(configs: Map<number, Slice>) {
             nextTempValidators: configParseValidatorSet(configs.get(37))
         },
         validatorsPunish: configParse40(configs.get(40)),
+        suspended: configParse44(configs.get(44)),
+        precompiledContracts: configParse45(configs.get(45)),
         bridges: {
             ethereum: configParseBridge(configs.get(71)),
             binance: configParseBridge(configs.get(72)),
             polygon: configParseBridge(configs.get(73))
         },
-        catchain: configParse28(configs.get(28)),
-        consensus: configParse29(configs.get(29))
-        // TODO: mint_new_price:Grams mint_add_price:Grams = ConfigParam 6;
-        // TODO: to_mint:ExtraCurrencyCollection = ConfigParam 7
-        // TODO: mandatory_params:(Hashmap 32 True) = ConfigParam 9
-        // TODO: critical_params:(Hashmap 32 True) = ConfigParam 10
-        // TODO: BlockCreateFees = ConfigParam 14
+        tokenBridges: {
+            ethereum: loadJettonBridgeParams(configs.get(79)),
+            binance: loadJettonBridgeParams(configs.get(81)),
+            polygon: loadJettonBridgeParams(configs.get(82)),
+        }
     };
 }
