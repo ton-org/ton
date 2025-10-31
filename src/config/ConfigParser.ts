@@ -815,7 +815,7 @@ export function configParse44(slice: Slice | null | undefined) {
     }
 
     // buffer36 = uint288
-    const rawAddrsDict = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Uint(0));
+    const rawAddrsDict = slice.loadDict(Dictionary.Keys.Buffer(36), Dictionary.Values.Uint(0));
     const suspendedUntil = slice.loadUintBig(32);
     
     // uint288 = [wc:int32 addr:uint256]
