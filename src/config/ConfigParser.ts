@@ -486,14 +486,12 @@ export function loadJettonBridgeParams(slice: Slice | null | undefined) {
     // jetton_bridge_params_v0#00 bridge_address:bits256 oracles_address:bits256 oracles:(HashmapE 256 uint256)
     // state_flags:uint8 burn_bridge_fee:Coins = JettonBridgeParams;
     if (magic === 0x00) {
-        // addresses in basechain
-        // https://github.com/ton-blockchain/token-bridge-func/blob/3346a901e3e8e1a1e020fac564c845db3220c238/src/func/jetton-bridge/params.fc#L8
-        const bridgeAddress = new Address(0, slice.loadBuffer(32))
-        const oracleAddress = new Address(0, slice.loadBuffer(32))
+        const bridgeAddress = new Address(-1, slice.loadBuffer(32))
+        const oracleAddress = new Address(-1, slice.loadBuffer(32))
 
         const oraclesRaw = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Buffer(32))
         const oracles = [...oraclesRaw].map(e => ({
-          addr: new Address(0, e[0]),
+          addr: new Address(-1, e[0]),
           pubkey: e[1],
         }))
 
@@ -513,14 +511,12 @@ export function loadJettonBridgeParams(slice: Slice | null | undefined) {
     // jetton_bridge_params_v1#01 bridge_address:bits256 oracles_address:bits256 oracles:(HashmapE 256 uint256)
     // state_flags:uint8 prices:^JettonBridgePrices external_chain_address:bits256 = JettonBridgeParams;
     if (magic === 0x01) {
-        // addresses in basechain
-        // https://github.com/ton-blockchain/token-bridge-func/blob/3346a901e3e8e1a1e020fac564c845db3220c238/src/func/jetton-bridge/params.fc#L8
-        const bridgeAddress = new Address(0, slice.loadBuffer(32))
-        const oracleAddress = new Address(0, slice.loadBuffer(32))
+        const bridgeAddress = new Address(-1, slice.loadBuffer(32))
+        const oracleAddress = new Address(-1, slice.loadBuffer(32))
 
         const oraclesRaw = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Buffer(32))
         const oracles = [...oraclesRaw].map(e => ({
-          addr: new Address(0, e[0]),
+          addr: new Address(-1, e[0]),
           pubkey: e[1],
         }))
 
@@ -1045,7 +1041,7 @@ export function parseFullConfig(configs: Map<number, Slice>) {
             masterchain: configParseGasLimitsPrices(configs.get(20)),
             workchain: configParseGasLimitsPrices(configs.get(21)),
         },
-        blockLimits : {
+        blockLimits: {
             masterchain: configParseBlockLimits(configs.get(22)),
             workchain: configParseBlockLimits(configs.get(23)),
         },
