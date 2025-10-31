@@ -20,12 +20,15 @@ const testnetClient = createTestClient4("testnet");
 
 describe('ConfigContract', () => {
 
-    // for some reason api returns 500 for this request
     it('should return correct burning config', async () => {
         const serializedConfigsCell = (await client.getConfig(BLOCK_AT_31_10_25, [13])).config.cell;
         const config13 = configParse13(loadConfigParamById(serializedConfigsCell, 13).beginParse());
 
-        console.log(config13);
+        expect(config13).toEqual({
+            deposit: 1000000000n,
+            bitPrice: 1n,
+            cellPrice: 500n
+        });
     });
 
     it('should return correct complaint pricing', async () => {
