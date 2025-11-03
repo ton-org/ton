@@ -11,7 +11,7 @@ export function configParseMasterAddress(slice: Slice | null | undefined) {
 function readPublicKey(slice: Slice) {
     // 8e81278a
     if (slice.loadUint(32) !== 0x8e81278a) {
-        throw Error('Invalid config');
+        throw Error('Invalid publicKey');
     }
     return slice.loadBuffer(32);
 }
@@ -35,7 +35,7 @@ const ValidatorDescriptionDictValue: DictionaryValue<{publicKey: Buffer, weight:
                 adnlAddress: src.loadBuffer(32)
             };
         } else {
-            throw Error('Invalid config');
+            throw Error('Invalid validator description dict');
         }
     }
 }
@@ -93,14 +93,14 @@ export function parseBridge(slice: Slice) {
 
 export function configParseMasterAddressRequired(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('Invalid master address');
     }
     return configParseMasterAddress(slice)!;
 }
 
 export function configParse5(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config5 slice');
     }
     const magic = slice.loadUint(8);
     if (magic === 0x01) {
@@ -113,7 +113,7 @@ export function configParse5(slice: Slice | null | undefined) {
             feeBurnDenominator
         };
     }
-    throw new Error('Invalid config');
+    throw new Error('Invalid config5');
 }
 
 // _ mint_new_price:Grams mint_add_price:Grams = ConfigParam 6;
@@ -134,7 +134,7 @@ export function configParse6(slice: Slice | null | undefined) {
 // _ to_mint:ExtraCurrencyCollection = ConfigParam 7;
 export function configParse7(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config7 slice');
     }
     
     return {
@@ -145,7 +145,7 @@ export function configParse7(slice: Slice | null | undefined) {
 // _ mandatory_params:(Hashmap 32 True) = ConfigParam 9;
 export function configParse9(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config9 slice');
     }
     return new Set(slice.loadDictDirect(Dictionary.Keys.Int(32), Dictionary.Values.Uint(0)).keys());
 }
@@ -153,18 +153,18 @@ export function configParse9(slice: Slice | null | undefined) {
 // _ critical_params:(Hashmap 32 True) = ConfigParam 10;
 export function configParse10(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config10 slice');
     }
     return new Set(slice.loadDictDirect(Dictionary.Keys.Int(32), Dictionary.Values.Uint(0)).keys());
 }
 
 export function configParse13(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config13 slice');
     }
     const magic = slice.loadUint(8);
     if (magic !== 0x1a) {
-        throw new Error('Invalid config');
+        throw new Error('Invalid config13');
     }
 
     const deposit = slice.loadCoins();
@@ -180,11 +180,11 @@ export function configParse13(slice: Slice | null | undefined) {
 // _ BlockCreateFees = ConfigParam 14;
 export function configParse14(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config14 slice');
     }
     const magic = slice.loadUint(8);
     if (magic !== 0x6b) {
-        throw new Error('Invalid config');
+        throw new Error('Invalid config14');
     }
 
     const masterchainBlockFee = slice.loadCoins();
@@ -197,7 +197,7 @@ export function configParse14(slice: Slice | null | undefined) {
 
 export function configParse15(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config15 slice');
     }
     const validatorsElectedFor = slice.loadUint(32);
     const electorsStartBefore = slice.loadUint(32);
@@ -213,7 +213,7 @@ export function configParse15(slice: Slice | null | undefined) {
 
 export function configParse16(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config16 slice');
     }
 
     const maxValidators = slice.loadUint(16);
@@ -228,7 +228,7 @@ export function configParse16(slice: Slice | null | undefined) {
 
 export function configParse17(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config17 slice');
     }
 
     const minStake = slice.loadCoins();
@@ -258,7 +258,7 @@ const StoragePricesDictValue: DictionaryValue<StoragePrices> = {
     parse(src: Slice): StoragePrices {
         const header = src.loadUint(8);
         if (header !== 0xcc) {
-            throw Error('Invalid config');
+            throw Error('Invalid storage prices dict');
         }
         const utime_since = src.loadUint(32);
         const bit_price_ps = src.loadUintBig(64);
@@ -276,7 +276,7 @@ const StoragePricesDictValue: DictionaryValue<StoragePrices> = {
 }
 export function configParse18(slice: Slice | null | undefined): StoragePrices[] {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config18 slice');
     }
     return slice.loadDictDirect(Dictionary.Keys.Buffer(4), StoragePricesDictValue).values()
 }
@@ -304,7 +304,7 @@ export function configParse40(slice: Slice | null | undefined) {
 
     const header = slice.loadUint(8);
     if (header !== 1) {
-        throw Error('Invalid config');
+        throw Error('Invalid config40');
     }
 
     const defaultFlatFine = slice.loadCoins();
@@ -338,7 +338,7 @@ export function configParseWorkchainDescriptor(slice: Slice): WorkchainDescripto
     const constructorTag = slice.loadUint(8);
 
     if (!(constructorTag == 0xA6 || constructorTag == 0xA7)) {
-        throw Error('Invalid config');
+        throw Error('Invalid workchain descriptor');
     }
     const enabledSince = slice.loadUint(32);
     const actialMinSplit = slice.loadUint(8);
@@ -354,7 +354,7 @@ export function configParseWorkchainDescriptor(slice: Slice): WorkchainDescripto
 
     // Only basic format supported
     if (!slice.loadUint(4)) {
-        throw Error('Invalid config');
+        throw Error('Not basic workchain descriptor');
     }
 
     const vmVersion = slice.loadInt(32);
@@ -452,7 +452,7 @@ const WorkchainDescriptorDictValue: DictionaryValue<WorkchainDescriptor> = {
 
 export function configParse12(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config12 slice');
     }
 
     const wd = slice.loadDict(Dictionary.Keys.Uint(32), WorkchainDescriptorDictValue);
@@ -588,14 +588,14 @@ function parseGasLimitsInternal(slice: Slice) {
             deleteDueLimit
         }
     } else {
-        throw Error('Invalid config');
+        throw Error('Invalid gas limits internal');
     }
 }
 
 export type GasLimitsPrices = ReturnType<typeof configParseGasLimitsPrices>;
 export function configParseGasLimitsPrices(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No gas limits slice');
     }
     const tag = slice.loadUint(8);
     if (tag === 0xd1) {
@@ -608,7 +608,7 @@ export function configParseGasLimitsPrices(slice: Slice | null | undefined) {
             other
         }
     } else {
-        throw Error('Invalid config');
+        throw Error('Invalid gas limits');
     }
 }
 
@@ -624,7 +624,7 @@ function configParseLimitParams(slice: Slice): LimitParams {
     const paramsLimitTag = slice.loadUint(8);
 
     if (paramsLimitTag !== 0xc3) {
-        throw Error('Invalid config');
+        throw Error('Invalid params limit slice');
     }
 
     const underload = slice.loadUint(32);
@@ -655,7 +655,7 @@ export type BlockLimits = {
 };
 export function configParseBlockLimits(slice: Slice | null | undefined): BlockLimits {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No block limits slice');
     }
 
     const blockLimitTag = slice.loadUint(8);
@@ -686,7 +686,7 @@ export function configParseBlockLimits(slice: Slice | null | undefined): BlockLi
         const importedMsgQueueTag = slice.loadUint(8);
 
         if (importedMsgQueueTag !== 0xd3) {
-            throw Error('Invalid config'); 
+            throw Error('Invalid importedMsgQueue'); 
         }
 
 
@@ -705,13 +705,13 @@ export function configParseBlockLimits(slice: Slice | null | undefined): BlockLi
         };  
     }
 
-    throw Error('Invalid config');
+    throw Error('Invalid block limits');
 }
 
 export type MsgPrices = ReturnType<typeof configParseMsgPrices>
 export function configParseMsgPrices(slice: Slice | null | undefined) {
     if (!slice) {
-        throw new Error('Invalid config');
+        throw new Error('No msg prices slice');
     }
     const magic = slice.loadUint(8);
     if (magic !== 0xea) {
@@ -737,7 +737,7 @@ export function configParseMsgPrices(slice: Slice | null | undefined) {
 
 export function configParse28(slice: Slice | null | undefined) {
     if (!slice) {
-        throw new Error('Invalid config');
+        throw new Error('No config28 slice');
     }
     const magic = slice.loadUint(8);
     if (magic === 0xc1) {
@@ -768,7 +768,7 @@ export function configParse28(slice: Slice | null | undefined) {
             shardValidatorsCount
         }
     }
-    throw new Error('Invalid config');
+    throw new Error('Invalid config28');
 }
 
 // consensus_config#d6 round_candidates:# { round_candidates >= 1 }
@@ -791,7 +791,7 @@ export function configParse28(slice: Slice | null | undefined) {
 
 export function configParse29(slice: Slice | null | undefined) {
     if (!slice) {
-        throw new Error('Invalid config');
+        throw new Error('No config29 slice');
     }
     const magic = slice.loadUint(8);
     if (magic === 0xd6) {
@@ -889,13 +889,13 @@ export function configParse29(slice: Slice | null | undefined) {
             catchainMaxBlocksCoeff
         }
     }
-    throw new Error('Invalid config');
+    throw new Error('Invalid config29');
 }
 
 // _ fundamental_smc_addr:(HashmapE 256 True) = ConfigParam 31;
 export function configParse31(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config31 slice');
     }
 
     const rawAddrsDict = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Uint(0))
@@ -907,11 +907,11 @@ export function configParse31(slice: Slice | null | undefined) {
 // _ SuspendedAddressList = ConfigParam 44;
 export function configParse44(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config44 slice');
     }
     const magic = slice.loadUint(8);
     if (magic !== 0x00) {
-        throw new Error('Invalid config');
+        throw new Error('Invalid config44');
     }
 
     // buffer36 = uint288
@@ -935,7 +935,7 @@ const PrecompiledContractsDictValue: DictionaryValue<bigint> = {
     parse: (src: Slice) => {
         const tag = src.loadUint(8);
         if (tag !== 0xb0) {
-            throw new Error('Invalid config');
+            throw new Error('Invalid precompiled contracts dict');
         }
         return src.loadUintBig(64);
     },
@@ -946,11 +946,11 @@ const PrecompiledContractsDictValue: DictionaryValue<bigint> = {
 // _ PrecompiledContractsConfig = ConfigParam 45;
 export function configParse45(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('Invalid config');
+        throw Error('No config45 slice');
     }
     const magic = slice.loadUint(8);
     if (magic !== 0xc0) {
-        throw new Error('Invalid config');
+        throw new Error('Invalid config45');
     }
 
     const precompiledContracts = slice.loadDict(Dictionary.Keys.Buffer(32), PrecompiledContractsDictValue)
@@ -965,7 +965,7 @@ export function configParse45(slice: Slice | null | undefined) {
 export function parseProposalSetup(slice: Slice) {
     const magic = slice.loadUint(8);
     if (magic !== 0x36) {
-        throw new Error('Invalid config');
+        throw new Error('Invalid proposal setup');
     }
     const minTotalRounds = slice.loadUint(8);
     const maxTotalRounds = slice.loadUint(8);
@@ -981,11 +981,11 @@ export function parseProposalSetup(slice: Slice) {
 // cfg_vote_setup#91 normal_params:^ConfigProposalSetup critical_params:^ConfigProposalSetup = ConfigVotingSetup;
 export function parseVotingSetup(slice: Slice | null | undefined) {
     if (!slice) {
-        throw new Error('Invalid config');
+        throw new Error('No voting setup');
     }
     const magic = slice.loadUint(8);
     if (magic !== 0x91) {
-        throw new Error('Invalid config');
+        throw new Error('Invalid voting setup');
     }
     const normalParams = parseProposalSetup(slice.loadRef().beginParse());
     const criticalParams = parseProposalSetup(slice.loadRef().beginParse());
