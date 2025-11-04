@@ -1,4 +1,4 @@
-import { Address, Slice, Cell, Dictionary, DictionaryValue, Builder, loadExtraCurrency } from "@ton/core";
+import { Address, Slice, Cell, Dictionary, DictionaryValue, Builder, loadExtraCurrency, ExtraCurrency } from "@ton/core";
 
 export function configParseMasterAddress(slice: Slice | null | undefined) {
     if (slice) {
@@ -40,7 +40,20 @@ const ValidatorDescriptionDictValue: DictionaryValue<{publicKey: Buffer, weight:
     }
 }
 
-export function parseValidatorSet(slice: Slice) {
+export type ValidatorSet = {
+    timeSince: number;
+    timeUntil: number;
+    total: number;
+    main: number;
+    totalWeight: bigint | null;
+    list: Dictionary<number, {
+        publicKey: Buffer;
+        weight: bigint;
+        adnlAddress: Buffer | null;
+    }>;
+}
+
+export function parseValidatorSet(slice: Slice): ValidatorSet | null {
     const header = slice.loadUint(8);
     if (header === 0x11) {
         const timeSince = slice.loadUint(32);
@@ -72,9 +85,17 @@ export function parseValidatorSet(slice: Slice) {
             list
         };
     }
+    return null
 }
 
-export function parseBridge(slice: Slice) {
+export type BridgeParams = {
+    bridgeAddress: Address;
+    oracleMultisigAddress: Address;
+    oracles: Map<string, Buffer>;
+    externalChainAddress: Buffer;
+}
+
+export function parseBridge(slice: Slice): BridgeParams {
     const bridgeAddress = new Address(-1, slice.loadBuffer(32));
     const oracleMultisigAddress = new Address(-1, slice.loadBuffer(32));
     const oraclesDict = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Buffer(32));
@@ -297,7 +318,21 @@ export function configParse8(slice: Slice | null | undefined) {
     }
 }
 
-export function configParse40(slice: Slice | null | undefined) {
+export type ValidatorsPunishmentConfig = {
+    defaultFlatFine: bigint;
+    defaultProportionaFine: bigint;
+    severityFlatMult: number;
+    severityProportionalMult: number;
+    unfunishableInterval: number;
+    longInterval: number;
+    longFlatMult: number;
+    longProportionalMult: number;
+    mediumInterval: number;
+    mediumFlatMult: number;
+    mediumProportionalMult: number;
+}
+
+export function configParse40(slice: Slice | null | undefined): ValidatorsPunishmentConfig | null {
     if (!slice) {
         return null;
     }
@@ -476,7 +511,44 @@ export function configParseBridge(slice: Slice | null | undefined) {
     return parseBridge(slice);
 }
 
-export function loadJettonBridgeParams(slice: Slice | null | undefined) {
+// use copypaste typings with "?: undefined" to keep type compatibility with prev version
+// otherwise need to add discriminator field like "version: 'v0'"
+export type JettonBridgeParamsV0 = {
+    bridgeAddress: Address;
+    oracleAddress: Address;
+    oracles: {
+        addr: Address;
+        pubkey: Buffer;
+    }[];
+    flags: number;
+    bridgeBurnFee: bigint;
+    jettonBridgePrices?: undefined;
+    externalChainAddress?: undefined;
+}
+
+export type JettonBridgeParamsV1 = {
+    bridgeAddress: Address;
+    oracleAddress: Address;
+    oracles: {
+        addr: Address;
+        pubkey: Buffer;
+    }[];
+    flags: number;
+    bridgeBurnFee?: undefined;
+    jettonBridgePrices: {
+        bridgeBurnFee: bigint;
+        bridgeMintFee: bigint;
+        walletMinTonsForStorage: bigint;
+        walletGasConsumption: bigint;
+        minterMinTonsForStorage: bigint;
+        discoverGasConsumption: bigint;
+    };
+    externalChainAddress: Buffer;
+}
+
+export type JettonBridgeParams = JettonBridgeParamsV0 | JettonBridgeParamsV1
+
+export function loadJettonBridgeParams(slice: Slice | null | undefined): JettonBridgeParams | null {
     if (!slice) {
         return null;
     }
@@ -592,8 +664,21 @@ function parseGasLimitsInternal(slice: Slice) {
     }
 }
 
-export type GasLimitsPrices = ReturnType<typeof configParseGasLimitsPrices>;
-export function configParseGasLimitsPrices(slice: Slice | null | undefined) {
+export type GasLimitsPrices = {
+    flatLimit: bigint;
+    flatGasPrice: bigint;
+    other: {
+        gasPrice: bigint;
+        gasLimit: bigint;
+        specialGasLimit?: bigint;
+        gasCredit: bigint;
+        blockGasLimit: bigint;
+        freezeDueLimit: bigint;
+        deleteDueLimit: bigint;
+    }
+}
+
+export function configParseGasLimitsPrices(slice: Slice | null | undefined): GasLimitsPrices {
     if (!slice) {
         throw Error('No gas limits slice');
     }
@@ -708,8 +793,16 @@ export function configParseBlockLimits(slice: Slice | null | undefined): BlockLi
     throw Error('Invalid block limits');
 }
 
-export type MsgPrices = ReturnType<typeof configParseMsgPrices>
-export function configParseMsgPrices(slice: Slice | null | undefined) {
+export type MsgPrices = {
+    lumpPrice: bigint;
+    bitPrice: bigint;
+    cellPrice: bigint;
+    ihrPriceFactor: number;
+    firstFrac: number;
+    nextFrac: number;
+}
+
+export function configParseMsgPrices(slice: Slice | null | undefined): MsgPrices {
     if (!slice) {
         throw new Error('No msg prices slice');
     }
@@ -734,8 +827,27 @@ export function configParseMsgPrices(slice: Slice | null | undefined) {
 //   mc_catchain_lifetime:uint32 shard_catchain_lifetime:uint32
 //   shard_validators_lifetime:uint32 shard_validators_num:uint32 = CatchainConfig;
 
+export type CatchainConfigOld = {
+    masterCatchainLifetime: number;
+    shardCatchainLifetime: number;
+    shardValidatorsLifetime: number;
+    shardValidatorsCount: number;
+    flags?: undefined;
+    suffleMasterValidators?: undefined;
+}
 
-export function configParse28(slice: Slice | null | undefined) {
+export type CatchainConfigNew = {
+    masterCatchainLifetime: number;
+    shardCatchainLifetime: number;
+    shardValidatorsLifetime: number;
+    shardValidatorsCount: number;
+    flags: number;
+    suffleMasterValidators: boolean;
+}
+
+export type CatchainConfig = CatchainConfigOld | CatchainConfigNew
+
+export function configParse28(slice: Slice | null | undefined): CatchainConfig {
     if (!slice) {
         throw new Error('No config28 slice');
     }
@@ -771,6 +883,68 @@ export function configParse28(slice: Slice | null | undefined) {
     throw new Error('Invalid config28');
 }
 
+export type ConsensusConfigOld = {
+    roundCandidates: number;
+    nextCandidateDelay: number;
+    consensusTimeout: number;
+    fastAttempts: number;
+    attemptDuration: number;
+    catchainMaxDeps: number;
+    maxBlockBytes: number;
+    maxColaltedBytes: number;
+    flags?: undefined;
+    newCatchainIds?: undefined;
+    protoVersion?: undefined
+    catchainMaxBlocksCoeff?: undefined
+}
+
+export type ConsensusConfigNew = {
+    roundCandidates: number;
+    nextCandidateDelay: number;
+    consensusTimeout: number;
+    fastAttempts: number;
+    attemptDuration: number;
+    catchainMaxDeps: number;
+    maxBlockBytes: number;
+    maxColaltedBytes: number;
+    flags: number;
+    newCatchainIds: boolean;
+    protoVersion?: undefined
+    catchainMaxBlocksCoeff?: undefined
+}
+
+export type ConsensusConfigV3 = {
+    roundCandidates: number;
+    nextCandidateDelay: number;
+    consensusTimeout: number;
+    fastAttempts: number;
+    attemptDuration: number;
+    catchainMaxDeps: number;
+    maxBlockBytes: number;
+    maxColaltedBytes: number;
+    flags: number;
+    newCatchainIds: boolean;
+    protoVersion: number
+    catchainMaxBlocksCoeff?: undefined
+}
+
+export type ConsensusConfigV4 = {
+    roundCandidates: number;
+    nextCandidateDelay: number;
+    consensusTimeout: number;
+    fastAttempts: number;
+    attemptDuration: number;
+    catchainMaxDeps: number;
+    maxBlockBytes: number;
+    maxColaltedBytes: number;
+    flags: number;
+    newCatchainIds: boolean;
+    protoVersion: number
+    catchainMaxBlocksCoeff: number
+}
+
+export type ConsensusConfig = ConsensusConfigOld | ConsensusConfigNew | ConsensusConfigV3 | ConsensusConfigV4
+
 // consensus_config#d6 round_candidates:# { round_candidates >= 1 }
 //   next_candidate_delay_ms:uint32 consensus_timeout_ms:uint32
 //   fast_attempts:uint32 attempt_duration:uint32 catchain_max_deps:uint32
@@ -788,8 +962,7 @@ export function configParse28(slice: Slice | null | undefined) {
 //   fast_attempts:uint32 attempt_duration:uint32 catchain_max_deps:uint32
 //   max_block_bytes:uint32 max_collated_bytes:uint32 
 //   proto_version:uint16 = ConsensusConfig;
-
-export function configParse29(slice: Slice | null | undefined) {
+export function configParse29(slice: Slice | null | undefined): ConsensusConfig {
     if (!slice) {
         throw new Error('No config29 slice');
     }
@@ -961,8 +1134,19 @@ export function configParse45(slice: Slice | null | undefined) {
     }))
 }
 
+export type ProposalSetup = {
+    minTotalRounds: number;
+    maxTotalRounds: number;
+    minWins: number;
+    maxLoses: number;
+    minStoreSec: number;
+    maxStoreSec: number;
+    bitPrice: number;
+    cellPrice: number;
+}
+
 // cfg_vote_cfg#36 min_tot_rounds:uint8 max_tot_rounds:uint8 min_wins:uint8 max_losses:uint8 min_store_sec:uint32 max_store_sec:uint32 bit_price:uint32 cell_price:uint32 = ConfigProposalSetup;
-export function parseProposalSetup(slice: Slice) {
+export function parseProposalSetup(slice: Slice): ProposalSetup {
     const magic = slice.loadUint(8);
     if (magic !== 0x36) {
         throw new Error('Invalid proposal setup');
@@ -978,8 +1162,13 @@ export function parseProposalSetup(slice: Slice) {
     return { minTotalRounds, maxTotalRounds, minWins, maxLoses, minStoreSec, maxStoreSec, bitPrice, cellPrice };
 }
 
+export type VotingSetup = {
+    normalParams: ProposalSetup,
+    criticalParams: ProposalSetup
+}
+
 // cfg_vote_setup#91 normal_params:^ConfigProposalSetup critical_params:^ConfigProposalSetup = ConfigVotingSetup;
-export function parseVotingSetup(slice: Slice | null | undefined) {
+export function parseVotingSetup(slice: Slice | null | undefined): VotingSetup {
     if (!slice) {
         throw new Error('No voting setup');
     }
@@ -1014,7 +1203,100 @@ export function loadConfigParamsAsSlice(configBase64: string): Map<number, Slice
     return params
 }
 
-export function parseFullConfig(configs: Map<number, Slice>) {
+export type FullNetworkConfig = {
+    configAddress: Address
+    electorAddress: Address
+    minterAddress: Address | null
+    feeCollectorAddress: Address | null
+    dnsRootAddress: Address | null
+    burningConfig: {
+        blackholeAddr: Address | null;
+        feeBurnNominator: number;
+        feeBurnDenominator: number;
+    }
+    extraCurrenciesMintPrices: {
+        mintNewPrice: bigint;
+        mintAddPrice: bigint;
+    } | null
+    extraCurrencies: {
+        toMint: ExtraCurrency;
+    }
+    globalVersion: {
+        version: number;
+        capabilities: bigint;
+    }
+    configMandatoryParams: Set<number>
+    configCriticalParams: Set<number>
+    voting: VotingSetup
+    workchains: Dictionary<number, WorkchainDescriptor>
+    complaintCost: {
+        deposit: bigint;
+        bitPrice: bigint;
+        cellPrice: bigint;
+    }
+    blockCreationRewards: {
+        masterchainBlockFee: bigint;
+        workchainBlockFee: bigint;
+    }
+    validators: {
+        minStake: bigint
+        maxStake: bigint
+        minTotalStake: bigint
+        maxStakeFactor: number
+        maxValidators: number
+        maxMainValidators: number
+        minValidators: number
+        validatorsElectedFor: number
+        electorsStartBefore: number
+        electorsEndBefore: number
+        stakeHeldFor: number
+    }
+    storagePrices: StoragePrices[]
+    gasPrices: {
+        masterchain: GasLimitsPrices
+        workchain: GasLimitsPrices
+    }
+    blockLimits: {
+        masterchain: BlockLimits
+        workchain: BlockLimits
+    }
+    msgPrices: {
+        masterchain: MsgPrices
+        workchain: MsgPrices
+    },
+    catchain: CatchainConfig
+    consensus: ConsensusConfig
+    fundamentalSmcAddr: Address[]
+    validatorSets: {
+        prevValidators: ValidatorSet | null
+        prevTempValidators: ValidatorSet | null
+        currentValidators: ValidatorSet | null
+        currentTempValidators: ValidatorSet | null
+        nextValidators: ValidatorSet | null
+        nextTempValidators: ValidatorSet | null
+    },
+    validatorsPunish: ValidatorsPunishmentConfig | null
+    suspended: {
+        addresses: Address[];
+        suspendedUntil: number;
+    }
+    precompiledContracts: {
+        hash: Buffer;
+        gasUsed: bigint;
+    }[]
+    bridges: {
+        ethereum: BridgeParams | null
+        binance: BridgeParams | null
+        polygon: BridgeParams | null
+    },
+    tokenBridges: {
+        ethereum: JettonBridgeParams | null
+        binance: JettonBridgeParams | null
+        polygon: JettonBridgeParams | null
+    }
+};
+
+export function parseFullConfig(configs: Map<number, Slice>): FullNetworkConfig {
     return {
         configAddress: configParseMasterAddressRequired(configs.get(0)),
         electorAddress: configParseMasterAddressRequired(configs.get(1)),
