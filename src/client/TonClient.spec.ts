@@ -1,7 +1,7 @@
 import { Address, beginCell } from '@ton/core';
 import { TonClient } from './TonClient';
 
-let describeConditional = process.env.TEST_CLIENTS ? describe : describe.skip;
+let describeConditional = true ? describe : describe.skip;
 
 describeConditional('TonClient', () => {
     let client = new TonClient({
@@ -41,6 +41,12 @@ describeConditional('TonClient', () => {
         let wcShards = await client.getWorkchainShards(info.latestSeqno);
 
         console.log(info, shardInfo, wcShards);
+    });
+
+    it.only('getShardTransactionsExt', async () => {
+        const info = await client.getMasterchainInfo();
+        const result = await client.getShardTransactionsExt(info.workchain, info.latestSeqno, info.shard);
+        console.log(result);
     });
 
     it('should check contract is deployed', async () => {

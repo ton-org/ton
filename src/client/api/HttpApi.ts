@@ -22,6 +22,12 @@ const blockIdExt = z.object({
     file_hash: z.string()
 });
 
+const transactionId = z.object({
+    '@type': z.literal('internal.transactionId'),
+    lt: z.string(),
+    hash: z.string()
+});
+
 const addressInformation = z.object({
     balance: z.union([z.number(), z.string()]),
     extra_currencies: z.optional(z.array(z.object({
@@ -32,11 +38,7 @@ const addressInformation = z.object({
     state: z.union([z.literal('active'), z.literal('uninitialized'), z.literal('frozen')]),
     data: z.string(),
     code: z.string(),
-    last_transaction_id: z.object({
-        '@type': z.literal('internal.transactionId'),
-        lt: z.string(),
-        hash: z.string()
-    }),
+    last_transaction_id: transactionId,
     block_id: blockIdExt,
     sync_utime: z.number()
 });
@@ -131,7 +133,34 @@ const getBlockTransactions = z.object({
     id: blockIdExt,
     req_count: z.number(),
     incomplete: z.boolean(),
-    transactions: z.array(blockShortTxt)
+    transactions: z.array(blockShortTxt),
+});
+
+// const address = z.object({
+//     '@type': z.literal('accountAddress'),
+//     account_address: z.string(),
+// });
+
+const rawTransaction = z.object({
+    // '@type': z.literal('raw.transaction'),
+    // address: address,
+    // utime: z.number(),
+    data: z.string(),
+    // transaction_id: transactionId,
+    // fee: z.string(),
+    // storage_fee: z.string(),
+    // other_fee: z.string(),
+    // in_msg: z.union([z.undefined(), message]),
+    // out_msgs: z.array(message),
+    // account: z.string(),
+});
+
+const getBlockTransactionsExt = z.object({
+    id: blockIdExt,
+    req_count: z.number(),
+    incomplete: z.boolean(),
+    transactions: z.array(rawTransaction),
+    "@extra": z.string(),
 });
 
 export type HTTPTransaction = z.TypeOf<typeof getTransactions>[number];
@@ -201,6 +230,8 @@ export class HttpApi {
     private shardLoader: DataLoader<number, z.TypeOf<typeof blockIdExt>[]>;
     private shardTransactionsCache: TypedCache<{ workchain: number, shard: string, seqno: number }, z.TypeOf<typeof getBlockTransactions>>;
     private shardTransactionsLoader: DataLoader<{ workchain: number, shard: string, seqno: number }, z.TypeOf<typeof getBlockTransactions>, string>;
+    private shardTransactionsCacheExt: TypedCache<{ workchain: number, shard: string, seqno: number }, z.TypeOf<typeof getBlockTransactionsExt>>;
+    private shardTransactionsLoaderExt: DataLoader<{ workchain: number, shard: string, seqno: number }, z.TypeOf<typeof getBlockTransactionsExt>, string>;
 
     constructor(endpoint: string, parameters?: HttpApiParameters) {
         this.endpoint = endpoint;
@@ -236,6 +267,19 @@ export class HttpApi {
                 }
                 let loaded = await this.doCall('getBlockTransactions', { workchain: v.workchain, seqno: v.seqno, shard: v.shard }, getBlockTransactions);
                 await this.shardTransactionsCache.set(v, loaded);
+                return loaded;
+            }));
+        }, { cacheKeyFn: (src) => src.workchain + ':' + src.shard + ':' + src.seqno });
+
+        this.shardTransactionsCacheExt = new TypedCache('ton-shard-tx-ext', this.cache, getBlockTransactionsExt, (src) => src.workchain + ':' + src.shard + ':' + src.seqno);
+        this.shardTransactionsLoaderExt = new DataLoader(async (src) => {
+            return await Promise.all(src.map(async (v) => {
+                const cached = await this.shardTransactionsCacheExt.get(v);
+                if (cached) {
+                    return cached;
+                }
+                let loaded = await this.doCall('getBlockTransactionsExt', { workchain: v.workchain, seqno: v.seqno, shard: v.shard }, getBlockTransactionsExt);
+                await this.shardTransactionsCacheExt.set(v, loaded);
                 return loaded;
             }));
         }, { cacheKeyFn: (src) => src.workchain + ':' + src.shard + ':' + src.seqno });
@@ -286,6 +330,10 @@ export class HttpApi {
 
     async getBlockTransactions(workchain: number, seqno: number, shard: string) {
         return await this.shardTransactionsLoader.load({ workchain, seqno, shard });
+    }
+
+    async getBlockTransactionsExt(workchain: number, seqno: number, shard: string) {
+        return await this.shardTransactionsLoaderExt.load({ workchain, seqno, shard });
     }
 
     async getTransaction(address: Address, lt: string, hash: string) {

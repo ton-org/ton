@@ -228,6 +228,16 @@ export class TonClient {
         }))
     }
 
+    async getShardTransactionsExt(workchain: number, seqno: number, shard: string) {
+        const tx = await this.api.getBlockTransactionsExt(workchain, seqno, shard);
+        if (tx.incomplete) {
+            throw Error('Unsupported');
+        }
+        return tx.transactions.map(({ data }) => loadTransaction(
+            Cell.fromBoc(Buffer.from(data, 'base64'))[0].beginParse()
+        ));
+    }
+
     /**
      * Send message to a network
      * @param src source message
