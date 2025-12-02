@@ -97,7 +97,7 @@ export class WalletContractV5R1 implements Contract {
     readonly address: Address;
     readonly init: { data: Cell, code: Cell };
 
-    private constructor(
+    constructor(
         workchain: number,
         readonly publicKey: Buffer,
         readonly walletId: WalletIdV5R1<WalletIdV5R1ClientContext | WalletIdV5R1CustomContext>,

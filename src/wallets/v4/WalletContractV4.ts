@@ -42,7 +42,7 @@ export class WalletContractV4 implements Contract {
     readonly walletId: number;
     readonly init: { data: Cell, code: Cell };
 
-    private constructor(workchain: number, publicKey: Buffer, walletId?: Maybe<number>) {
+    constructor(workchain: number, publicKey: Buffer, walletId?: Maybe<number>) {
 
         // Resolve parameters
         this.workchain = workchain;
