@@ -1203,100 +1203,51 @@ export function loadConfigParamsAsSlice(configBase64: string): Map<number, Slice
     return params
 }
 
-export type FullNetworkConfig = {
-    configAddress: Address
-    electorAddress: Address
-    minterAddress: Address | null
-    feeCollectorAddress: Address | null
-    dnsRootAddress: Address | null
-    burningConfig: {
-        blackholeAddr: Address | null;
-        feeBurnNominator: number;
-        feeBurnDenominator: number;
-    }
-    extraCurrenciesMintPrices: {
-        mintNewPrice: bigint;
-        mintAddPrice: bigint;
-    } | null
-    extraCurrencies: {
-        toMint: ExtraCurrency;
-    }
-    globalVersion: {
-        version: number;
-        capabilities: bigint;
-    }
-    configMandatoryParams: Set<number>
-    configCriticalParams: Set<number>
-    voting: VotingSetup
-    workchains: Dictionary<number, WorkchainDescriptor>
-    complaintCost: {
-        deposit: bigint;
-        bitPrice: bigint;
-        cellPrice: bigint;
-    }
-    blockCreationRewards: {
-        masterchainBlockFee: bigint;
-        workchainBlockFee: bigint;
-    }
-    validators: {
-        minStake: bigint
-        maxStake: bigint
-        minTotalStake: bigint
-        maxStakeFactor: number
-        maxValidators: number
-        maxMainValidators: number
-        minValidators: number
-        validatorsElectedFor: number
-        electorsStartBefore: number
-        electorsEndBefore: number
-        stakeHeldFor: number
-    }
-    storagePrices: StoragePrices[]
-    gasPrices: {
-        masterchain: GasLimitsPrices
-        workchain: GasLimitsPrices
-    }
-    blockLimits: {
-        masterchain: BlockLimits
-        workchain: BlockLimits
-    }
-    msgPrices: {
-        masterchain: MsgPrices
-        workchain: MsgPrices
-    },
-    catchain: CatchainConfig
-    consensus: ConsensusConfig
-    fundamentalSmcAddr: Address[]
-    validatorSets: {
-        prevValidators: ValidatorSet | null
-        prevTempValidators: ValidatorSet | null
-        currentValidators: ValidatorSet | null
-        currentTempValidators: ValidatorSet | null
-        nextValidators: ValidatorSet | null
-        nextTempValidators: ValidatorSet | null
-    },
-    validatorsPunish: ValidatorsPunishmentConfig | null
-    suspended: {
-        addresses: Address[];
-        suspendedUntil: number;
-    }
-    precompiledContracts: {
-        hash: Buffer;
-        gasUsed: bigint;
-    }[]
-    bridges: {
-        ethereum: BridgeParams | null
-        binance: BridgeParams | null
-        polygon: BridgeParams | null
-    },
-    tokenBridges: {
-        ethereum: JettonBridgeParams | null
-        binance: JettonBridgeParams | null
-        polygon: JettonBridgeParams | null
-    }
-};
+export function parseFullConfig(configs: Map<number, Slice>) {
+    return {
+        configAddress: configParseMasterAddressRequired(configs.get(0)),
+        electorAddress: configParseMasterAddressRequired(configs.get(1)),
+        minterAddress: configParseMasterAddress(configs.get(2)),
+        feeCollectorAddress: configParseMasterAddress(configs.get(3)),
+        dnsRootAddress: configParseMasterAddress(configs.get(4)),
+        burningConfig: configParse5(configs.get(5)),
+        globalVersion: configParse8(configs.get(8)),
+        workchains: configParse12(configs.get(12)),
+        voting: parseVotingSetup(configs.get(11)),
+        validators: {
+            ...configParse15(configs.get(15)),
+            ...configParse16(configs.get(16)),
+            ...configParse17(configs.get(17))
+        },
+        storagePrices: configParse18(configs.get(18)),
+        gasPrices: {
+            masterchain: configParseGasLimitsPrices(configs.get(20)),
+            workchain: configParseGasLimitsPrices(configs.get(21)),
+        },
+        msgPrices: {
+            masterchain: configParseMsgPrices(configs.get(24)),
+            workchain: configParseMsgPrices(configs.get(25)),
+        },
+        validatorSets: {
+            prevValidators: configParseValidatorSet(configs.get(32)),
+            prevTempValidators: configParseValidatorSet(configs.get(33)),
+            currentValidators: configParseValidatorSet(configs.get(34)),
+            currentTempValidators: configParseValidatorSet(configs.get(35)),
+            nextValidators: configParseValidatorSet(configs.get(36)),
+            nextTempValidators: configParseValidatorSet(configs.get(37))
+        },
+        validatorsPunish: configParse40(configs.get(40)),
+        bridges: {
+            ethereum: configParseBridge(configs.get(71)),
+            binance: configParseBridge(configs.get(72)),
+            polygon: configParseBridge(configs.get(73))
+        },
+        catchain: configParse28(configs.get(28)),
+        consensus: configParse29(configs.get(29))
+    };
+}
 
-export function parseFullConfig(configs: Map<number, Slice>): FullNetworkConfig {
+export function parseFullerConfig(configs: Map<number, Slice>) {
     return {
         configAddress: configParseMasterAddressRequired(configs.get(0)),
         electorAddress: configParseMasterAddressRequired(configs.get(1)),

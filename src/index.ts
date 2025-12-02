@@ -72,7 +72,7 @@ export { GasLimitsPrices, StoragePrices, MsgPrices, WorkchainDescriptor,
     configParseMasterAddressRequired, configParseMsgPrices,
     configParseValidatorSet, configParseWorkchainDescriptor,
     parseBridge, parseProposalSetup, parseValidatorSet, parseVotingSetup,
-    parseFullConfig,
+    parseFullConfig, parseFullerConfig,
     loadConfigParamById, loadConfigParamsAsSlice } from './config/ConfigParser'
 
 //

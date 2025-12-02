@@ -282,7 +282,7 @@ describe('ConfigContract', () => {
 
     });
 
-    it('should not reise error when loading full config', async () => {
+    it('should not raise error when loading full config', async () => {
         const serializedConfigsCell = (await client.getConfig(BLOCK_AT_31_10_25)).config.cell;
         parseFullConfig(loadConfigParamsAsSlice(serializedConfigsCell));
     });
