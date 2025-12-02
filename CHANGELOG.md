@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 - Missing config param parsers (thx @Garrethta)
-- Wallet constructors made public (thx @inyellowbus)
+- Wallet constructors made public (thx [RSquad](https://rsquad.io))
 
 ## [16.0.0] - 2025-10-03
 
