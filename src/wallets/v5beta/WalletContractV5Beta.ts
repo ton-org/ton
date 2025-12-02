@@ -79,7 +79,7 @@ export class WalletContractV5Beta implements Contract {
     readonly address: Address;
     readonly init: { data: Cell, code: Cell };
 
-    private constructor(
+    constructor(
         readonly walletId: WalletIdV5Beta,
         readonly publicKey: Buffer
     ) {

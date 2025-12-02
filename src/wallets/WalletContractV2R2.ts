@@ -21,7 +21,7 @@ export class WalletContractV2R2 implements Contract {
     readonly address: Address;
     readonly init: { data: Cell, code: Cell };
 
-    private constructor(workchain: number, publicKey: Buffer) {
+    constructor(workchain: number, publicKey: Buffer) {
         this.workchain = workchain;
         this.publicKey = publicKey;
 
