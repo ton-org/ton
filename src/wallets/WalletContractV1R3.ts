@@ -57,6 +57,19 @@ export class WalletContractV1R3 implements Contract {
     }
 
     /**
+     * Get Wallet Public Key
+     */
+    async getPublicKey(provider: ContractProvider) {
+        let state = await provider.getState();
+        if (state.state.type === 'active') {
+            let res = await provider.get('get_public_key', []);
+            return Buffer.from(res.stack.readBigNumber().toString(16), 'hex');
+        } else {
+            return Buffer.from([]); 
+        }
+    }
+
+    /**
      * Send signed transfer
      */
     async send(executor: ContractProvider, message: Cell) {

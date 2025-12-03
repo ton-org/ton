@@ -1,74 +1,24 @@
-/**
- * Copyright (c) Whales Corp. 
- * All Rights Reserved.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
-import { randomTestKey } from "../utils/randomTestKey";
-import { createTestClient4 } from "../utils/createTestClient4";
-import { Address, internal } from "@ton/core";
+import { v1r2Tests } from "./WalletContractV1R2.trait";
+import { Blockchain } from "@ton/sandbox";
+import { mnemonicToPrivateKey } from "@ton/crypto";
+import { toNano } from "@ton/core";
 import { WalletContractV1R2 } from "./WalletContractV1R2";
-import { tillNextSeqno } from "../utils/testWallets";
 
-describe('WalletContractV1R2', () => {
-    it('should has balance and correct address', async () => {
+const setup = async () => {
+    const blockchain = await  Blockchain.create();  
+    const keyPair = await mnemonicToPrivateKey(['v1r2']);
 
-        // Create contract
-        let client = createTestClient4();
-        let key = randomTestKey('v4-treasure');
-        let contract = client.open(WalletContractV1R2.create({ workchain: 0, publicKey: key.publicKey }));
-        let balance = await contract.getBalance();
+    const deployer = await blockchain.treasury("deployer");
 
-        // Check parameters
-        expect(contract.address.equals(Address.parse('EQATDkvcCA2fFWbSTHMpGCrjkNGqgEywES15ZS11HHY3UuxK'))).toBe(true);
-        expect(balance > 0n).toBe(true);
-    });
-    it('should perform transfer', async () => {
-        // Create contract
-        let client = createTestClient4();
-        let key = randomTestKey('v4-treasure');
-        let contract = client.open(WalletContractV1R2.create({ workchain: 0, publicKey: key.publicKey }));
+    const contract = blockchain.openContract(WalletContractV1R2.create({ workchain: 0, publicKey: keyPair.publicKey }));
 
-        // Prepare transfer
-        let seqno = await contract.getSeqno();
-        let transfer = contract.createTransfer({
-            seqno,
-            secretKey: key.secretKey,
-            message: internal({
-                to: 'kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt',
-                value: '0.1',
-                body: 'Hello, world!'
-            })
-        });
+    const deployResult = await deployer.send({
+        to: contract.address,
+        value: toNano('1111'),
+        init: contract.init,
+    })
 
-        // Perform transfer
-        await contract.send(transfer);
-        await tillNextSeqno(contract, seqno);
-    });
+    return { blockchain, deployer, keyPair, contract, deployResult };
+}
 
-    it('should perform extra currency transfer', async () => {
-        // Create contract
-        let client = createTestClient4();
-        let key = randomTestKey('v4-treasure');
-        let contract = client.open(WalletContractV1R2.create({ workchain: 0, publicKey: key.publicKey }));
-
-        // Prepare transfer
-        let seqno = await contract.getSeqno();
-        let transfer = contract.createTransfer({
-            seqno,
-            secretKey: key.secretKey,
-            message: internal({
-                to: 'kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt',
-                value: '0.01',
-                extracurrency: {100: BigInt(10 ** 6)},
-                body: 'Hello, extra currency v1r2!'
-            })
-        });
-
-        // Perform transfer
-        await contract.send(transfer);
-        await tillNextSeqno(contract, seqno);
-    });
-});
+v1r2Tests(setup);

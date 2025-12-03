@@ -1,48 +1,24 @@
-/**
- * Copyright (c) Whales Corp. 
- * All Rights Reserved.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
-import { randomTestKey } from "../utils/randomTestKey";
-import { createTestClient4 } from "../utils/createTestClient4";
-import { Address, internal } from "@ton/core";
+import { v1r3Tests } from "./WalletContractV1R3.trait";
+import { Blockchain } from "@ton/sandbox";
+import { mnemonicToPrivateKey } from "@ton/crypto";
+import { toNano } from "@ton/core";
 import { WalletContractV1R3 } from "./WalletContractV1R3";
 
-describe('WalletContractV1R3', () => {
-    it('should has balance and correct address', async () => {
+const setup = async () => {
+    const blockchain = await  Blockchain.create();  
+    const keyPair = await mnemonicToPrivateKey(['v1r3']);
 
-        // Create contract
-        let client = createTestClient4();
-        let key = randomTestKey('v4-treasure');
-        let contract = client.open(WalletContractV1R3.create({ workchain: 0, publicKey: key.publicKey }));
-        let balance = await contract.getBalance();
+    const deployer = await blockchain.treasury("deployer");
 
-        // Check parameters
-        expect(contract.address.equals(Address.parse('EQBRRPBUtgzq5om6O4rtxwPW4hyDxiXYeIko27tvsm97kUw3'))).toBe(true);
-        expect(balance > 0n).toBe(true);
-    });
-    it('should perform transfer', async () => {
-        // Create contract
-        let client = createTestClient4();
-        let key = randomTestKey('v4-treasure');
-        let contract = client.open(WalletContractV1R3.create({ workchain: 0, publicKey: key.publicKey }));
+    const contract = blockchain.openContract(WalletContractV1R3.create({ workchain: 0, publicKey: keyPair.publicKey }));
 
-        // Prepare transfer
-        let seqno = await contract.getSeqno();
-        let transfer = contract.createTransfer({
-            seqno,
-            secretKey: key.secretKey,
-            message: internal({
-                to: 'kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt',
-                value: '0.1',
-                body: 'Hello, world!'
-            })
-        });
+    const deployResult = await deployer.send({
+        to: contract.address,
+        value: toNano('1111'),
+        init: contract.init,
+    })
 
-        // Perform transfer
-        await contract.send(transfer);
-    });
-});
+    return { blockchain, deployer, keyPair, contract, deployResult };
+}
+
+v1r3Tests(setup);

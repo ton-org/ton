@@ -40,6 +40,8 @@
     "webpack": "^5.51.2"
   },
   "dependencies": {
+    "@ton/sandbox": "^0.39.0",
+    "@ton/test-utils": "^0.12.0",
     "axios": "^1.6.7",
     "dataloader": "^2.0.0",
     "symbol.inspect": "1.0.1",
