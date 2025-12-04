@@ -1,6 +1,6 @@
 import "@ton/test-utils";
 
-import { beginCell, internal, SendMode, toNano } from "@ton/core";
+import { beginCell, internal, toNano } from "@ton/core";
 import { WalletContractV1R1 } from "./WalletContractV1R1";
 import { mnemonicToPrivateKey, KeyPair } from "@ton/crypto";
 
@@ -15,7 +15,7 @@ type V1R1SetupResult = {
   blockchain: Blockchain;
   deployer: SandboxContract<TreasuryContract>;
   keyPair: KeyPair;
-  contract: SandboxContract<WalletContractV1R1 & Record<string, any>>;
+  contract: SandboxContract<WalletContractV1R1>;
   deployResult: SendMessageResult;
   getPublicKey: (contract: SandboxContract<any>) => Promise<Buffer>;
 };
