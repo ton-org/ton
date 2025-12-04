@@ -2,6 +2,7 @@
 /dist/
 /node_modules/
 /package-lock.json
+/coverage
 
 
 # Yarn >2.0.0
