@@ -1,0 +1,25 @@
+name: Check formatting
+
+on:
+  push:
+    branches: ["main"]
+
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Corepack
+        run: |
+          corepack enable
+      - name: Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+          cache: "yarn"
+      - run: yarn
+      - run: yarn run format:check
