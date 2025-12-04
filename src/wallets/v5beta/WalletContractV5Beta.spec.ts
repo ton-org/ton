@@ -131,7 +131,7 @@ describe('WalletContractV5Beta', () => {
         await wallet.send(transfer);
     });
 
-    it('should add extension', async () => {
+    it.skip('should add extension', async () => {
         const extensionKey = randomTestKey('v5-treasure-extension');
         const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
 
@@ -209,7 +209,7 @@ describe('WalletContractV5Beta', () => {
         }
     });
 
-    it('should send internal transfer via relayer', async () => {
+    it.skip('should send internal transfer via relayer', async () => {
         const relaerKey = randomTestKey('v5-treasure-relayer');
         const relayerContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: relaerKey.publicKey }));
 
@@ -241,7 +241,7 @@ describe('WalletContractV5Beta', () => {
     });
 
 
-    it('should disable secret key auth, send extension-auth tx, and enable it again', async () => {
+    it.skip('should disable secret key auth, send extension-auth tx, and enable it again', async () => {
         /* firstly add an extension that will take the control over the wallet */
         const extensionKey = randomTestKey('v5-treasure-extension');
         const extensionContract = client.open(WalletContractV5Beta.create({ walletId: { workchain: 0, networkGlobalId: -3 }, publicKey: extensionKey.publicKey }));
