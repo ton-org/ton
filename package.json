@@ -11,10 +11,13 @@
   "scripts": {
     "build": "rm -fr dist && tsc --declaration",
     "test": "jest --verbose",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
     "coverage": "jest -c ./jest-coverage.config.js",
     "release": "yarn build && yarn release-it --npm.yarn1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.3.8",
     "@release-it/keep-a-changelog": "^5.0.0",
     "@swc/core": "^1.15.3",
     "@swc/jest": "^0.2.39",
