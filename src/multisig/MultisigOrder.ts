@@ -1,8 +1,8 @@
 /* Made by @Gusarich and @Miandic */
 
-import { sign, signVerify } from '@ton/crypto';
-import { beginCell, Cell } from '@ton/core';
-import { MultisigWallet } from './MultisigWallet';
+import { sign, signVerify } from "@ton/crypto";
+import { beginCell, Cell } from "@ton/core";
+import { MultisigWallet } from "./MultisigWallet";
 
 export class MultisigOrder {
     public readonly payload: Cell;
@@ -43,17 +43,17 @@ export class MultisigOrder {
     public addSignature(
         ownerId: number,
         signature: Buffer,
-        multisig: MultisigWallet
+        multisig: MultisigWallet,
     ) {
         const signingHash = this.payload.hash();
         if (
             !signVerify(
                 signingHash,
                 signature,
-                multisig.owners.get(ownerId)!.slice(0, -1)
+                multisig.owners.get(ownerId)!.slice(0, -1),
             )
         ) {
-            throw Error('invalid signature');
+            throw Error("invalid signature");
         }
         this.signatures[ownerId] = signature;
     }
@@ -83,7 +83,7 @@ export class MultisigOrder {
                         .storeBuffer(signature)
                         .storeUint(parseInt(ownerId), 8)
                         .storeBuilder(b)
-                        .endCell()
+                        .endCell(),
                 );
         }
 

@@ -5,8 +5,8 @@ import {
     Builder,
     MessageRelaxed,
     storeMessageRelaxed,
-} from '@ton/core';
-import { MultisigOrder } from './MultisigOrder';
+} from "@ton/core";
+import { MultisigOrder } from "./MultisigOrder";
 
 export class MultisigOrderBuilder {
     public messages: Builder = beginCell();
@@ -21,12 +21,12 @@ export class MultisigOrderBuilder {
 
     public addMessage(message: MessageRelaxed, mode: number) {
         if (this.messages.refs >= 4) {
-            throw Error('only 4 refs are allowed');
+            throw Error("only 4 refs are allowed");
         }
         this.updateQueryId();
         this.messages.storeUint(mode, 8);
         this.messages.storeRef(
-            beginCell().store(storeMessageRelaxed(message)).endCell()
+            beginCell().store(storeMessageRelaxed(message)).endCell(),
         );
     }
 
@@ -40,7 +40,7 @@ export class MultisigOrderBuilder {
                 .storeUint(this.walletId, 32)
                 .storeUint(this.queryId, 64)
                 .storeBuilder(this.messages)
-                .endCell()
+                .endCell(),
         );
     }
 

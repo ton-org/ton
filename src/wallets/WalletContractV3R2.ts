@@ -6,26 +6,49 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
+import {
+    Address,
+    beginCell,
+    Cell,
+    Contract,
+    contractAddress,
+    ContractProvider,
+    internal,
+    MessageRelaxed,
+    Sender,
+    SendMode,
+} from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { createWalletTransferV3 } from "./signing/createWalletTransfer";
-import { WalletV3SendArgsSignable, WalletV3SendArgsSigned } from "./WalletContractV3Types";
-
+import {
+    WalletV3SendArgsSignable,
+    WalletV3SendArgsSigned,
+} from "./WalletContractV3Types";
 
 export class WalletContractV3R2 implements Contract {
-
-    static create(args: { workchain: number, publicKey: Buffer, walletId?: Maybe<number> }) {
-        return new WalletContractV3R2(args.workchain, args.publicKey, args.walletId);
+    static create(args: {
+        workchain: number;
+        publicKey: Buffer;
+        walletId?: Maybe<number>;
+    }) {
+        return new WalletContractV3R2(
+            args.workchain,
+            args.publicKey,
+            args.walletId,
+        );
     }
 
     readonly workchain: number;
     readonly publicKey: Buffer;
     readonly address: Address;
     readonly walletId: number;
-    readonly init: { data: Cell, code: Cell };
+    readonly init: { data: Cell; code: Cell };
 
-    constructor(workchain: number, publicKey: Buffer, walletId?: Maybe<number>) {
-
+    constructor(
+        workchain: number,
+        publicKey: Buffer,
+        walletId?: Maybe<number>,
+    ) {
         // Resolve parameters
         this.workchain = workchain;
         this.publicKey = publicKey;
@@ -36,7 +59,12 @@ export class WalletContractV3R2 implements Contract {
         }
 
         // Build initial code and data
-        let code = Cell.fromBoc(Buffer.from('te6cckEBAQEAcQAA3v8AIN0gggFMl7ohggEznLqxn3Gw7UTQ0x/THzHXC//jBOCk8mCDCNcYINMf0x/TH/gjE7vyY+1E0NMf0x/T/9FRMrryoVFEuvKiBPkBVBBV+RDyo/gAkyDXSpbTB9QC+wDo0QGkyMsfyx/L/8ntVBC9ba0=', 'base64'))[0];
+        let code = Cell.fromBoc(
+            Buffer.from(
+                "te6cckEBAQEAcQAA3v8AIN0gggFMl7ohggEznLqxn3Gw7UTQ0x/THzHXC//jBOCk8mCDCNcYINMf0x/TH/gjE7vyY+1E0NMf0x/T/9FRMrryoVFEuvKiBPkBVBBV+RDyo/gAkyDXSpbTB9QC+wDo0QGkyMsfyx/L/8ntVBC9ba0=",
+                "base64",
+            ),
+        )[0];
         let data = beginCell()
             .storeUint(0, 32) // Seqno
             .storeUint(this.walletId, 32)
@@ -59,8 +87,8 @@ export class WalletContractV3R2 implements Contract {
      */
     async getSeqno(provider: ContractProvider) {
         let state = await provider.getState();
-        if (state.state.type === 'active') {
-            let res = await provider.get('seqno', []);
+        if (state.state.type === "active") {
+            let res = await provider.get("seqno", []);
             return res.stack.readNumber();
         } else {
             return 0;
@@ -77,13 +105,16 @@ export class WalletContractV3R2 implements Contract {
     /**
      * Sign and send transfer
      */
-    async sendTransfer(provider: ContractProvider, args: {
-        seqno: number,
-        secretKey: Buffer,
-        messages: MessageRelaxed[],
-        sendMode?: Maybe<SendMode>,
-        timeout?: Maybe<number>
-    }) {
+    async sendTransfer(
+        provider: ContractProvider,
+        args: {
+            seqno: number;
+            secretKey: Buffer;
+            messages: MessageRelaxed[];
+            sendMode?: Maybe<SendMode>;
+            timeout?: Maybe<number>;
+        },
+    ) {
         let transfer = this.createTransfer(args);
         await this.send(provider, transfer);
     }
@@ -91,11 +122,13 @@ export class WalletContractV3R2 implements Contract {
     /**
      * Create transfer
      */
-    createTransfer<T extends WalletV3SendArgsSigned | WalletV3SendArgsSignable>(args: T) {
+    createTransfer<T extends WalletV3SendArgsSigned | WalletV3SendArgsSignable>(
+        args: T,
+    ) {
         return createWalletTransferV3<T>({
             ...args,
             sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
-            walletId: this.walletId
+            walletId: this.walletId,
         });
     }
 
@@ -110,17 +143,19 @@ export class WalletContractV3R2 implements Contract {
                     seqno,
                     secretKey,
                     sendMode: args.sendMode,
-                    messages: [internal({
-                        to: args.to,
-                        value: args.value,
-                        extracurrency: args.extracurrency,
-                        init: args.init,
-                        body: args.body,
-                        bounce: args.bounce
-                    })]
+                    messages: [
+                        internal({
+                            to: args.to,
+                            value: args.value,
+                            extracurrency: args.extracurrency,
+                            init: args.init,
+                            body: args.body,
+                            bounce: args.bounce,
+                        }),
+                    ],
                 });
                 await this.send(provider, transfer);
-            }
+            },
         };
     }
 }

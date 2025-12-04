@@ -1,38 +1,48 @@
-import { Builder, Cell, loadMessageRelaxed, storeStateInit } from '@ton/core';
-import { MsgPrices, StoragePrices } from '../config/ConfigParser';
+import { Builder, Cell, loadMessageRelaxed, storeStateInit } from "@ton/core";
+import { MsgPrices, StoragePrices } from "../config/ConfigParser";
 
 //
 // Source: https://github.com/ton-foundation/ton/blob/ae5c0720143e231c32c3d2034cfe4e533a16d969/crypto/block/transaction.cpp#L425
 //
 
 export function computeStorageFees(data: {
-    now: number
-    lastPaid: number
-    storagePrices: StoragePrices[]
-    storageStat: { cells: number, bits: number, publicCells: number }
-    special: boolean
-    masterchain: boolean
+    now: number;
+    lastPaid: number;
+    storagePrices: StoragePrices[];
+    storageStat: { cells: number; bits: number; publicCells: number };
+    special: boolean;
+    masterchain: boolean;
 }) {
-    const {
-        lastPaid,
-        now,
-        storagePrices,
-        storageStat,
-        special,
-        masterchain
-    } = data;
-    if (now <= lastPaid || storagePrices.length === 0 || now < storagePrices[0].utime_since || special) {
+    const { lastPaid, now, storagePrices, storageStat, special, masterchain } =
+        data;
+    if (
+        now <= lastPaid ||
+        storagePrices.length === 0 ||
+        now < storagePrices[0].utime_since ||
+        special
+    ) {
         return BigInt(0);
     }
     let upto = Math.max(lastPaid, storagePrices[0].utime_since);
     let total = BigInt(0);
     for (let i = 0; i < storagePrices.length && upto < now; i++) {
-        let valid_until = (i < storagePrices.length - 1 ? Math.min(now, storagePrices[i + 1].utime_since) : now);
+        let valid_until =
+            i < storagePrices.length - 1
+                ? Math.min(now, storagePrices[i + 1].utime_since)
+                : now;
         let payment = BigInt(0);
         if (upto < valid_until) {
             let delta = valid_until - upto;
-            payment += (BigInt(storageStat.cells) * (masterchain ? storagePrices[i].mc_cell_price_ps : storagePrices[i].cell_price_ps));
-            payment += (BigInt(storageStat.bits) * (masterchain ? storagePrices[i].mc_bit_price_ps : storagePrices[i].bit_price_ps));
+            payment +=
+                BigInt(storageStat.cells) *
+                (masterchain
+                    ? storagePrices[i].mc_cell_price_ps
+                    : storagePrices[i].cell_price_ps);
+            payment +=
+                BigInt(storageStat.bits) *
+                (masterchain
+                    ? storagePrices[i].mc_bit_price_ps
+                    : storagePrices[i].bit_price_ps);
             payment = payment * BigInt(delta);
         }
         upto = valid_until;
@@ -46,20 +56,33 @@ export function computeStorageFees(data: {
 // Source: https://github.com/ton-foundation/ton/blob/ae5c0720143e231c32c3d2034cfe4e533a16d969/crypto/block/transaction.cpp#L1218
 //
 
-export function computeFwdFees(msgPrices: MsgPrices, cells: bigint, bits: bigint) {
-    return msgPrices.lumpPrice + (shr16ceil(msgPrices.bitPrice * bits + (msgPrices.cellPrice * cells)));
+export function computeFwdFees(
+    msgPrices: MsgPrices,
+    cells: bigint,
+    bits: bigint,
+) {
+    return (
+        msgPrices.lumpPrice +
+        shr16ceil(msgPrices.bitPrice * bits + msgPrices.cellPrice * cells)
+    );
 }
 
 //
 // Source: https://github.com/ton-foundation/ton/blob/ae5c0720143e231c32c3d2034cfe4e533a16d969/crypto/block/transaction.cpp#L761
 //
 
-export function computeGasPrices(gasUsed: bigint, prices: { flatLimit: bigint, flatPrice: bigint, price: bigint }) {
+export function computeGasPrices(
+    gasUsed: bigint,
+    prices: { flatLimit: bigint; flatPrice: bigint; price: bigint },
+) {
     if (gasUsed <= prices.flatLimit) {
         return prices.flatPrice;
     } else {
         //  td::rshift(gas_price256 * (gas_used - cfg.flat_gas_limit), 16, 1) + cfg.flat_gas_price
-        return prices.flatPrice + ((prices.price * (gasUsed - prices.flatLimit)) >> 16n);
+        return (
+            prices.flatPrice +
+            ((prices.price * (gasUsed - prices.flatLimit)) >> 16n)
+        );
     }
 }
 
@@ -68,18 +91,21 @@ export function computeGasPrices(gasUsed: bigint, prices: { flatLimit: bigint, f
 //
 
 export function computeExternalMessageFees(msgPrices: MsgPrices, cell: Cell) {
-
     // Collect stats
     let storageStats = collectCellStats(cell);
     storageStats.bits -= cell.bits.length;
     storageStats.cells -= 1;
 
-    return computeFwdFees(msgPrices, BigInt(storageStats.cells), BigInt(storageStats.bits));
+    return computeFwdFees(
+        msgPrices,
+        BigInt(storageStats.cells),
+        BigInt(storageStats.bits),
+    );
 }
 
 export function computeMessageForwardFees(msgPrices: MsgPrices, cell: Cell) {
     let msg = loadMessageRelaxed(cell.beginParse());
-    let storageStats: { bits: number, cells: number } = { bits: 0, cells: 0 };
+    let storageStats: { bits: number; cells: number } = { bits: 0, cells: 0 };
 
     // Init
     if (msg.init) {
@@ -103,13 +129,17 @@ export function computeMessageForwardFees(msgPrices: MsgPrices, cell: Cell) {
 
     // NOTE: Extra currencies are ignored for now
 
-    let fees = computeFwdFees(msgPrices, BigInt(storageStats.cells), BigInt(storageStats.bits));
+    let fees = computeFwdFees(
+        msgPrices,
+        BigInt(storageStats.cells),
+        BigInt(storageStats.bits),
+    );
     let res = (fees * BigInt(msgPrices.firstFrac)) >> 16n;
     let remaining = fees - res;
     return { fees: res, remaining };
 }
 
-function collectCellStats(cell: Cell): { bits: number, cells: number } {
+function collectCellStats(cell: Cell): { bits: number; cells: number } {
     let bits = cell.bits.length;
     let cells = 1;
     for (let ref of cell.refs) {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
@@ -9,7 +9,6 @@
 import { Address, Contract, ContractProvider } from "@ton/core";
 
 export class JettonWallet implements Contract {
-
     static create(address: Address) {
         return new JettonWallet(address);
     }
@@ -22,10 +21,10 @@ export class JettonWallet implements Contract {
 
     async getBalance(provider: ContractProvider) {
         let state = await provider.getState();
-        if (state.state.type !== 'active') {
+        if (state.state.type !== "active") {
             return 0n;
         }
-        let res = await provider.get('get_wallet_data', []);
+        let res = await provider.get("get_wallet_data", []);
         return res.stack.readBigNumber();
     }
 }
