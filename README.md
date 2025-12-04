@@ -65,11 +65,6 @@ let transfer = await contract.createTransfer({
 
 ```
 
-## Docs
-
-[Documentation](https://ton-community.github.io/ton/)
-
-
 ## Testing
 
 ### Debugging in tests
