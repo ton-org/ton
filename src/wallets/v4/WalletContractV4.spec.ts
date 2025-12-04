@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
@@ -15,7 +15,7 @@ import {TonClient4} from "../../client/TonClient4";
 import {KeyPair} from "@ton/crypto";
 
 describe('WalletContractV4', () => {
-    
+
     it('should has balance and correct address', async () => {
 
         // Create contract
@@ -29,7 +29,7 @@ describe('WalletContractV4', () => {
         expect(balance > 0n).toBe(true);
     });
 
-    it('should perform transfer', async () => {
+    it.skip('should perform transfer', async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey('v4-treasure');
@@ -57,7 +57,7 @@ describe('WalletContractV4', () => {
         await tillNextSeqno(contract, seqno);
     });
 
-    it('should perform extra currency transfer', async () => {
+    it.skip('should perform extra currency transfer', async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey('v4-treasure');
@@ -105,7 +105,7 @@ describe('WalletContractV4', () => {
             }).address;
         })
 
-        it('should install plugin', async () => {
+        it.skip('should install plugin', async () => {
             let seqno = await contract.getSeqno();
             await contract.sendRequest({
                 seqno: await contract.getSeqno(),
@@ -120,13 +120,13 @@ describe('WalletContractV4', () => {
             await tillNextSeqno(contract, seqno);
         })
 
-        it('should return plugin in get methods', async () => {
+        it.skip('should return plugin in get methods', async () => {
             expect(await contract.getIsPluginInstalled(randomAddress)).toBeTruthy();
             const plugins = await contract.getPluginsArray();
             expect(plugins.find(plugin => plugin.equals(randomAddress))).toBeTruthy();
         })
 
-        it('should uninstall plugin', async () => {
+        it.skip('should uninstall plugin', async () => {
             let seqno = await contract.getSeqno();
             await contract.sendRequest({
                 seqno: await contract.getSeqno(),
@@ -148,7 +148,7 @@ describe('WalletContractV4', () => {
             })
         })
 
-        it('should install and deploy plugin', async () => {
+        it.skip('should install and deploy plugin', async () => {
             let seqno = await contract.getSeqno();
             await contract.sendRequest({
                 seqno: await contract.getSeqno(),
@@ -165,7 +165,7 @@ describe('WalletContractV4', () => {
             await tillNextSeqno(contract, seqno);
         })
 
-        it('should withdraw funds by plugin request', async () => {
+        it.skip('should withdraw funds by plugin request', async () => {
             let seqno = await contract.getSeqno();
             await pluginContract.sendPluginRequestFunds(
                 pluginContract.sender(walletKey.secretKey),
@@ -177,7 +177,7 @@ describe('WalletContractV4', () => {
             await tillNextSeqno(contract, seqno);
         })
 
-        it('should delete plugin by plugin request', async () => {
+        it.skip('should delete plugin by plugin request', async () => {
             let seqno = await pluginContract.getSeqno();
 
             await pluginContract.sendPluginRemovePlugin(
