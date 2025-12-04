@@ -7,6 +7,7 @@ const options = {
   },
   testEnvironment: "node",
   testPathIgnorePatterns: ["/node_modules/", "/dist/"],
+  collectCoverageFrom: ["src/**/*.{ts,js}"],
   testTimeout: 60000,
   setupFilesAfterEnv: ["./setup-jest.js"],
   moduleNameMapper: {
