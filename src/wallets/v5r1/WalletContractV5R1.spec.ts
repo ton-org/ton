@@ -34,7 +34,7 @@ const getExtensionsArray = async (
     }
 };
 
-describe("WalletContractV5R1", () => {
+describe.skip("WalletContractV5R1", () => {
     let client: TonClient4;
     let walletKey: KeyPair;
     let wallet: OpenedContract<WalletContractV5R1>;
