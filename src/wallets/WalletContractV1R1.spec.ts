@@ -25,7 +25,7 @@ const setup = async () => {
   const getPublicKey = async (
     contract: SandboxContract<WalletContractV1R1>,
   ) => {
-    let state = await blockchain.provider(contract.address).getState();
+    const state = await blockchain.provider(contract.address).getState();
     if (state.state.type === "active") {
       const ds = Cell.fromBoc(state.state.data!)[0].beginParse();
       ds.loadUint(32);
