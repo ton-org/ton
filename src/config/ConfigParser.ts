@@ -1,4 +1,13 @@
-import { Address, Slice, Cell, Dictionary, DictionaryValue, Builder, loadExtraCurrency, ExtraCurrency } from "@ton/core";
+import {
+    Address,
+    Slice,
+    Cell,
+    Dictionary,
+    DictionaryValue,
+    Builder,
+    loadExtraCurrency,
+    ExtraCurrency,
+} from "@ton/core";
 
 export function configParseMasterAddress(slice: Slice | null | undefined) {
     if (slice) {
@@ -11,34 +20,42 @@ export function configParseMasterAddress(slice: Slice | null | undefined) {
 function readPublicKey(slice: Slice) {
     // 8e81278a
     if (slice.loadUint(32) !== 0x8e81278a) {
-        throw Error('Invalid publicKey');
+        throw Error("Invalid publicKey");
     }
     return slice.loadBuffer(32);
 }
 
-const ValidatorDescriptionDictValue: DictionaryValue<{publicKey: Buffer, weight: bigint, adnlAddress: Buffer|null}> = {
+const ValidatorDescriptionDictValue: DictionaryValue<{
+    publicKey: Buffer;
+    weight: bigint;
+    adnlAddress: Buffer | null;
+}> = {
     serialize(src: any, builder: Builder): void {
-        throw Error("not implemented")
+        throw Error("not implemented");
     },
-    parse(src: Slice): {publicKey: Buffer, weight: bigint, adnlAddress: Buffer|null} {
+    parse(src: Slice): {
+        publicKey: Buffer;
+        weight: bigint;
+        adnlAddress: Buffer | null;
+    } {
         const header = src.loadUint(8);
         if (header === 0x53) {
             return {
                 publicKey: readPublicKey(src),
                 weight: src.loadUintBig(64),
-                adnlAddress: null
+                adnlAddress: null,
             };
         } else if (header === 0x73) {
             return {
                 publicKey: readPublicKey(src),
                 weight: src.loadUintBig(64),
-                adnlAddress: src.loadBuffer(32)
+                adnlAddress: src.loadBuffer(32),
             };
         } else {
-            throw Error('Invalid validator description dict');
+            throw Error("Invalid validator description dict");
         }
-    }
-}
+    },
+};
 
 export type ValidatorSet = {
     timeSince: number;
@@ -46,12 +63,15 @@ export type ValidatorSet = {
     total: number;
     main: number;
     totalWeight: bigint | null;
-    list: Dictionary<number, {
-        publicKey: Buffer;
-        weight: bigint;
-        adnlAddress: Buffer | null;
-    }>;
-}
+    list: Dictionary<
+        number,
+        {
+            publicKey: Buffer;
+            weight: bigint;
+            adnlAddress: Buffer | null;
+        }
+    >;
+};
 
 export function parseValidatorSet(slice: Slice): ValidatorSet | null {
     const header = slice.loadUint(8);
@@ -60,14 +80,17 @@ export function parseValidatorSet(slice: Slice): ValidatorSet | null {
         const timeUntil = slice.loadUint(32);
         const total = slice.loadUint(16);
         const main = slice.loadUint(16);
-        const list = slice.loadDictDirect(Dictionary.Keys.Uint(16), ValidatorDescriptionDictValue);
+        const list = slice.loadDictDirect(
+            Dictionary.Keys.Uint(16),
+            ValidatorDescriptionDictValue,
+        );
         return {
             timeSince,
             timeUntil,
             total,
             main,
             totalWeight: null,
-            list
+            list,
         };
     } else if (header === 0x12) {
         const timeSince = slice.loadUint(32);
@@ -75,17 +98,20 @@ export function parseValidatorSet(slice: Slice): ValidatorSet | null {
         const total = slice.loadUint(16);
         const main = slice.loadUint(16);
         const totalWeight = slice.loadUintBig(64);
-        const list = slice.loadDict(Dictionary.Keys.Uint(16), ValidatorDescriptionDictValue);
+        const list = slice.loadDict(
+            Dictionary.Keys.Uint(16),
+            ValidatorDescriptionDictValue,
+        );
         return {
             timeSince,
             timeUntil,
             total,
             main,
             totalWeight,
-            list
+            list,
         };
     }
-    return null
+    return null;
 }
 
 export type BridgeParams = {
@@ -93,61 +119,68 @@ export type BridgeParams = {
     oracleMultisigAddress: Address;
     oracles: Map<string, Buffer>;
     externalChainAddress: Buffer;
-}
+};
 
 export function parseBridge(slice: Slice): BridgeParams {
     const bridgeAddress = new Address(-1, slice.loadBuffer(32));
     const oracleMultisigAddress = new Address(-1, slice.loadBuffer(32));
-    const oraclesDict = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Buffer(32));
+    const oraclesDict = slice.loadDict(
+        Dictionary.Keys.Buffer(32),
+        Dictionary.Values.Buffer(32),
+    );
     const oracles = new Map<string, Buffer>();
     for (const [local, remote] of oraclesDict) {
         oracles.set(new Address(-1, local).toString(), remote);
-    }   
+    }
     const externalChainAddress = slice.loadBuffer(32);
     return {
         bridgeAddress,
         oracleMultisigAddress,
         oracles,
-        externalChainAddress
-    }
+        externalChainAddress,
+    };
 }
 
-export function configParseMasterAddressRequired(slice: Slice | null | undefined) {
+export function configParseMasterAddressRequired(
+    slice: Slice | null | undefined,
+) {
     if (!slice) {
-        throw Error('Invalid master address');
+        throw Error("Invalid master address");
     }
     return configParseMasterAddress(slice)!;
 }
 
 export function configParse5(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config5 slice');
+        throw Error("No config5 slice");
     }
     const magic = slice.loadUint(8);
     if (magic === 0x01) {
-        const blackholeAddr = slice.loadBit() ? new Address(-1, slice.loadBuffer(32)): null;
+        const blackholeAddr = slice.loadBit()
+            ? new Address(-1, slice.loadBuffer(32))
+            : null;
         const feeBurnNominator = slice.loadUint(32);
         const feeBurnDenominator = slice.loadUint(32);
         return {
             blackholeAddr,
             feeBurnNominator,
-            feeBurnDenominator
+            feeBurnDenominator,
         };
     }
-    throw new Error('Invalid config5');
+    throw new Error("Invalid config5");
 }
 
 // _ mint_new_price:Grams mint_add_price:Grams = ConfigParam 6;
 export function configParse6(slice: Slice | null | undefined) {
     if (!slice) {
         // no param in mainnet for now, so throwing will cause crash of parseFullConfig()
-        return null
+        return null;
     }
     const mintNewPrice = slice.loadCoins();
     const mintAddPrice = slice.loadCoins();
     return {
         mintNewPrice,
-        mintAddPrice
+        mintAddPrice,
     };
 }
 
@@ -155,37 +188,45 @@ export function configParse6(slice: Slice | null | undefined) {
 // _ to_mint:ExtraCurrencyCollection = ConfigParam 7;
 export function configParse7(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config7 slice');
+        throw Error("No config7 slice");
     }
-    
+
     return {
         toMint: loadExtraCurrency(slice.loadRef()),
-    }
+    };
 }
 
 // _ mandatory_params:(Hashmap 32 True) = ConfigParam 9;
 export function configParse9(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config9 slice');
+        throw Error("No config9 slice");
     }
-    return new Set(slice.loadDictDirect(Dictionary.Keys.Int(32), Dictionary.Values.Uint(0)).keys());
+    return new Set(
+        slice
+            .loadDictDirect(Dictionary.Keys.Int(32), Dictionary.Values.Uint(0))
+            .keys(),
+    );
 }
 
 // _ critical_params:(Hashmap 32 True) = ConfigParam 10;
 export function configParse10(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config10 slice');
+        throw Error("No config10 slice");
     }
-    return new Set(slice.loadDictDirect(Dictionary.Keys.Int(32), Dictionary.Values.Uint(0)).keys());
+    return new Set(
+        slice
+            .loadDictDirect(Dictionary.Keys.Int(32), Dictionary.Values.Uint(0))
+            .keys(),
+    );
 }
 
 export function configParse13(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config13 slice');
+        throw Error("No config13 slice");
     }
     const magic = slice.loadUint(8);
     if (magic !== 0x1a) {
-        throw new Error('Invalid config13');
+        throw new Error("Invalid config13");
     }
 
     const deposit = slice.loadCoins();
@@ -194,31 +235,31 @@ export function configParse13(slice: Slice | null | undefined) {
     return {
         deposit,
         bitPrice,
-        cellPrice
+        cellPrice,
     };
 }
 // block_grams_created#6b masterchain_block_fee:Grams basechain_block_fee:Grams = BlockCreateFees;
 // _ BlockCreateFees = ConfigParam 14;
 export function configParse14(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config14 slice');
+        throw Error("No config14 slice");
     }
     const magic = slice.loadUint(8);
     if (magic !== 0x6b) {
-        throw new Error('Invalid config14');
+        throw new Error("Invalid config14");
     }
 
     const masterchainBlockFee = slice.loadCoins();
     const workchainBlockFee = slice.loadCoins();
     return {
         masterchainBlockFee,
-        workchainBlockFee
+        workchainBlockFee,
     };
 }
 
 export function configParse15(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config15 slice');
+        throw Error("No config15 slice");
     }
     const validatorsElectedFor = slice.loadUint(32);
     const electorsStartBefore = slice.loadUint(32);
@@ -228,13 +269,13 @@ export function configParse15(slice: Slice | null | undefined) {
         validatorsElectedFor,
         electorsStartBefore,
         electorsEndBefore,
-        stakeHeldFor
+        stakeHeldFor,
     };
 }
 
 export function configParse16(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config16 slice');
+        throw Error("No config16 slice");
     }
 
     const maxValidators = slice.loadUint(16);
@@ -243,13 +284,13 @@ export function configParse16(slice: Slice | null | undefined) {
     return {
         maxValidators,
         maxMainValidators,
-        minValidators
+        minValidators,
     };
 }
 
 export function configParse17(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config17 slice');
+        throw Error("No config17 slice");
     }
 
     const minStake = slice.loadCoins();
@@ -261,25 +302,25 @@ export function configParse17(slice: Slice | null | undefined) {
         minStake,
         maxStake,
         minTotalStake,
-        maxStakeFactor
+        maxStakeFactor,
     };
 }
 
 export type StoragePrices = {
-    utime_since: number,
-    bit_price_ps: bigint,
-    cell_price_ps: bigint,
-    mc_bit_price_ps: bigint,
-    mc_cell_price_ps: bigint
-}
+    utime_since: number;
+    bit_price_ps: bigint;
+    cell_price_ps: bigint;
+    mc_bit_price_ps: bigint;
+    mc_cell_price_ps: bigint;
+};
 const StoragePricesDictValue: DictionaryValue<StoragePrices> = {
     serialize(src: any, builder: Builder): void {
-        throw Error("not implemented")
+        throw Error("not implemented");
     },
     parse(src: Slice): StoragePrices {
         const header = src.loadUint(8);
         if (header !== 0xcc) {
-            throw Error('Invalid storage prices dict');
+            throw Error("Invalid storage prices dict");
         }
         const utime_since = src.loadUint(32);
         const bit_price_ps = src.loadUintBig(64);
@@ -291,31 +332,35 @@ const StoragePricesDictValue: DictionaryValue<StoragePrices> = {
             bit_price_ps,
             cell_price_ps,
             mc_bit_price_ps,
-            mc_cell_price_ps
-        }
-    }
-}
-export function configParse18(slice: Slice | null | undefined): StoragePrices[] {
+            mc_cell_price_ps,
+        };
+    },
+};
+export function configParse18(
+    slice: Slice | null | undefined,
+): StoragePrices[] {
     if (!slice) {
-        throw Error('No config18 slice');
+        throw Error("No config18 slice");
     }
-    return slice.loadDictDirect(Dictionary.Keys.Buffer(4), StoragePricesDictValue).values()
+    return slice
+        .loadDictDirect(Dictionary.Keys.Buffer(4), StoragePricesDictValue)
+        .values();
 }
 
 export function configParse8(slice: Slice | null | undefined) {
     if (!slice) {
         return {
             version: 0,
-            capabilities: 0n
-        }
+            capabilities: 0n,
+        };
     }
 
     const version = slice.loadUint(32);
     const capabilities = slice.loadUintBig(64);
     return {
         version,
-        capabilities
-    }
+        capabilities,
+    };
 }
 
 export type ValidatorsPunishmentConfig = {
@@ -330,16 +375,18 @@ export type ValidatorsPunishmentConfig = {
     mediumInterval: number;
     mediumFlatMult: number;
     mediumProportionalMult: number;
-}
+};
 
-export function configParse40(slice: Slice | null | undefined): ValidatorsPunishmentConfig | null {
+export function configParse40(
+    slice: Slice | null | undefined,
+): ValidatorsPunishmentConfig | null {
     if (!slice) {
         return null;
     }
 
     const header = slice.loadUint(8);
     if (header !== 1) {
-        throw Error('Invalid config40');
+        throw Error("Invalid config40");
     }
 
     const defaultFlatFine = slice.loadCoins();
@@ -364,16 +411,17 @@ export function configParse40(slice: Slice | null | undefined): ValidatorsPunish
         longProportionalMult,
         mediumInterval,
         mediumFlatMult,
-        mediumProportionalMult
+        mediumProportionalMult,
     };
 }
 
-
-export function configParseWorkchainDescriptor(slice: Slice): WorkchainDescriptor {
+export function configParseWorkchainDescriptor(
+    slice: Slice,
+): WorkchainDescriptor {
     const constructorTag = slice.loadUint(8);
 
-    if (!(constructorTag == 0xA6 || constructorTag == 0xA7)) {
-        throw Error('Invalid workchain descriptor');
+    if (!(constructorTag == 0xa6 || constructorTag == 0xa7)) {
+        throw Error("Invalid workchain descriptor");
     }
     const enabledSince = slice.loadUint(32);
     const actialMinSplit = slice.loadUint(8);
@@ -389,26 +437,28 @@ export function configParseWorkchainDescriptor(slice: Slice): WorkchainDescripto
 
     // Only basic format supported
     if (!slice.loadUint(4)) {
-        throw Error('Not basic workchain descriptor');
+        throw Error("Not basic workchain descriptor");
     }
 
     const vmVersion = slice.loadInt(32);
     const vmMode = slice.loadUintBig(64);
 
-    let extension: WorkchainDescriptor['workchain_v2'] = undefined;
+    let extension: WorkchainDescriptor["workchain_v2"] = undefined;
 
-    if(constructorTag == 0xA7) {
-        const splitMergeTimings = parseWorkchainSplitMergeTimings(slice)
-        const stateSplitDepth   = slice.loadUint(8);
+    if (constructorTag == 0xa7) {
+        const splitMergeTimings = parseWorkchainSplitMergeTimings(slice);
+        const stateSplitDepth = slice.loadUint(8);
 
-        if(stateSplitDepth > 63) {
-            throw RangeError(`Invalid persistent_state_split_depth: ${stateSplitDepth} expected <= 63`);
+        if (stateSplitDepth > 63) {
+            throw RangeError(
+                `Invalid persistent_state_split_depth: ${stateSplitDepth} expected <= 63`,
+            );
         }
 
         extension = {
             split_merge_timings: splitMergeTimings,
-            persistent_state_split_depth: stateSplitDepth
-        }
+            persistent_state_split_depth: stateSplitDepth,
+        };
     }
 
     return {
@@ -425,9 +475,9 @@ export function configParseWorkchainDescriptor(slice: Slice): WorkchainDescripto
         version,
         format: {
             vmVersion,
-            vmMode
+            vmMode,
         },
-        workchain_v2: extension
+        workchain_v2: extension,
     };
 }
 
@@ -438,63 +488,67 @@ wc_split_merge_timings#0
   = WcSplitMergeTimings;
 */
 export type WcSplitMergeTimings = {
-    split_merge_delay: number,
-    split_merge_interval: number,
-    min_split_merge_interval: number,
-    max_split_merge_delay: number
-}
+    split_merge_delay: number;
+    split_merge_interval: number;
+    min_split_merge_interval: number;
+    max_split_merge_delay: number;
+};
 export type WorkchainDescriptor = {
-    enabledSince: number,
-    actialMinSplit: number,
-    min_split: number,
-    max_split: number,
-    basic: boolean,
-    active: boolean,
-    accept_msgs: boolean,
-    flags: number,
-    zerostateRootHash: Buffer,
-    zerostateFileHash: Buffer,
-    version: number,
+    enabledSince: number;
+    actialMinSplit: number;
+    min_split: number;
+    max_split: number;
+    basic: boolean;
+    active: boolean;
+    accept_msgs: boolean;
+    flags: number;
+    zerostateRootHash: Buffer;
+    zerostateFileHash: Buffer;
+    version: number;
     format: {
-        vmVersion: number,
-        vmMode: bigint
-    },
-    workchain_v2?: { // Result of https://github.com/ton-blockchain/ton/commit/774371bdc9f6107fd05106c1fd559e8903e0513d
-        split_merge_timings: WcSplitMergeTimings,
-        persistent_state_split_depth: number
-    }
-}
+        vmVersion: number;
+        vmMode: bigint;
+    };
+    workchain_v2?: {
+        // Result of https://github.com/ton-blockchain/ton/commit/774371bdc9f6107fd05106c1fd559e8903e0513d
+        split_merge_timings: WcSplitMergeTimings;
+        persistent_state_split_depth: number;
+    };
+};
 
-function parseWorkchainSplitMergeTimings(slice: Slice) : WcSplitMergeTimings {
-    if(slice.loadUint(4) !== 0){
+function parseWorkchainSplitMergeTimings(slice: Slice): WcSplitMergeTimings {
+    if (slice.loadUint(4) !== 0) {
         throw Error(`Invalid WcSplitMergeTimings tag expected 0!`);
     }
     return {
         split_merge_delay: slice.loadUint(32),
         split_merge_interval: slice.loadUint(32),
         min_split_merge_interval: slice.loadUint(32),
-        max_split_merge_delay: slice.loadUint(32)
-    }
+        max_split_merge_delay: slice.loadUint(32),
+    };
 }
 const WorkchainDescriptorDictValue: DictionaryValue<WorkchainDescriptor> = {
     serialize(src: any, builder: Builder): void {
-        throw Error("not implemented")
+        throw Error("not implemented");
     },
     parse(src: Slice): WorkchainDescriptor {
-        return configParseWorkchainDescriptor(src)
-    }
-}
+        return configParseWorkchainDescriptor(src);
+    },
+};
 
 export function configParse12(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config12 slice');
+        throw Error("No config12 slice");
     }
 
-    const wd = slice.loadDict(Dictionary.Keys.Uint(32), WorkchainDescriptorDictValue);
+    const wd = slice.loadDict(
+        Dictionary.Keys.Uint(32),
+        WorkchainDescriptorDictValue,
+    );
     if (wd) {
-        return wd
+        return wd;
     }
-    throw Error('No workchains exist')
+    throw Error("No workchains exist");
 }
 
 export function configParseValidatorSet(slice: Slice | null | undefined) {
@@ -524,7 +578,7 @@ export type JettonBridgeParamsV0 = {
     bridgeBurnFee: bigint;
     jettonBridgePrices?: undefined;
     externalChainAddress?: undefined;
-}
+};
 
 export type JettonBridgeParamsV1 = {
     bridgeAddress: Address;
@@ -544,66 +598,74 @@ export type JettonBridgeParamsV1 = {
         discoverGasConsumption: bigint;
     };
     externalChainAddress: Buffer;
-}
+};
 
-export type JettonBridgeParams = JettonBridgeParamsV0 | JettonBridgeParamsV1
+export type JettonBridgeParams = JettonBridgeParamsV0 | JettonBridgeParamsV1;
 
-export function loadJettonBridgeParams(slice: Slice | null | undefined): JettonBridgeParams | null {
+export function loadJettonBridgeParams(
+    slice: Slice | null | undefined,
+): JettonBridgeParams | null {
     if (!slice) {
         return null;
     }
-        
-    const magic = slice.loadUint(8)
+
+    const magic = slice.loadUint(8);
 
     // jetton_bridge_params_v0#00 bridge_address:bits256 oracles_address:bits256 oracles:(HashmapE 256 uint256)
     // state_flags:uint8 burn_bridge_fee:Coins = JettonBridgeParams;
     if (magic === 0x00) {
-        const bridgeAddress = new Address(-1, slice.loadBuffer(32))
-        const oracleAddress = new Address(-1, slice.loadBuffer(32))
+        const bridgeAddress = new Address(-1, slice.loadBuffer(32));
+        const oracleAddress = new Address(-1, slice.loadBuffer(32));
 
-        const oraclesRaw = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Buffer(32))
-        const oracles = [...oraclesRaw].map(e => ({
-          addr: new Address(-1, e[0]),
-          pubkey: e[1],
-        }))
+        const oraclesRaw = slice.loadDict(
+            Dictionary.Keys.Buffer(32),
+            Dictionary.Values.Buffer(32),
+        );
+        const oracles = [...oraclesRaw].map((e) => ({
+            addr: new Address(-1, e[0]),
+            pubkey: e[1],
+        }));
 
-        const flags = slice.loadUint(8)
+        const flags = slice.loadUint(8);
 
-        const bridgeBurnFee = slice.loadCoins()
+        const bridgeBurnFee = slice.loadCoins();
 
         return {
             bridgeAddress,
             oracleAddress,
             oracles,
             flags,
-            bridgeBurnFee
-        }
+            bridgeBurnFee,
+        };
     }
 
     // jetton_bridge_params_v1#01 bridge_address:bits256 oracles_address:bits256 oracles:(HashmapE 256 uint256)
     // state_flags:uint8 prices:^JettonBridgePrices external_chain_address:bits256 = JettonBridgeParams;
     if (magic === 0x01) {
-        const bridgeAddress = new Address(-1, slice.loadBuffer(32))
-        const oracleAddress = new Address(-1, slice.loadBuffer(32))
+        const bridgeAddress = new Address(-1, slice.loadBuffer(32));
+        const oracleAddress = new Address(-1, slice.loadBuffer(32));
 
-        const oraclesRaw = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Buffer(32))
-        const oracles = [...oraclesRaw].map(e => ({
-          addr: new Address(-1, e[0]),
-          pubkey: e[1],
-        }))
+        const oraclesRaw = slice.loadDict(
+            Dictionary.Keys.Buffer(32),
+            Dictionary.Values.Buffer(32),
+        );
+        const oracles = [...oraclesRaw].map((e) => ({
+            addr: new Address(-1, e[0]),
+            pubkey: e[1],
+        }));
 
-        const flags = slice.loadUint(8)
+        const flags = slice.loadUint(8);
 
-        const pricesRef = slice.loadRef().beginParse()
+        const pricesRef = slice.loadRef().beginParse();
 
-        const bridgeBurnFee = pricesRef.loadCoins()
-        const bridgeMintFee = pricesRef.loadCoins()
-        const walletMinTonsForStorage = pricesRef.loadCoins()
-        const walletGasConsumption = pricesRef.loadCoins()
-        const minterMinTonsForStorage = pricesRef.loadCoins()
-        const discoverGasConsumption = pricesRef.loadCoins()
+        const bridgeBurnFee = pricesRef.loadCoins();
+        const bridgeMintFee = pricesRef.loadCoins();
+        const walletMinTonsForStorage = pricesRef.loadCoins();
+        const walletGasConsumption = pricesRef.loadCoins();
+        const minterMinTonsForStorage = pricesRef.loadCoins();
+        const discoverGasConsumption = pricesRef.loadCoins();
 
-        const externalChainAddress = slice.loadBuffer(32)
+        const externalChainAddress = slice.loadBuffer(32);
 
         return {
             bridgeAddress,
@@ -616,13 +678,13 @@ export function loadJettonBridgeParams(slice: Slice | null | undefined): JettonB
                 walletMinTonsForStorage,
                 walletGasConsumption,
                 minterMinTonsForStorage,
-                discoverGasConsumption
+                discoverGasConsumption,
             },
-            externalChainAddress
-        }
+            externalChainAddress,
+        };
     }
 
-    throw new Error('Invalid msg prices param');
+    throw new Error("Invalid msg prices param");
 }
 
 function parseGasLimitsInternal(slice: Slice) {
@@ -642,7 +704,7 @@ function parseGasLimitsInternal(slice: Slice) {
             gasCredit,
             blockGasLimit,
             freezeDueLimit,
-            deleteDueLimit
+            deleteDueLimit,
         };
     } else if (tag === 0xdd) {
         const gasPrice = slice.loadUintBig(64);
@@ -657,10 +719,10 @@ function parseGasLimitsInternal(slice: Slice) {
             gasCredit,
             blockGasLimit,
             freezeDueLimit,
-            deleteDueLimit
-        }
+            deleteDueLimit,
+        };
     } else {
-        throw Error('Invalid gas limits internal');
+        throw Error("Invalid gas limits internal");
     }
 }
 
@@ -675,12 +737,14 @@ export type GasLimitsPrices = {
         blockGasLimit: bigint;
         freezeDueLimit: bigint;
         deleteDueLimit: bigint;
-    }
-}
+    };
+};
 
-export function configParseGasLimitsPrices(slice: Slice | null | undefined): GasLimitsPrices {
+export function configParseGasLimitsPrices(
+    slice: Slice | null | undefined,
+): GasLimitsPrices {
     if (!slice) {
-        throw Error('No gas limits slice');
+        throw Error("No gas limits slice");
     }
     const tag = slice.loadUint(8);
     if (tag === 0xd1) {
@@ -690,42 +754,40 @@ export function configParseGasLimitsPrices(slice: Slice | null | undefined): Gas
         return {
             flatLimit,
             flatGasPrice,
-            other
-        }
+            other,
+        };
     } else {
-        throw Error('Invalid gas limits');
+        throw Error("Invalid gas limits");
     }
 }
-
 
 export type LimitParams = {
     underload: number;
     softLimit: number;
     hardLimit: number;
-}
+};
 // param_limits#c3 underload:# soft_limit:# { underload <= soft_limit }
 // hard_limit:# { soft_limit <= hard_limit } = ParamLimits;
 function configParseLimitParams(slice: Slice): LimitParams {
     const paramsLimitTag = slice.loadUint(8);
 
     if (paramsLimitTag !== 0xc3) {
-        throw Error('Invalid params limit slice');
+        throw Error("Invalid params limit slice");
     }
 
     const underload = slice.loadUint(32);
     const softLimit = slice.loadUint(32);
     const hardLimit = slice.loadUint(32);
 
-    if ((underload > softLimit) || (softLimit > hardLimit)) {
-        throw Error('Incosistent limitParams');
+    if (underload > softLimit || softLimit > hardLimit) {
+        throw Error("Incosistent limitParams");
     }
 
     return {
         underload,
         softLimit,
-        hardLimit
+        hardLimit,
     };
-
 }
 
 export type BlockLimits = {
@@ -736,11 +798,13 @@ export type BlockLimits = {
     importedMsgQueue?: {
         maxBytes: number;
         maxMsgs: number;
-    }
+    };
 };
-export function configParseBlockLimits(slice: Slice | null | undefined): BlockLimits {
+export function configParseBlockLimits(
+    slice: Slice | null | undefined,
+): BlockLimits {
     if (!slice) {
-        throw Error('No block limits slice');
+        throw Error("No block limits slice");
     }
 
     const blockLimitTag = slice.loadUint(8);
@@ -754,7 +818,7 @@ export function configParseBlockLimits(slice: Slice | null | undefined): BlockLi
         return {
             bytes,
             gas,
-            ltDelta
+            ltDelta,
         };
     }
 
@@ -771,12 +835,11 @@ export function configParseBlockLimits(slice: Slice | null | undefined): BlockLi
         const importedMsgQueueTag = slice.loadUint(8);
 
         if (importedMsgQueueTag !== 0xd3) {
-            throw Error('Invalid importedMsgQueue'); 
+            throw Error("Invalid importedMsgQueue");
         }
 
-
-        const maxBytes = slice.loadUint(32)
-        const maxMsgs = slice.loadUint(32)
+        const maxBytes = slice.loadUint(32);
+        const maxMsgs = slice.loadUint(32);
 
         return {
             bytes,
@@ -785,12 +848,12 @@ export function configParseBlockLimits(slice: Slice | null | undefined): BlockLi
             collatedData,
             importedMsgQueue: {
                 maxBytes,
-                maxMsgs
-            }
-        };  
+                maxMsgs,
+            },
+        };
     }
 
-    throw Error('Invalid block limits');
+    throw Error("Invalid block limits");
 }
 
 export type MsgPrices = {
@@ -800,15 +863,17 @@ export type MsgPrices = {
     ihrPriceFactor: number;
     firstFrac: number;
     nextFrac: number;
-}
+};
 
-export function configParseMsgPrices(slice: Slice | null | undefined): MsgPrices {
+export function configParseMsgPrices(
+    slice: Slice | null | undefined,
+): MsgPrices {
     if (!slice) {
-        throw new Error('No msg prices slice');
+        throw new Error("No msg prices slice");
     }
     const magic = slice.loadUint(8);
     if (magic !== 0xea) {
-        throw new Error('Invalid msg prices param');
+        throw new Error("Invalid msg prices param");
     }
     return {
         lumpPrice: slice.loadUintBig(64),
@@ -816,11 +881,11 @@ export function configParseMsgPrices(slice: Slice | null | undefined): MsgPrices
         cellPrice: slice.loadUintBig(64),
         ihrPriceFactor: slice.loadUint(32),
         firstFrac: slice.loadUint(16),
-        nextFrac: slice.loadUint(16)
+        nextFrac: slice.loadUint(16),
     };
 }
 
-// catchain_config#c1 mc_catchain_lifetime:uint32 shard_catchain_lifetime:uint32 
+// catchain_config#c1 mc_catchain_lifetime:uint32 shard_catchain_lifetime:uint32
 //   shard_validators_lifetime:uint32 shard_validators_num:uint32 = CatchainConfig;
 
 // catchain_config_new#c2 flags:(## 7) { flags = 0 } shuffle_mc_validators:Bool
@@ -834,7 +899,7 @@ export type CatchainConfigOld = {
     shardValidatorsCount: number;
     flags?: undefined;
     suffleMasterValidators?: undefined;
-}
+};
 
 export type CatchainConfigNew = {
     masterCatchainLifetime: number;
@@ -843,13 +908,13 @@ export type CatchainConfigNew = {
     shardValidatorsCount: number;
     flags: number;
     suffleMasterValidators: boolean;
-}
+};
 
-export type CatchainConfig = CatchainConfigOld | CatchainConfigNew
+export type CatchainConfig = CatchainConfigOld | CatchainConfigNew;
 
 export function configParse28(slice: Slice | null | undefined): CatchainConfig {
     if (!slice) {
-        throw new Error('No config28 slice');
+        throw new Error("No config28 slice");
     }
     const magic = slice.loadUint(8);
     if (magic === 0xc1) {
@@ -861,7 +926,7 @@ export function configParse28(slice: Slice | null | undefined): CatchainConfig {
             masterCatchainLifetime,
             shardCatchainLifetime,
             shardValidatorsLifetime,
-            shardValidatorsCount
+            shardValidatorsCount,
         };
     }
     if (magic === 0xc2) {
@@ -877,10 +942,10 @@ export function configParse28(slice: Slice | null | undefined): CatchainConfig {
             masterCatchainLifetime,
             shardCatchainLifetime,
             shardValidatorsLifetime,
-            shardValidatorsCount
-        }
+            shardValidatorsCount,
+        };
     }
-    throw new Error('Invalid config28');
+    throw new Error("Invalid config28");
 }
 
 export type ConsensusConfigOld = {
@@ -894,9 +959,9 @@ export type ConsensusConfigOld = {
     maxColaltedBytes: number;
     flags?: undefined;
     newCatchainIds?: undefined;
-    protoVersion?: undefined
-    catchainMaxBlocksCoeff?: undefined
-}
+    protoVersion?: undefined;
+    catchainMaxBlocksCoeff?: undefined;
+};
 
 export type ConsensusConfigNew = {
     roundCandidates: number;
@@ -909,9 +974,9 @@ export type ConsensusConfigNew = {
     maxColaltedBytes: number;
     flags: number;
     newCatchainIds: boolean;
-    protoVersion?: undefined
-    catchainMaxBlocksCoeff?: undefined
-}
+    protoVersion?: undefined;
+    catchainMaxBlocksCoeff?: undefined;
+};
 
 export type ConsensusConfigV3 = {
     roundCandidates: number;
@@ -924,9 +989,9 @@ export type ConsensusConfigV3 = {
     maxColaltedBytes: number;
     flags: number;
     newCatchainIds: boolean;
-    protoVersion: number
-    catchainMaxBlocksCoeff?: undefined
-}
+    protoVersion: number;
+    catchainMaxBlocksCoeff?: undefined;
+};
 
 export type ConsensusConfigV4 = {
     roundCandidates: number;
@@ -939,11 +1004,15 @@ export type ConsensusConfigV4 = {
     maxColaltedBytes: number;
     flags: number;
     newCatchainIds: boolean;
-    protoVersion: number
-    catchainMaxBlocksCoeff: number
-}
+    protoVersion: number;
+    catchainMaxBlocksCoeff: number;
+};
 
-export type ConsensusConfig = ConsensusConfigOld | ConsensusConfigNew | ConsensusConfigV3 | ConsensusConfigV4
+export type ConsensusConfig =
+    | ConsensusConfigOld
+    | ConsensusConfigNew
+    | ConsensusConfigV3
+    | ConsensusConfigV4;
 
 // consensus_config#d6 round_candidates:# { round_candidates >= 1 }
 //   next_candidate_delay_ms:uint32 consensus_timeout_ms:uint32
@@ -960,11 +1029,13 @@ export type ConsensusConfig = ConsensusConfigOld | ConsensusConfigNew | Consensu
 //   round_candidates:(## 8) { round_candidates >= 1 }
 //   next_candidate_delay_ms:uint32 consensus_timeout_ms:uint32
 //   fast_attempts:uint32 attempt_duration:uint32 catchain_max_deps:uint32
-//   max_block_bytes:uint32 max_collated_bytes:uint32 
+//   max_block_bytes:uint32 max_collated_bytes:uint32
 //   proto_version:uint16 = ConsensusConfig;
-export function configParse29(slice: Slice | null | undefined): ConsensusConfig {
+export function configParse29(
+    slice: Slice | null | undefined,
+): ConsensusConfig {
     if (!slice) {
-        throw new Error('No config29 slice');
+        throw new Error("No config29 slice");
     }
     const magic = slice.loadUint(8);
     if (magic === 0xd6) {
@@ -984,8 +1055,8 @@ export function configParse29(slice: Slice | null | undefined): ConsensusConfig 
             attemptDuration,
             catchainMaxDeps,
             maxBlockBytes,
-            maxColaltedBytes
-        }
+            maxColaltedBytes,
+        };
     } else if (magic === 0xd7) {
         const flags = slice.loadUint(7);
         const newCatchainIds = slice.loadBit();
@@ -1007,8 +1078,8 @@ export function configParse29(slice: Slice | null | undefined): ConsensusConfig 
             attemptDuration,
             catchainMaxDeps,
             maxBlockBytes,
-            maxColaltedBytes
-        }
+            maxColaltedBytes,
+        };
     } else if (magic === 0xd8) {
         const flags = slice.loadUint(7);
         const newCatchainIds = slice.loadBit();
@@ -1032,8 +1103,8 @@ export function configParse29(slice: Slice | null | undefined): ConsensusConfig 
             catchainMaxDeps,
             maxBlockBytes,
             maxColaltedBytes,
-            protoVersion
-        }
+            protoVersion,
+        };
     } else if (magic === 0xd9) {
         const flags = slice.loadUint(7);
         const newCatchainIds = slice.loadBit();
@@ -1059,79 +1130,89 @@ export function configParse29(slice: Slice | null | undefined): ConsensusConfig 
             maxBlockBytes,
             maxColaltedBytes,
             protoVersion,
-            catchainMaxBlocksCoeff
-        }
+            catchainMaxBlocksCoeff,
+        };
     }
-    throw new Error('Invalid config29');
+    throw new Error("Invalid config29");
 }
 
 // _ fundamental_smc_addr:(HashmapE 256 True) = ConfigParam 31;
 export function configParse31(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config31 slice');
+        throw Error("No config31 slice");
     }
 
-    const rawAddrsDict = slice.loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Uint(0))
+    const rawAddrsDict = slice.loadDict(
+        Dictionary.Keys.Buffer(32),
+        Dictionary.Values.Uint(0),
+    );
     // only masterchain addrs here - https://docs.ton.org/v3/documentation/network/config-params/overview#param-31
-    return [...rawAddrsDict].map(e => new Address(-1, e[0]))
+    return [...rawAddrsDict].map((e) => new Address(-1, e[0]));
 }
 
 // suspended_address_list#00 addresses:(HashmapE 288 Unit) suspended_until:uint32 = SuspendedAddressList;
 // _ SuspendedAddressList = ConfigParam 44;
 export function configParse44(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config44 slice');
+        throw Error("No config44 slice");
     }
     const magic = slice.loadUint(8);
     if (magic !== 0x00) {
-        throw new Error('Invalid config44');
+        throw new Error("Invalid config44");
     }
 
     // buffer36 = uint288
-    const rawAddrsDict = slice.loadDict(Dictionary.Keys.Buffer(36), Dictionary.Values.Uint(0));
+    const rawAddrsDict = slice.loadDict(
+        Dictionary.Keys.Buffer(36),
+        Dictionary.Values.Uint(0),
+    );
     const suspendedUntil = slice.loadUint(32);
-    
+
     // uint288 = [wc:int32 addr:uint256]
-    const constructedAddrs = [...rawAddrsDict].map(e => new Address(
-      e[0].readInt32BE(),
-      e[0].subarray(4),
-    ));
+    const constructedAddrs = [...rawAddrsDict].map(
+        (e) => new Address(e[0].readInt32BE(), e[0].subarray(4)),
+    );
 
     return {
         addresses: constructedAddrs,
-        suspendedUntil
+        suspendedUntil,
     };
 }
 
 const PrecompiledContractsDictValue: DictionaryValue<bigint> = {
-    serialize: () => { throw Error('not implemented') },
+    serialize: () => {
+        throw Error("not implemented");
+    },
     parse: (src: Slice) => {
         const tag = src.loadUint(8);
         if (tag !== 0xb0) {
-            throw new Error('Invalid precompiled contracts dict');
+            throw new Error("Invalid precompiled contracts dict");
         }
         return src.loadUintBig(64);
     },
-}
- 
-// precompiled_smc#b0 gas_usage:uint64 = PrecompiledSmc; 
+};
+
+// precompiled_smc#b0 gas_usage:uint64 = PrecompiledSmc;
 // precompiled_contracts_config#c0 list:(HashmapE 256 PrecompiledSmc) = PrecompiledContractsConfig;
 // _ PrecompiledContractsConfig = ConfigParam 45;
 export function configParse45(slice: Slice | null | undefined) {
     if (!slice) {
-        throw Error('No config45 slice');
+        throw Error("No config45 slice");
     }
     const magic = slice.loadUint(8);
     if (magic !== 0xc0) {
-        throw new Error('Invalid config45');
+        throw new Error("Invalid config45");
     }
 
-    const precompiledContracts = slice.loadDict(Dictionary.Keys.Buffer(32), PrecompiledContractsDictValue)
+    const precompiledContracts = slice.loadDict(
+        Dictionary.Keys.Buffer(32),
+        PrecompiledContractsDictValue,
+    );
 
     return [...precompiledContracts].map((e) => ({
         hash: e[0],
-        gasUsed: e[1]
-    }))
+        gasUsed: e[1],
+    }));
 }
 
 export type ProposalSetup = {
@@ -1143,13 +1224,13 @@ export type ProposalSetup = {
     maxStoreSec: number;
     bitPrice: number;
     cellPrice: number;
-}
+};
 
 // cfg_vote_cfg#36 min_tot_rounds:uint8 max_tot_rounds:uint8 min_wins:uint8 max_losses:uint8 min_store_sec:uint32 max_store_sec:uint32 bit_price:uint32 cell_price:uint32 = ConfigProposalSetup;
 export function parseProposalSetup(slice: Slice): ProposalSetup {
     const magic = slice.loadUint(8);
     if (magic !== 0x36) {
-        throw new Error('Invalid proposal setup');
+        throw new Error("Invalid proposal setup");
     }
     const minTotalRounds = slice.loadUint(8);
     const maxTotalRounds = slice.loadUint(8);
@@ -1159,48 +1240,57 @@ export function parseProposalSetup(slice: Slice): ProposalSetup {
     const maxStoreSec = slice.loadUint(32);
     const bitPrice = slice.loadUint(32);
     const cellPrice = slice.loadUint(32);
-    return { minTotalRounds, maxTotalRounds, minWins, maxLoses, minStoreSec, maxStoreSec, bitPrice, cellPrice };
+    return {
+        minTotalRounds,
+        maxTotalRounds,
+        minWins,
+        maxLoses,
+        minStoreSec,
+        maxStoreSec,
+        bitPrice,
+        cellPrice,
+    };
 }
 
 export type VotingSetup = {
-    normalParams: ProposalSetup,
-    criticalParams: ProposalSetup
-}
+    normalParams: ProposalSetup;
+    criticalParams: ProposalSetup;
+};
 
 // cfg_vote_setup#91 normal_params:^ConfigProposalSetup critical_params:^ConfigProposalSetup = ConfigVotingSetup;
 export function parseVotingSetup(slice: Slice | null | undefined): VotingSetup {
     if (!slice) {
-        throw new Error('No voting setup');
+        throw new Error("No voting setup");
     }
     const magic = slice.loadUint(8);
     if (magic !== 0x91) {
-        throw new Error('Invalid voting setup');
+        throw new Error("Invalid voting setup");
     }
     const normalParams = parseProposalSetup(slice.loadRef().beginParse());
     const criticalParams = parseProposalSetup(slice.loadRef().beginParse());
     return { normalParams, criticalParams };
 }
 
-
 function loadConfigParams(configBase64: string): Dictionary<number, Cell> {
-    const comfigMap = Cell.fromBase64(configBase64).beginParse().loadDictDirect(
-        Dictionary.Keys.Int(32),
-        Dictionary.Values.Cell()
-    );
-    return comfigMap
+    const comfigMap = Cell.fromBase64(configBase64)
+        .beginParse()
+        .loadDictDirect(Dictionary.Keys.Int(32), Dictionary.Values.Cell());
+    return comfigMap;
 }
 
 export function loadConfigParamById(configBase64: string, id: number): Cell {
-    return loadConfigParams(configBase64).get(id)!
+    return loadConfigParams(configBase64).get(id)!;
 }
 
-export function loadConfigParamsAsSlice(configBase64: string): Map<number, Slice> {
+export function loadConfigParamsAsSlice(
+    configBase64: string,
+): Map<number, Slice> {
     const pramsAsCells = loadConfigParams(configBase64);
     const params = new Map<number, Slice>();
     for (const [key, value] of pramsAsCells) {
         params.set(key, value.beginParse());
     }
-    return params
+    return params;
 }
 
 export function parseFullConfig(configs: Map<number, Slice>) {
@@ -1217,7 +1307,7 @@ export function parseFullConfig(configs: Map<number, Slice>) {
         validators: {
             ...configParse15(configs.get(15)),
             ...configParse16(configs.get(16)),
-            ...configParse17(configs.get(17))
+            ...configParse17(configs.get(17)),
         },
         storagePrices: configParse18(configs.get(18)),
         gasPrices: {
@@ -1234,16 +1324,16 @@ export function parseFullConfig(configs: Map<number, Slice>) {
             currentValidators: configParseValidatorSet(configs.get(34)),
             currentTempValidators: configParseValidatorSet(configs.get(35)),
             nextValidators: configParseValidatorSet(configs.get(36)),
-            nextTempValidators: configParseValidatorSet(configs.get(37))
+            nextTempValidators: configParseValidatorSet(configs.get(37)),
         },
         validatorsPunish: configParse40(configs.get(40)),
         bridges: {
             ethereum: configParseBridge(configs.get(71)),
             binance: configParseBridge(configs.get(72)),
-            polygon: configParseBridge(configs.get(73))
+            polygon: configParseBridge(configs.get(73)),
         },
         catchain: configParse28(configs.get(28)),
-        consensus: configParse29(configs.get(29))
+        consensus: configParse29(configs.get(29)),
     };
 }
 
@@ -1267,7 +1357,7 @@ export function parseFullerConfig(configs: Map<number, Slice>) {
         validators: {
             ...configParse15(configs.get(15)),
             ...configParse16(configs.get(16)),
-            ...configParse17(configs.get(17))
+            ...configParse17(configs.get(17)),
         },
         storagePrices: configParse18(configs.get(18)),
         gasPrices: {
@@ -1291,7 +1381,7 @@ export function parseFullerConfig(configs: Map<number, Slice>) {
             currentValidators: configParseValidatorSet(configs.get(34)),
             currentTempValidators: configParseValidatorSet(configs.get(35)),
             nextValidators: configParseValidatorSet(configs.get(36)),
-            nextTempValidators: configParseValidatorSet(configs.get(37))
+            nextTempValidators: configParseValidatorSet(configs.get(37)),
         },
         validatorsPunish: configParse40(configs.get(40)),
         suspended: configParse44(configs.get(44)),
@@ -1299,12 +1389,12 @@ export function parseFullerConfig(configs: Map<number, Slice>) {
         bridges: {
             ethereum: configParseBridge(configs.get(71)),
             binance: configParseBridge(configs.get(72)),
-            polygon: configParseBridge(configs.get(73))
+            polygon: configParseBridge(configs.get(73)),
         },
         tokenBridges: {
             ethereum: loadJettonBridgeParams(configs.get(79)),
             binance: loadJettonBridgeParams(configs.get(81)),
             polygon: loadJettonBridgeParams(configs.get(82)),
-        }
+        },
     };
 }

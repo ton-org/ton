@@ -65,11 +65,21 @@ let transfer = await contract.createTransfer({
 
 ```
 
+## Formatting
+
+We use `biome` as our formatter. It's prettier compatible and fast
+
+IDE Setup: [VSCode](https://marketplace.visualstudio.com/items?itemName=biomejs.biome), [Zed](https://biomejs.dev/reference/zed/)
+
+```sh
+yarn run format
+```
+
 ## Testing
 
 ### Debugging in tests
 
-By default tests are running using multiple worker threads. It's faster, but 
+By default tests are running using multiple worker threads. It's faster, but
 undesirable during debugging. `SINGLETHREADED` env variable covers this case
 
 ```sh
@@ -84,7 +94,7 @@ We use test coverage to eliminate blind spots in our tests.
 
 The goal is to make all functions runned at least once
 
-1. Build a coverage report 
+1. Build a coverage report
 
 ```sh
 yarn run coverage

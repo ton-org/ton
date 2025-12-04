@@ -1,60 +1,85 @@
-import { Address, Cell, Contract, TupleReader, TupleBuilder, Dictionary, DictionaryValue, Slice, Builder, ContractProvider } from "@ton/core";
+import {
+    Address,
+    Cell,
+    Contract,
+    TupleReader,
+    TupleBuilder,
+    Dictionary,
+    DictionaryValue,
+    Slice,
+    Builder,
+    ContractProvider,
+} from "@ton/core";
 
-
-const FrozenDictValue: DictionaryValue<{ address: Address, weight: bigint, stake: bigint }> = {
+const FrozenDictValue: DictionaryValue<{
+    address: Address;
+    weight: bigint;
+    stake: bigint;
+}> = {
     serialize(src: any, builder: Builder): void {
-        throw Error("not implemented")
+        throw Error("not implemented");
     },
-    parse(src: Slice): { address: Address, weight: bigint, stake: bigint } {
+    parse(src: Slice): { address: Address; weight: bigint; stake: bigint } {
         const address = new Address(-1, src.loadBuffer(32));
         const weight = src.loadUintBig(64);
         const stake = src.loadCoins();
-        return { address, weight, stake}
-    }
-}
-
-const EntitiesDictValue: DictionaryValue<{ stake: bigint, address: Address, adnl: Buffer }> = {
-    serialize(src: any, builder: Builder): void {
-        throw Error("not implemented")
+        return { address, weight, stake };
     },
-    parse(src: Slice): { stake: bigint, address: Address, adnl: Buffer } {
+};
+
+const EntitiesDictValue: DictionaryValue<{
+    stake: bigint;
+    address: Address;
+    adnl: Buffer;
+}> = {
+    serialize(src: any, builder: Builder): void {
+        throw Error("not implemented");
+    },
+    parse(src: Slice): { stake: bigint; address: Address; adnl: Buffer } {
         const stake = src.loadCoins();
         // skip time and maxFactor
         src.skip(64);
         const address = new Address(-1, src.loadBuffer(32));
         const adnl = src.loadBuffer(32);
-        return { stake, address, adnl}
-    }
-}
-
+        return { stake, address, adnl };
+    },
+};
 
 export class ElectorContract implements Contract {
-
     // Please note that we are NOT loading address from config to avoid mistake and send validator money to a wrong contract
-    readonly address: Address = Address.parseRaw('-1:3333333333333333333333333333333333333333333333333333333333333333');
+    readonly address: Address = Address.parseRaw(
+        "-1:3333333333333333333333333333333333333333333333333333333333333333",
+    );
     //readonly source: ContractSource = new UnknownContractSource('org.ton.elector', -1, 'Elector Contract');
 
     static create() {
         return new ElectorContract();
     }
 
-    constructor() {
-    }
+    constructor() {}
 
-
-    async getReturnedStake(provider: ContractProvider, address: Address): Promise<bigint> {
+    async getReturnedStake(
+        provider: ContractProvider,
+        address: Address,
+    ): Promise<bigint> {
         if (address.workChain !== -1) {
-            throw Error('Only masterchain addresses could have stake');
+            throw Error("Only masterchain addresses could have stake");
         }
-        const res = await provider.get('compute_returned_stake', [{ type: 'int', value: BigInt('0x' + address.hash.toString('hex')) }]);
+        const res = await provider.get("compute_returned_stake", [
+            { type: "int", value: BigInt("0x" + address.hash.toString("hex")) },
+        ]);
         return res.stack.readBigNumber();
     }
 
     async getPastElectionsList(provider: ContractProvider) {
-        const res = await provider.get('past_elections_list', []);
+        const res = await provider.get("past_elections_list", []);
         const electionsListRaw = new TupleReader(res.stack.readLispList());
 
-        const elections: { id: number, unfreezeAt: number, stakeHeld: number }[] = [];
+        const elections: {
+            id: number;
+            unfreezeAt: number;
+            stakeHeld: number;
+        }[] = [];
 
         while (electionsListRaw.remaining > 0) {
             const electionsListEntry = electionsListRaw.readTuple();
@@ -68,10 +93,20 @@ export class ElectorContract implements Contract {
     }
 
     async getPastElections(provider: ContractProvider) {
-        const res = await provider.get('past_elections', []);
+        const res = await provider.get("past_elections", []);
         const electionsRaw = new TupleReader(res.stack.readLispList());
 
-        const elections: { id: number, unfreezeAt: number, stakeHeld: number, totalStake: bigint, bonuses: bigint, frozen: Map<string, { address: Address, weight: bigint, stake: bigint }> }[] = [];
+        const elections: {
+            id: number;
+            unfreezeAt: number;
+            stakeHeld: number;
+            totalStake: bigint;
+            bonuses: bigint;
+            frozen: Map<
+                string,
+                { address: Address; weight: bigint; stake: bigint }
+            >;
+        }[] = [];
 
         while (electionsRaw.remaining > 0) {
             const electionsEntry = electionsRaw.readTuple();
@@ -82,32 +117,41 @@ export class ElectorContract implements Contract {
             const frozenDict = electionsEntry.readCell();
             const totalStake = electionsEntry.readBigNumber();
             const bonuses = electionsEntry.readBigNumber();
-            let frozen: Map<string, { address: Address, weight: bigint, stake: bigint }> = new Map();
-            const frozenData = frozenDict.beginParse().loadDictDirect(
-                Dictionary.Keys.Buffer(32),
-                FrozenDictValue
-            );
+            let frozen: Map<
+                string,
+                { address: Address; weight: bigint; stake: bigint }
+            > = new Map();
+            const frozenData = frozenDict
+                .beginParse()
+                .loadDictDirect(Dictionary.Keys.Buffer(32), FrozenDictValue);
             for (const [key, value] of frozenData) {
-                frozen.set(
-                    BigInt("0x" + key.toString("hex")).toString(10),
-                    { address: value["address"], weight: value["weight"], stake: value["stake"]}
-                )
+                frozen.set(BigInt("0x" + key.toString("hex")).toString(10), {
+                    address: value["address"],
+                    weight: value["weight"],
+                    stake: value["stake"],
+                });
             }
-            elections.push({ id, unfreezeAt, stakeHeld, totalStake, bonuses, frozen });
+            elections.push({
+                id,
+                unfreezeAt,
+                stakeHeld,
+                totalStake,
+                bonuses,
+                frozen,
+            });
         }
         return elections;
     }
 
     async getElectionEntities(provider: ContractProvider) {
-
         //
         // NOTE: this method doesn't call get method since for some reason it doesn't work
         //
 
-        const account = await provider.getState()
+        const account = await provider.getState();
 
-        if (account.state.type !== 'active') {
-            throw Error('Unexpected error');
+        if (account.state.type !== "active") {
+            throw Error("Unexpected error");
         }
         const cell = Cell.fromBoc(account.state.data! as Buffer)[0];
         const cs = cell.beginParse();
@@ -121,17 +165,36 @@ export class ElectorContract implements Contract {
         const minStake = sc.loadCoins();
         const allStakes = sc.loadCoins();
         // var (stake, time, max_factor, addr, adnl_addr) = (cs~load_grams(), cs~load_uint(32), cs~load_uint(32), cs~load_uint(256), cs~load_uint(256));
-        const entitiesData = sc.loadDict(Dictionary.Keys.Buffer(32), EntitiesDictValue);
-        let entities: { pubkey: Buffer, stake: bigint, address: Address, adnl: Buffer }[] = [];
+        const entitiesData = sc.loadDict(
+            Dictionary.Keys.Buffer(32),
+            EntitiesDictValue,
+        );
+        let entities: {
+            pubkey: Buffer;
+            stake: bigint;
+            address: Address;
+            adnl: Buffer;
+        }[] = [];
         // const failed = sc.loadBit();
         // const finished = sc.loadBit();
 
         if (entitiesData) {
             for (const [key, value] of entitiesData) {
-                entities.push({ pubkey: key, stake: value["stake"], address: value["address"], adnl: value["adnl"] });
+                entities.push({
+                    pubkey: key,
+                    stake: value["stake"],
+                    address: value["address"],
+                    adnl: value["adnl"],
+                });
             }
         }
-        return { minStake, allStakes, endElectionsTime, startWorkTime, entities };
+        return {
+            minStake,
+            allStakes,
+            endElectionsTime,
+            startWorkTime,
+            entities,
+        };
     }
 
     // possible code for fetching data via get method if it is possible to set gas limit by request
@@ -159,12 +222,11 @@ export class ElectorContract implements Contract {
     //         entities.push({ pubkey, stake, address, adnl });
     //     }
 
-
     //     return { minStake, allStakes, endElectionsTime, startWorkTime, entities };
     // }
 
     async getActiveElectionId(provider: ContractProvider) {
-        const res = await provider.get('active_election_id', []);
+        const res = await provider.get("active_election_id", []);
         const electionId = res.stack.readNumber();
         return electionId > 0 ? electionId : null;
     }
@@ -172,25 +234,25 @@ export class ElectorContract implements Contract {
     async getComplaints(provider: ContractProvider, electionId: number) {
         const b = new TupleBuilder();
         b.writeNumber(electionId);
-        const res = await provider.get('list_complaints', b.build());
-        if (res.stack.peek().type === 'null') {
-            return []
+        const res = await provider.get("list_complaints", b.build());
+        if (res.stack.peek().type === "null") {
+            return [];
         }
         //let tuple = new TupleReader(res.result);
         const complaintsRaw = new TupleReader(res.stack.readLispList());
 
         const results: {
-            id: bigint,
-            publicKey: Buffer,
-            createdAt: number,
-            severity: number,
-            paid: bigint,
-            suggestedFine: bigint,
-            suggestedFinePart: bigint,
-            rewardAddress: Address,
-            votes: number[],
-            remainingWeight: bigint,
-            vsetId: bigint
+            id: bigint;
+            publicKey: Buffer;
+            createdAt: number;
+            severity: number;
+            paid: bigint;
+            suggestedFine: bigint;
+            suggestedFinePart: bigint;
+            rewardAddress: Address;
+            votes: number[];
+            remainingWeight: bigint;
+            vsetId: bigint;
         }[] = [];
 
         while (complaintsRaw.remaining > 0) {
@@ -198,7 +260,10 @@ export class ElectorContract implements Contract {
             const id = complaintsEntry.readBigNumber();
             const completeUnpackedComplaint = complaintsEntry.readTuple();
             const unpackedComplaints = completeUnpackedComplaint.readTuple();
-            const publicKey = Buffer.from(unpackedComplaints.readBigNumber().toString(16), 'hex');
+            const publicKey = Buffer.from(
+                unpackedComplaints.readBigNumber().toString(16),
+                "hex",
+            );
             // prod_info#34 utime:uint32 mc_blk_ref:ExtBlkRef state_proof:^(MERKLE_PROOF Block)
             // prod_proof:^(MERKLE_PROOF ShardState) = ProducerInfo;
             // no_blk_gen from_utime:uint32 prod_info:^ProducerInfo = ComplaintDescr;
@@ -206,12 +271,20 @@ export class ElectorContract implements Contract {
             const description = unpackedComplaints.readCell();
             const createdAt = unpackedComplaints.readNumber();
             const severity = unpackedComplaints.readNumber();
-            const rewardAddress = new Address(-1, Buffer.from(unpackedComplaints.readBigNumber().toString(16), 'hex'));
+            const rewardAddress = new Address(
+                -1,
+                Buffer.from(
+                    unpackedComplaints.readBigNumber().toString(16),
+                    "hex",
+                ),
+            );
             const paid = unpackedComplaints.readBigNumber();
             const suggestedFine = unpackedComplaints.readBigNumber();
             const suggestedFinePart = unpackedComplaints.readBigNumber();
             const votes: number[] = [];
-            const votersListRaw = new TupleReader(completeUnpackedComplaint.readLispList());
+            const votersListRaw = new TupleReader(
+                completeUnpackedComplaint.readLispList(),
+            );
             while (votersListRaw.remaining > 0) {
                 votes.push(votersListRaw.readNumber());
             }
@@ -229,9 +302,9 @@ export class ElectorContract implements Contract {
                 rewardAddress,
                 votes,
                 remainingWeight,
-                vsetId
+                vsetId,
             });
         }
-        return results
+        return results;
     }
 }

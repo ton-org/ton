@@ -10,41 +10,42 @@ import {
     loadMessageRelaxed,
     loadStateInit,
     storeMessageRelaxed,
-    storeStateInit, Slice
+    storeStateInit,
+    Slice,
 } from "@ton/core";
 import { SendArgsSignable, SendArgsSigned } from "../signing/singer";
 
 export type WalletV4ExtendedSendArgs = {
-    seqno: number,
-    timeout?: Maybe<number>,
-}
+    seqno: number;
+    timeout?: Maybe<number>;
+};
 
 export interface OutActionSendMsg {
-    type: 'sendMsg',
-    messages: MessageRelaxed[]
-    sendMode?: Maybe<SendMode>,
+    type: "sendMsg";
+    messages: MessageRelaxed[];
+    sendMode?: Maybe<SendMode>;
 }
 
 export interface OutActionAddAndDeployPlugin {
-    type: 'addAndDeployPlugin',
-    workchain: number,
-    stateInit: StateInit,
-    body: Cell,
-    forwardAmount: bigint
+    type: "addAndDeployPlugin";
+    workchain: number;
+    stateInit: StateInit;
+    body: Cell;
+    forwardAmount: bigint;
 }
 
 export interface OutActionAddPlugin {
-    type: 'addPlugin',
-    address: Address,
-    forwardAmount: bigint,
-    queryId?: bigint,
+    type: "addPlugin";
+    address: Address;
+    forwardAmount: bigint;
+    queryId?: bigint;
 }
 
 export interface OutActionRemovePlugin {
-    type: 'removePlugin',
-    address: Address,
-    forwardAmount: bigint,
-    queryId?: bigint,
+    type: "removePlugin";
+    address: Address;
+    forwardAmount: bigint;
+    queryId?: bigint;
 }
 
 export type OutActionWalletV4 =
@@ -54,34 +55,39 @@ export type OutActionWalletV4 =
     | OutActionRemovePlugin;
 
 export type WalletV4SendArgsSigned = WalletV4ExtendedSendArgs & SendArgsSigned;
-export type WalletV4SendArgsSignable = WalletV4ExtendedSendArgs & SendArgsSignable;
-export type WalletV4SendArgs = WalletV4SendArgsSigned | WalletV4SendArgsSignable;
+export type WalletV4SendArgsSignable = WalletV4ExtendedSendArgs &
+    SendArgsSignable;
+export type WalletV4SendArgs =
+    | WalletV4SendArgsSigned
+    | WalletV4SendArgsSignable;
 
 export function storeExtendedAction(action: OutActionWalletV4) {
     return (builder: Builder) => {
         switch (action.type) {
-            case 'sendMsg':
+            case "sendMsg":
                 builder.storeUint(0, 8);
                 for (let m of action.messages) {
                     builder.storeUint(action.sendMode ?? SendMode.NONE, 8);
                     builder.storeRef(beginCell().store(storeMessageRelaxed(m)));
                 }
                 break;
-            case 'addAndDeployPlugin':
+            case "addAndDeployPlugin":
                 builder.storeUint(1, 8);
                 builder.storeInt(action.workchain, 8);
                 builder.storeCoins(action.forwardAmount);
-                builder.storeRef(beginCell().store(storeStateInit(action.stateInit)));
+                builder.storeRef(
+                    beginCell().store(storeStateInit(action.stateInit)),
+                );
                 builder.storeRef(action.body);
                 break;
-            case 'addPlugin':
+            case "addPlugin":
                 builder.storeUint(2, 8);
                 builder.storeInt(action.address.workChain, 8);
                 builder.storeBuffer(action.address.hash);
                 builder.storeCoins(action.forwardAmount);
                 builder.storeUint(action.queryId ?? 0n, 64);
                 break;
-            case 'removePlugin':
+            case "removePlugin":
                 builder.storeUint(3, 8);
                 builder.storeInt(action.address.workChain, 8);
                 builder.storeBuffer(action.address.hash);
@@ -91,7 +97,7 @@ export function storeExtendedAction(action: OutActionWalletV4) {
             default:
                 throw new Error(`Unsupported plugin action`);
         }
-    }
+    };
 }
 
 export function loadExtendedAction(slice: Slice): OutActionWalletV4 {
@@ -103,7 +109,9 @@ export function loadExtendedAction(slice: Slice): OutActionWalletV4 {
 
             while (slice.remainingRefs > 0) {
                 if (slice.remainingBits < 8) {
-                    throw new Error('Invalid sendMsg action: insufficient bits for send mode');
+                    throw new Error(
+                        "Invalid sendMsg action: insufficient bits for send mode",
+                    );
                 }
 
                 const mode = slice.loadUint(8) as SendMode;
@@ -113,14 +121,16 @@ export function loadExtendedAction(slice: Slice): OutActionWalletV4 {
                 if (sendModeValue === undefined) {
                     sendModeValue = mode;
                 } else if (sendModeValue !== mode) {
-                    throw new Error('Invalid sendMsg action: mixed send modes are not supported');
+                    throw new Error(
+                        "Invalid sendMsg action: mixed send modes are not supported",
+                    );
                 }
 
                 messages.push(message);
             }
 
             return {
-                type: 'sendMsg',
+                type: "sendMsg",
                 messages,
                 sendMode: sendModeValue,
             };
@@ -133,7 +143,7 @@ export function loadExtendedAction(slice: Slice): OutActionWalletV4 {
             const body = slice.loadRef();
 
             return {
-                type: 'addAndDeployPlugin',
+                type: "addAndDeployPlugin",
                 workchain,
                 stateInit,
                 body,
@@ -148,7 +158,7 @@ export function loadExtendedAction(slice: Slice): OutActionWalletV4 {
             const queryId = slice.loadUintBig(64);
 
             return {
-                type: 'addPlugin',
+                type: "addPlugin",
                 address: new Address(workchain, hash),
                 forwardAmount,
                 queryId: queryId === 0n ? undefined : queryId,
@@ -162,7 +172,7 @@ export function loadExtendedAction(slice: Slice): OutActionWalletV4 {
             const queryId = slice.loadUintBig(64);
 
             return {
-                type: 'removePlugin',
+                type: "removePlugin",
                 address: new Address(workchain, hash),
                 forwardAmount,
                 queryId: queryId === 0n ? undefined : queryId,

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
@@ -9,7 +9,6 @@
 import { Address, beginCell, Contract, ContractProvider } from "@ton/core";
 
 export class JettonMaster implements Contract {
-
     static create(address: Address) {
         return new JettonMaster(address);
     }
@@ -21,12 +20,14 @@ export class JettonMaster implements Contract {
     }
 
     async getWalletAddress(provider: ContractProvider, owner: Address) {
-        let res = await provider.get('get_wallet_address', [{ type: 'slice', cell: beginCell().storeAddress(owner).endCell() }]);
+        let res = await provider.get("get_wallet_address", [
+            { type: "slice", cell: beginCell().storeAddress(owner).endCell() },
+        ]);
         return res.stack.readAddress();
     }
 
     async getJettonData(provider: ContractProvider) {
-        let res = await provider.get('get_jetton_data', []);
+        let res = await provider.get("get_jetton_data", []);
         let totalSupply = res.stack.readBigNumber();
         let mintable = res.stack.readBoolean();
         let adminAddress = res.stack.readAddress();
@@ -37,7 +38,7 @@ export class JettonMaster implements Contract {
             mintable,
             adminAddress,
             content,
-            walletCode
+            walletCode,
         };
     }
 }

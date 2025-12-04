@@ -7,43 +7,64 @@
  */
 
 import {
-    Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode,
-    StateInit, TupleReader
+    Address,
+    beginCell,
+    Cell,
+    Contract,
+    contractAddress,
+    ContractProvider,
+    internal,
+    MessageRelaxed,
+    Sender,
+    SendMode,
+    StateInit,
+    TupleReader,
 } from "@ton/core";
 import { Maybe } from "../../utils/maybe";
 import { createWalletTransferV4 } from "../signing/createWalletTransfer";
 import { SendArgsSignable, SendArgsSigned } from "../signing/singer";
 import {
     OutActionWalletV4,
-    WalletV4ExtendedSendArgs, WalletV4SendArgs,
+    WalletV4ExtendedSendArgs,
+    WalletV4SendArgs,
     WalletV4SendArgsSignable,
-    WalletV4SendArgsSigned
+    WalletV4SendArgsSigned,
 } from "./WalletContractV4Actions";
 
 export type WalletV4BasicSendArgs = {
-    seqno: number,
-    messages: MessageRelaxed[]
-    sendMode?: Maybe<SendMode>,
-    timeout?: Maybe<number>,
-}
+    seqno: number;
+    messages: MessageRelaxed[];
+    sendMode?: Maybe<SendMode>;
+    timeout?: Maybe<number>;
+};
 
 export type Wallet4SendArgsSigned = WalletV4BasicSendArgs & SendArgsSigned;
 export type Wallet4SendArgsSignable = WalletV4BasicSendArgs & SendArgsSignable;
 
 export class WalletContractV4 implements Contract {
-
-    static create(args: { workchain: number, publicKey: Buffer, walletId?: Maybe<number> }) {
-        return new WalletContractV4(args.workchain, args.publicKey, args.walletId);
+    static create(args: {
+        workchain: number;
+        publicKey: Buffer;
+        walletId?: Maybe<number>;
+    }) {
+        return new WalletContractV4(
+            args.workchain,
+            args.publicKey,
+            args.walletId,
+        );
     }
 
     readonly workchain: number;
     readonly publicKey: Buffer;
     readonly address: Address;
     readonly walletId: number;
-    readonly init: { data: Cell, code: Cell };
+    readonly init: { data: Cell; code: Cell };
 
-    constructor(workchain: number, publicKey: Buffer, walletId?: Maybe<number>) {
-
+    constructor(
+        workchain: number,
+        publicKey: Buffer,
+        walletId?: Maybe<number>,
+    ) {
         // Resolve parameters
         this.workchain = workchain;
         this.publicKey = publicKey;
@@ -54,7 +75,12 @@ export class WalletContractV4 implements Contract {
         }
 
         // Build initial code and data
-        let code = Cell.fromBoc(Buffer.from('te6ccgECFAEAAtQAART/APSkE/S88sgLAQIBIAIDAgFIBAUE+PKDCNcYINMf0x/THwL4I7vyZO1E0NMf0x/T//QE0VFDuvKhUVG68qIF+QFUEGT5EPKj+AAkpMjLH1JAyx9SMMv/UhD0AMntVPgPAdMHIcAAn2xRkyDXSpbTB9QC+wDoMOAhwAHjACHAAuMAAcADkTDjDQOkyMsfEssfy/8QERITAubQAdDTAyFxsJJfBOAi10nBIJJfBOAC0x8hghBwbHVnvSKCEGRzdHK9sJJfBeAD+kAwIPpEAcjKB8v/ydDtRNCBAUDXIfQEMFyBAQj0Cm+hMbOSXwfgBdM/yCWCEHBsdWe6kjgw4w0DghBkc3RyupJfBuMNBgcCASAICQB4AfoA9AQw+CdvIjBQCqEhvvLgUIIQcGx1Z4MesXCAGFAEywUmzxZY+gIZ9ADLaRfLH1Jgyz8gyYBA+wAGAIpQBIEBCPRZMO1E0IEBQNcgyAHPFvQAye1UAXKwjiOCEGRzdHKDHrFwgBhQBcsFUAPPFiP6AhPLassfyz/JgED7AJJfA+ICASAKCwBZvSQrb2omhAgKBrkPoCGEcNQICEekk30pkQzmkD6f+YN4EoAbeBAUiYcVnzGEAgFYDA0AEbjJftRNDXCx+AA9sp37UTQgQFA1yH0BDACyMoHy//J0AGBAQj0Cm+hMYAIBIA4PABmtznaiaEAga5Drhf/AABmvHfaiaEAQa5DrhY/AAG7SB/oA1NQi+QAFyMoHFcv/ydB3dIAYyMsFywIizxZQBfoCFMtrEszMyXP7AMhAFIEBCPRR8qcCAHCBAQjXGPoA0z/IVCBHgQEI9FHyp4IQbm90ZXB0gBjIywXLAlAGzxZQBPoCFMtqEssfyz/Jc/sAAgBsgQEI1xj6ANM/MFIkgQEI9Fnyp4IQZHN0cnB0gBjIywXLAlAFzxZQA/oCE8tqyx8Syz/Jc/sAAAr0AMntVA==', 'base64'))[0];
+        let code = Cell.fromBoc(
+            Buffer.from(
+                "te6ccgECFAEAAtQAART/APSkE/S88sgLAQIBIAIDAgFIBAUE+PKDCNcYINMf0x/THwL4I7vyZO1E0NMf0x/T//QE0VFDuvKhUVG68qIF+QFUEGT5EPKj+AAkpMjLH1JAyx9SMMv/UhD0AMntVPgPAdMHIcAAn2xRkyDXSpbTB9QC+wDoMOAhwAHjACHAAuMAAcADkTDjDQOkyMsfEssfy/8QERITAubQAdDTAyFxsJJfBOAi10nBIJJfBOAC0x8hghBwbHVnvSKCEGRzdHK9sJJfBeAD+kAwIPpEAcjKB8v/ydDtRNCBAUDXIfQEMFyBAQj0Cm+hMbOSXwfgBdM/yCWCEHBsdWe6kjgw4w0DghBkc3RyupJfBuMNBgcCASAICQB4AfoA9AQw+CdvIjBQCqEhvvLgUIIQcGx1Z4MesXCAGFAEywUmzxZY+gIZ9ADLaRfLH1Jgyz8gyYBA+wAGAIpQBIEBCPRZMO1E0IEBQNcgyAHPFvQAye1UAXKwjiOCEGRzdHKDHrFwgBhQBcsFUAPPFiP6AhPLassfyz/JgED7AJJfA+ICASAKCwBZvSQrb2omhAgKBrkPoCGEcNQICEekk30pkQzmkD6f+YN4EoAbeBAUiYcVnzGEAgFYDA0AEbjJftRNDXCx+AA9sp37UTQgQFA1yH0BDACyMoHy//J0AGBAQj0Cm+hMYAIBIA4PABmtznaiaEAga5Drhf/AABmvHfaiaEAQa5DrhY/AAG7SB/oA1NQi+QAFyMoHFcv/ydB3dIAYyMsFywIizxZQBfoCFMtrEszMyXP7AMhAFIEBCPRR8qcCAHCBAQjXGPoA0z/IVCBHgQEI9FHyp4IQbm90ZXB0gBjIywXLAlAGzxZQBPoCFMtqEssfyz/Jc/sAAgBsgQEI1xj6ANM/MFIkgQEI9Fnyp4IQZHN0cnB0gBjIywXLAlAFzxZQA/oCE8tqyx8Syz/Jc/sAAAr0AMntVA==",
+                "base64",
+            ),
+        )[0];
         let data = beginCell()
             .storeUint(0, 32) // Seqno
             .storeUint(this.walletId, 32)
@@ -78,25 +104,28 @@ export class WalletContractV4 implements Contract {
      */
     async getSeqno(provider: ContractProvider) {
         let state = await provider.getState();
-        if (state.state.type === 'active') {
-            let res = await provider.get('seqno', []);
+        if (state.state.type === "active") {
+            let res = await provider.get("seqno", []);
             return res.stack.readNumber();
         } else {
             return 0;
         }
     }
 
-    async getIsPluginInstalled(provider: ContractProvider, pluginAddress: Address) {
+    async getIsPluginInstalled(
+        provider: ContractProvider,
+        pluginAddress: Address,
+    ) {
         const state = await provider.getState();
-        if (state.state.type !== 'active') {
+        if (state.state.type !== "active") {
             return false;
         }
 
         const wc = BigInt(pluginAddress.workChain);
-        const addrHash = BigInt('0x' + pluginAddress.hash.toString('hex'));
-        const res = await provider.get('is_plugin_installed', [
-            { type: 'int', value: wc },
-            { type: 'int', value: addrHash }
+        const addrHash = BigInt("0x" + pluginAddress.hash.toString("hex"));
+        const res = await provider.get("is_plugin_installed", [
+            { type: "int", value: wc },
+            { type: "int", value: addrHash },
         ]);
 
         return res.stack.readBoolean();
@@ -104,20 +133,20 @@ export class WalletContractV4 implements Contract {
 
     async getPluginsArray(provider: ContractProvider) {
         const state = await provider.getState();
-        if (state.state.type !== 'active') {
+        if (state.state.type !== "active") {
             return [];
         }
 
-        const res = await provider.get('get_plugin_list', []);
+        const res = await provider.get("get_plugin_list", []);
 
-        return res.stack.readLispList().map(item => {
-            if (item.type !== 'tuple') {
-                throw Error('Not a tuple');
+        return res.stack.readLispList().map((item) => {
+            if (item.type !== "tuple") {
+                throw Error("Not a tuple");
             }
             const entry = new TupleReader(item.items);
             const workchain = entry.readNumber();
             const addrHash = entry.readBigNumber();
-            const addressHex = addrHash.toString(16).padStart(64, '0');
+            const addressHex = addrHash.toString(16).padStart(64, "0");
             return Address.parseRaw(`${workchain}:${addressHex}`);
         });
     }
@@ -132,13 +161,16 @@ export class WalletContractV4 implements Contract {
     /**
      * Sign and send transfer
      */
-    async sendTransfer(provider: ContractProvider, args: {
-        seqno: number,
-        secretKey: Buffer,
-        messages: MessageRelaxed[]
-        sendMode?: Maybe<SendMode>,
-        timeout?: Maybe<number>,
-    }) {
+    async sendTransfer(
+        provider: ContractProvider,
+        args: {
+            seqno: number;
+            secretKey: Buffer;
+            messages: MessageRelaxed[];
+            sendMode?: Maybe<SendMode>;
+            timeout?: Maybe<number>;
+        },
+    ) {
         let transfer = this.createTransfer(args);
         await this.send(provider, transfer);
     }
@@ -146,30 +178,36 @@ export class WalletContractV4 implements Contract {
     /**
      * Create signed transfer
      */
-    createTransfer<T extends Wallet4SendArgsSigned | Wallet4SendArgsSignable>(args:T ){
+    createTransfer<T extends Wallet4SendArgsSigned | Wallet4SendArgsSignable>(
+        args: T,
+    ) {
         return this.createRequest({
             seqno: args.seqno,
             timeout: args.timeout,
             action: {
-                type: 'sendMsg',
+                type: "sendMsg",
                 messages: args.messages,
                 sendMode: args.sendMode,
             },
-            ...('secretKey' in args
+            ...("secretKey" in args
                 ? { secretKey: args.secretKey }
-                : { signer: args.signer })
+                : { signer: args.signer }),
         }) as T extends SendArgsSignable ? Promise<Cell> : Cell;
     }
 
-    async sendRequest<T extends WalletV4SendArgs & { action: OutActionWalletV4 }>(provider: ContractProvider, args: T) {
+    async sendRequest<
+        T extends WalletV4SendArgs & { action: OutActionWalletV4 },
+    >(provider: ContractProvider, args: T) {
         const action = await this.createRequest(args);
         await this.send(provider, action);
     }
 
-    createRequest<T extends WalletV4SendArgs & { action: OutActionWalletV4 }>(args:T ){
+    createRequest<T extends WalletV4SendArgs & { action: OutActionWalletV4 }>(
+        args: T,
+    ) {
         return createWalletTransferV4<T>({
             ...args,
-            walletId: this.walletId
+            walletId: this.walletId,
         });
     }
 
@@ -184,122 +222,133 @@ export class WalletContractV4 implements Contract {
                     seqno,
                     secretKey,
                     sendMode: args.sendMode,
-                    messages: [internal({
-                        to: args.to,
-                        value: args.value,
-                        extracurrency: args.extracurrency,
-                        init: args.init,
-                        body: args.body,
-                        bounce: args.bounce
-                    })]
+                    messages: [
+                        internal({
+                            to: args.to,
+                            value: args.value,
+                            extracurrency: args.extracurrency,
+                            init: args.init,
+                            body: args.body,
+                            bounce: args.bounce,
+                        }),
+                    ],
                 });
                 await this.send(provider, transfer);
-            }
+            },
         };
     }
-    
-    async sendAddPlugin<T extends WalletV4SendArgs & {
-        address: Address,
-        forwardAmount: bigint,
-        queryId?: bigint,
-    }>(
-        provider: ContractProvider, args: T
-    ) {
+
+    async sendAddPlugin<
+        T extends WalletV4SendArgs & {
+            address: Address;
+            forwardAmount: bigint;
+            queryId?: bigint;
+        },
+    >(provider: ContractProvider, args: T) {
         const request = await this.createAddPlugin(args);
         return await this.send(provider, request);
     }
 
-    async sendRemovePlugin<T extends WalletV4SendArgs & {
-        address: Address,
-        forwardAmount: bigint,
-        queryId?: bigint,
-    }>(
-        provider: ContractProvider,
-        args: T
-    ) {
+    async sendRemovePlugin<
+        T extends WalletV4SendArgs & {
+            address: Address;
+            forwardAmount: bigint;
+            queryId?: bigint;
+        },
+    >(provider: ContractProvider, args: T) {
         const request = await this.createRemovePlugin(args);
         return await this.send(provider, request);
     }
 
     async sendAddAndDeployPlugin<
         T extends WalletV4SendArgs & {
-            workchain: number,
-            stateInit: StateInit,
-            body: Cell,
-            forwardAmount: bigint
-        }
-    >(
-        provider: ContractProvider,
-        args: T
-    ) {
+            workchain: number;
+            stateInit: StateInit;
+            body: Cell;
+            forwardAmount: bigint;
+        },
+    >(provider: ContractProvider, args: T) {
         const request = await this.createAddAndDeployPlugin(args);
         return await this.send(provider, request);
     }
 
-    createAddPlugin<T extends WalletV4SendArgs & {
-        address: Address,
-        forwardAmount: bigint,
-        queryId?: bigint,
-    }>(args: T) {
+    createAddPlugin<
+        T extends WalletV4SendArgs & {
+            address: Address;
+            forwardAmount: bigint;
+            queryId?: bigint;
+        },
+    >(args: T) {
         return this.createRequest({
             action: {
-                type: 'addPlugin',
+                type: "addPlugin",
                 address: args.address,
                 forwardAmount: args.forwardAmount,
                 queryId: args.queryId,
             },
-            ...args
-        })
+            ...args,
+        });
     }
 
-    createRemovePlugin<T extends WalletV4SendArgs & {
-        address: Address,
-        forwardAmount: bigint,
-        queryId?: bigint,
-    }>(args: T) {
+    createRemovePlugin<
+        T extends WalletV4SendArgs & {
+            address: Address;
+            forwardAmount: bigint;
+            queryId?: bigint;
+        },
+    >(args: T) {
         return this.createRequest({
             action: {
-                type: 'removePlugin',
+                type: "removePlugin",
                 address: args.address,
                 forwardAmount: args.forwardAmount,
                 queryId: args.queryId,
             },
-            ...args
-        })
+            ...args,
+        });
     }
 
-    createAddAndDeployPlugin<T extends WalletV4SendArgs & {
-        workchain: number,
-        stateInit: StateInit,
-        body: Cell,
-        forwardAmount: bigint
-    }>(args: T) {
+    createAddAndDeployPlugin<
+        T extends WalletV4SendArgs & {
+            workchain: number;
+            stateInit: StateInit;
+            body: Cell;
+            forwardAmount: bigint;
+        },
+    >(args: T) {
         return this.createRequest({
             action: {
-                type: 'addAndDeployPlugin',
+                type: "addAndDeployPlugin",
                 workchain: args.workchain,
                 stateInit: args.stateInit,
                 body: args.body,
-                forwardAmount: args.forwardAmount
+                forwardAmount: args.forwardAmount,
             },
-            ...args
-        })
+            ...args,
+        });
     }
 
-    async sendPluginRequestFunds(provider: ContractProvider, sender: Sender, args: {
-        forwardAmount: bigint,
-        toncoinsToWithdraw: bigint,
-        queryId?: bigint,
-        sendMode?: SendMode
-    }) {
+    async sendPluginRequestFunds(
+        provider: ContractProvider,
+        sender: Sender,
+        args: {
+            forwardAmount: bigint;
+            toncoinsToWithdraw: bigint;
+            queryId?: bigint;
+            sendMode?: SendMode;
+        },
+    ) {
         await provider.internal(sender, {
             value: args.forwardAmount,
             body: this.createPluginRequestFundsMessage(args),
-            sendMode: args.sendMode
-        })
+            sendMode: args.sendMode,
+        });
     }
 
-    private createPluginRequestFundsMessage(args: { toncoinsToWithdraw: bigint, queryId?: bigint }) {
+    private createPluginRequestFundsMessage(args: {
+        toncoinsToWithdraw: bigint;
+        queryId?: bigint;
+    }) {
         return beginCell()
             .storeUint(0x706c7567, 32)
             .storeUint(args.queryId ?? 0, 64)
@@ -308,17 +357,22 @@ export class WalletContractV4 implements Contract {
             .endCell();
     }
 
-    async sendPluginRemovePlugin(provider: ContractProvider, sender: Sender, amount: bigint, queryId?: bigint) {
+    async sendPluginRemovePlugin(
+        provider: ContractProvider,
+        sender: Sender,
+        amount: bigint,
+        queryId?: bigint,
+    ) {
         await provider.internal(sender, {
             value: amount,
             body: this.createPluginRemovePluginMessage(queryId),
-        })
+        });
     }
 
     private createPluginRemovePluginMessage(queryId?: bigint) {
         return beginCell()
             .storeUint(0x64737472, 32)
             .storeUint(queryId ?? 0, 64)
-            .endCell()
+            .endCell();
     }
 }
