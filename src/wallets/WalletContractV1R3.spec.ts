@@ -23,9 +23,9 @@ const setup = async () => {
   const getPublicKey = async (
     contract: SandboxContract<WalletContractV1R3>,
   ) => {
-    let state = await blockchain.provider(contract.address).getState();
+    const state = await blockchain.provider(contract.address).getState();
     if (state.state.type === "active") {
-      let res = await blockchain
+      const res = await blockchain
         .provider(contract.address)
         .get("get_public_key", []);
       return Buffer.from(res.stack.readBigNumber().toString(16), "hex");
