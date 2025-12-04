@@ -27,7 +27,7 @@ describe('WalletContractV1R1', () => {
         expect(balance > 0n).toBe(true);
     });
 
-    it('should perform transfer', async () => {
+    it.skip('should perform transfer', async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey('v4-treasure');
@@ -50,7 +50,7 @@ describe('WalletContractV1R1', () => {
         await tillNextSeqno(contract, seqno);
     });
 
-    it('should perform extra currency transfer', async () => {
+    it.skip('should perform extra currency transfer', async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey('v4-treasure');

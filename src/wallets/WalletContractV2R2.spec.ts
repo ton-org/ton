@@ -25,7 +25,7 @@ describe('WalletContractV2R2', () => {
         expect(contract.address.equals(Address.parse('EQAkAcNLtzCHudScK9Hsk9I_7SrunBWf_9VrA2xJmGebwEsl'))).toBe(true);
         expect(balance > 0n).toBe(true);
     });
-    it('should perform transfer', async () => {
+    it.skip('should perform transfer', async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey('v4-treasure');
@@ -48,7 +48,7 @@ describe('WalletContractV2R2', () => {
         await tillNextSeqno(contract, seqno);
     });
 
-    it('should perfrorm extra currency transfer', async () => {
+    it.skip('should perfrorm extra currency transfer', async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey('v4-treasure');

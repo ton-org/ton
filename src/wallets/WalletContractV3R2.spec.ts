@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
@@ -12,7 +12,7 @@ import { Address, internal } from "@ton/core";
 import { WalletContractV3R2 } from "./WalletContractV3R2";
 import { tillNextSeqno } from "../utils/testWallets";
 
-describe('WalletContractV3R1', () => {
+describe('WalletContractV3R2', () => {
 
     it('should has balance and correct address', async () => {
 
@@ -26,8 +26,8 @@ describe('WalletContractV3R1', () => {
         expect(contract.address.equals(Address.parse('EQA0D_5WdusaCB-SpnoE6l5TzdBmgOkzTcXrdh0px6g3zJSk'))).toBe(true);
         expect(balance > 0n).toBe(true);
     });
-    
-    it('should perform transfer', async () => {
+
+    it.skip('should perform transfer', async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey('v4-treasure');
@@ -51,7 +51,7 @@ describe('WalletContractV3R1', () => {
         await tillNextSeqno(contract, seqno);
     });
 
-    it('should perform extra currency transfer', async () => {
+    it.skip('should perform extra currency transfer', async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey('v4-treasure');

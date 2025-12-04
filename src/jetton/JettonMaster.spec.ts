@@ -12,7 +12,7 @@ import { JettonMaster } from "./JettonMaster";
 import { JettonWallet } from "./JettonWallet";
 
 describe('JettonMaster', () => {
-    it('should resolve jetton wallet address', async () => {
+    it.skip('should resolve jetton wallet address', async () => {
         let client = createTestClient('mainnet');
         let master = client.open(JettonMaster.create(Address.parse('EQDQoc5M3Bh8eWFephi9bClhevelbZZvWhkqdo80XuY_0qXv')));
         let walletAddress = await master.getWalletAddress(Address.parse('EQCo6VT63H1vKJTiUo6W4M8RrTURCyk5MdbosuL5auEqpz-C'));

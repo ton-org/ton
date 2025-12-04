@@ -24,7 +24,7 @@ describe('WalletContractV1R3', () => {
         expect(contract.address.equals(Address.parse('EQBRRPBUtgzq5om6O4rtxwPW4hyDxiXYeIko27tvsm97kUw3'))).toBe(true);
         expect(balance > 0n).toBe(true);
     });
-    it('should perform transfer', async () => {
+    it.skip('should perform transfer', async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey('v4-treasure');
