@@ -43,7 +43,7 @@
         "ts-loader": "^9.2.5",
         "ts-node": "^10.7.0",
         "typescript": "^5.6.3",
-        "webpack": "^5.51.2"
+        "webpack": "^5.94.0"
     },
     "dependencies": {
         "axios": "^1.6.7",
