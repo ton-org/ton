@@ -1568,6 +1568,8 @@ __metadata:
     "@ton/core": ^0.62.0
     "@ton/crypto": 3.2.0
     "@ton/emulator": ^2.1.1
+    "@ton/sandbox": ^0.40.0
+    "@ton/test-utils": ^0.12.0
     "@types/jest": ^29.5.12
     "@types/node": ^20.11.30
     axios: ^1.6.7
@@ -1598,6 +1600,13 @@ __metadata:
     "@ton/crypto": ">=3.2.0"
   languageName: unknown
   linkType: soft
+
+"@tonstudio/parser-runtime@npm:^0.0.1":
+  version: 0.0.1
+  resolution: "@tonstudio/parser-runtime@npm:0.0.1"
+  checksum: 135a8a43f0a16f050275cccfb8cbe1f3d6cea640e35ce0d460c1e58423fcee1b08cf38e27b70c6fee823031d959a6eeebe93e0d928b7491746744fc0a5a36353
+  languageName: node
+  linkType: hard
 
 "@tootallnate/quickjs-emscripten@npm:^0.23.0":
   version: 0.23.0
@@ -1823,6 +1832,22 @@ __metadata:
   dependencies:
     "@types/yargs-parser": "*"
   checksum: ebf1f5373388cfcbf9cfb5e56ce7a77c0ba2450420f26f3701010ca92df48cce7e14e4245ed1f17178a38ff8702467a6f4047742775b8e2fd06dec8f4f3501ce
+  languageName: node
+  linkType: hard
+
+"@vscode/debugadapter@npm:^1.68.0":
+  version: 1.68.0
+  resolution: "@vscode/debugadapter@npm:1.68.0"
+  dependencies:
+    "@vscode/debugprotocol": 1.68.0
+  checksum: 65d276ae6cbb4388895d257a7db658bde198418849d8fca3549c7d5b4fd1850352c668336c1fed0316bc5340f5bafe7f6b55604a6861111576ed59c11873c28c
+  languageName: node
+  linkType: hard
+
+"@vscode/debugprotocol@npm:1.68.0":
+  version: 1.68.0
+  resolution: "@vscode/debugprotocol@npm:1.68.0"
+  checksum: 6fed2d8372c154731cd6a9d7f51fadfaf92f07d567ab46d182470287fd0fd5e2b167a5c24a1616f7bbca74b9b0a288a05891cfd1409cbfb88c4f0917ab96532a
   languageName: node
   linkType: hard
 
@@ -7371,6 +7396,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"prettier@npm:^3.7.4":
+  version: 3.7.4
+  resolution: "prettier@npm:3.7.4"
+  bin:
+    prettier: bin/prettier.cjs
+  checksum: 955e37e87b1151ca3b3282463f5295f4c415821884791df152ff66e6eb1c5257115153cccba61b13962546100dd00ae45670ff27077dcab04c977d84036eaf80
+  languageName: node
+  linkType: hard
+
 "pretty-format@npm:^27.5.1":
   version: 27.5.1
   resolution: "pretty-format@npm:27.5.1"
@@ -8688,6 +8722,33 @@ __metadata:
   version: 1.0.1
   resolution: "toidentifier@npm:1.0.1"
   checksum: 952c29e2a85d7123239b5cfdd889a0dde47ab0497f0913d70588f19c53f7e0b5327c95f4651e413c74b785147f9637b17410ac8c846d5d4a20a5a33eb6dc3a45
+  languageName: node
+  linkType: hard
+
+"ton-assembly@npm:0.6.1":
+  version: 0.6.1
+  resolution: "ton-assembly@npm:0.6.1"
+  dependencies:
+    "@tonstudio/parser-runtime": ^0.0.1
+    cac: ^6.7.14
+    ton-source-map: ^0.2.2
+  peerDependencies:
+    "@ton/core": ">=0.61.0"
+  peerDependenciesMeta:
+    "@ton/core":
+      optional: false
+  bin:
+    tasm: dist/cli/assembler.js
+    tdisasm: dist/cli/disassembler.js
+    tfift: dist/cli/fift-compiler.js
+  checksum: e1eb8b82fea5abf409b6e6d664957a1fa0fc3fd702b0aee66cfadb9f88765eaa414fe47a604c7e5ffb1add008a68010fe4e2d8bf408a551b4e3574ea72271260
+  languageName: node
+  linkType: hard
+
+"ton-source-map@npm:^0.2.2":
+  version: 0.2.2
+  resolution: "ton-source-map@npm:0.2.2"
+  checksum: c11df2cec7966cd12eb1e1c69970e22b4f55ba05bdee6030231578da0dfdace1a901bf2c300d17f76fcb4a041316c37f9ef7243ffe4779cca9482cc727dac774
   languageName: node
   linkType: hard
 
