@@ -1039,15 +1039,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ton/sandbox@npm:^0.39.0":
-  version: 0.39.0
-  resolution: "@ton/sandbox@npm:0.39.0"
+"@ton/sandbox@npm:^0.40.0":
+  version: 0.40.0
+  resolution: "@ton/sandbox@npm:0.40.0"
   dependencies:
     "@vscode/debugadapter": ^1.68.0
     chalk: ^4.1.2
     fflate: ^0.8.2
     table: ^6.9.0
-    ton-assembly: 0.1.2
+    ton-assembly: 0.6.1
   peerDependencies:
     "@ton-community/func-js": ">=0.10.0"
     "@ton/core": ">=0.61.0"
@@ -1059,7 +1059,7 @@ __metadata:
       optional: true
     jest:
       optional: true
-  checksum: 89e10366813825b0a3fe4c581f5e78eeaa9664d1cd393cd8429d08a523a7382c55aaaa4163eebb0e1efad1af7e76360ae5756f9fa137699061622ad46ffc9a08
+  checksum: 2a3d62510414491f7f471db47b2eb03710285d370e5e2ea6d5f7966e0e40442f9f5c85bae90a6984734e9b7ddc7919490b7c668e6d7cfd871fbdbac4c019dc5a
   languageName: node
   linkType: hard
 
@@ -1092,7 +1092,7 @@ __metadata:
     "@ton/core": ^0.62.0
     "@ton/crypto": 3.2.0
     "@ton/emulator": ^2.1.1
-    "@ton/sandbox": ^0.39.0
+    "@ton/sandbox": ^0.40.0
     "@ton/test-utils": ^0.12.0
     "@types/jest": ^27.0.1
     "@types/node": ^16.7.10
@@ -1108,7 +1108,7 @@ __metadata:
     karma-typescript: ^5.5.2
     karma-webpack: ^5.0.0
     prando: ^6.0.1
-    prettier: ^3.2.5
+    prettier: ^3.7.4
     release-it: ^17.1.1
     symbol.inspect: 1.0.1
     teslabot: ^1.3.0
@@ -6942,7 +6942,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"prettier@npm:^3.2.5":
+"prettier@npm:^3.7.4":
   version: 3.7.4
   resolution: "prettier@npm:3.7.4"
   bin:
@@ -8293,18 +8293,30 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ton-assembly@npm:0.1.2":
-  version: 0.1.2
-  resolution: "ton-assembly@npm:0.1.2"
+"ton-assembly@npm:0.6.1":
+  version: 0.6.1
+  resolution: "ton-assembly@npm:0.6.1"
   dependencies:
     "@tonstudio/parser-runtime": ^0.0.1
     cac: ^6.7.14
+    ton-source-map: ^0.2.2
   peerDependencies:
     "@ton/core": ">=0.61.0"
+  peerDependenciesMeta:
+    "@ton/core":
+      optional: false
   bin:
     tasm: dist/cli/assembler.js
     tdisasm: dist/cli/disassembler.js
-  checksum: 9585e1908921111386f382907a2062c2156a147cab52bcc047280a5a5453ab5b4755b481bb01613ef8aba0fd1c01ec875add9d28cfb2d14d403c5765aaeef641
+    tfift: dist/cli/fift-compiler.js
+  checksum: e1eb8b82fea5abf409b6e6d664957a1fa0fc3fd702b0aee66cfadb9f88765eaa414fe47a604c7e5ffb1add008a68010fe4e2d8bf408a551b4e3574ea72271260
+  languageName: node
+  linkType: hard
+
+"ton-source-map@npm:^0.2.2":
+  version: 0.2.2
+  resolution: "ton-source-map@npm:0.2.2"
+  checksum: c11df2cec7966cd12eb1e1c69970e22b4f55ba05bdee6030231578da0dfdace1a901bf2c300d17f76fcb4a041316c37f9ef7243ffe4779cca9482cc727dac774
   languageName: node
   linkType: hard
 
