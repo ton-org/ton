@@ -1,94 +1,49 @@
-/**
- * Copyright (c) Whales Corp.
- * All Rights Reserved.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
- */
-
-import { randomTestKey } from "../utils/randomTestKey";
-import { createTestClient4 } from "../utils/createTestClient4";
-import { Address, internal } from "@ton/core";
+import { v1r2Tests } from "./WalletContractV1R2.trait";
+import { Blockchain, SandboxContract } from "@ton/sandbox";
+import { mnemonicToPrivateKey } from "@ton/crypto";
+import { Cell, toNano } from "@ton/core";
 import { WalletContractV1R2 } from "./WalletContractV1R2";
-import { tillNextSeqno } from "../utils/testWallets";
 
-describe("WalletContractV1R2", () => {
-    it("should has balance and correct address", async () => {
-        // Create contract
-        let client = createTestClient4();
-        let key = randomTestKey("v4-treasure");
-        let contract = client.open(
-            WalletContractV1R2.create({
-                workchain: 0,
-                publicKey: key.publicKey,
-            }),
-        );
-        let balance = await contract.getBalance();
+const setup = async () => {
+    const blockchain = await Blockchain.create();
+    const keyPair = await mnemonicToPrivateKey(["v1r2"]);
 
-        // Check parameters
-        expect(
-            contract.address.equals(
-                Address.parse(
-                    "EQATDkvcCA2fFWbSTHMpGCrjkNGqgEywES15ZS11HHY3UuxK",
-                ),
-            ),
-        ).toBe(true);
-        expect(balance > 0n).toBe(true);
-    });
-    it.skip("should perform transfer", async () => {
-        // Create contract
-        let client = createTestClient4();
-        let key = randomTestKey("v4-treasure");
-        let contract = client.open(
-            WalletContractV1R2.create({
-                workchain: 0,
-                publicKey: key.publicKey,
-            }),
-        );
+    const deployer = await blockchain.treasury("deployer");
 
-        // Prepare transfer
-        let seqno = await contract.getSeqno();
-        let transfer = contract.createTransfer({
-            seqno,
-            secretKey: key.secretKey,
-            message: internal({
-                to: "kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt",
-                value: "0.1",
-                body: "Hello, world!",
-            }),
-        });
+    const contract = blockchain.openContract(
+        WalletContractV1R2.create({
+            workchain: 0,
+            publicKey: keyPair.publicKey,
+        }),
+    );
 
-        // Perform transfer
-        await contract.send(transfer);
-        await tillNextSeqno(contract, seqno);
+    const deployResult = await deployer.send({
+        to: contract.address,
+        value: toNano("1111"),
+        init: contract.init,
     });
 
-    it.skip("should perform extra currency transfer", async () => {
-        // Create contract
-        let client = createTestClient4();
-        let key = randomTestKey("v4-treasure");
-        let contract = client.open(
-            WalletContractV1R2.create({
-                workchain: 0,
-                publicKey: key.publicKey,
-            }),
-        );
+    const getPublicKey = async (
+        contract: SandboxContract<WalletContractV1R2>,
+    ) => {
+        const state = await blockchain.provider(contract.address).getState();
+        if (state.state.type === "active") {
+            const ds = Cell.fromBoc(state.state.data!)[0].beginParse();
+            ds.loadUint(32);
+            return ds.loadBuffer(32);
+        } else {
+            return Buffer.from([]);
+        }
+    };
 
-        // Prepare transfer
-        let seqno = await contract.getSeqno();
-        let transfer = contract.createTransfer({
-            seqno,
-            secretKey: key.secretKey,
-            message: internal({
-                to: "kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt",
-                value: "0.01",
-                extracurrency: { 100: BigInt(10 ** 6) },
-                body: "Hello, extra currency v1r2!",
-            }),
-        });
+    return {
+        blockchain,
+        deployer,
+        keyPair,
+        contract,
+        deployResult,
+        getPublicKey,
+    };
+};
 
-        // Perform transfer
-        await contract.send(transfer);
-        await tillNextSeqno(contract, seqno);
-    });
-});
+v1r2Tests(setup);
