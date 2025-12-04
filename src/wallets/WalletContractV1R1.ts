@@ -1,32 +1,47 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, internal, MessageRelaxed, Sender, SendMode } from "@ton/core";
+import {
+    Address,
+    beginCell,
+    Cell,
+    Contract,
+    contractAddress,
+    ContractProvider,
+    internal,
+    MessageRelaxed,
+    Sender,
+    SendMode,
+} from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { createWalletTransferV1 } from "./signing/createWalletTransfer";
 
 export class WalletContractV1R1 implements Contract {
-
-    static create(args: { workchain: number, publicKey: Buffer }) {
+    static create(args: { workchain: number; publicKey: Buffer }) {
         return new WalletContractV1R1(args.workchain, args.publicKey);
     }
 
     readonly workchain: number;
     readonly publicKey: Buffer;
     readonly address: Address;
-    readonly init: { data: Cell, code: Cell };
+    readonly init: { data: Cell; code: Cell };
 
     constructor(workchain: number, publicKey: Buffer) {
         this.workchain = workchain;
         this.publicKey = publicKey;
 
         // Build initial code and data
-        let code = Cell.fromBoc(Buffer.from('te6cckEBAQEARAAAhP8AIN2k8mCBAgDXGCDXCx/tRNDTH9P/0VESuvKhIvkBVBBE+RDyovgAAdMfMSDXSpbTB9QC+wDe0aTIyx/L/8ntVEH98Ik=', 'base64'))[0];
+        let code = Cell.fromBoc(
+            Buffer.from(
+                "te6cckEBAQEARAAAhP8AIN2k8mCBAgDXGCDXCx/tRNDTH9P/0VESuvKhIvkBVBBE+RDyovgAAdMfMSDXSpbTB9QC+wDe0aTIyx/L/8ntVEH98Ik=",
+                "base64",
+            ),
+        )[0];
         let data = beginCell()
             .storeUint(0, 32) // Seqno
             .storeBuffer(publicKey)
@@ -48,7 +63,7 @@ export class WalletContractV1R1 implements Contract {
      */
     async getSeqno(provider: ContractProvider) {
         let state = await provider.getState();
-        if (state.state.type === 'active') {
+        if (state.state.type === "active") {
             return Cell.fromBoc(state.state.data!)[0].beginParse().loadUint(32);
         } else {
             return 0;
@@ -65,12 +80,15 @@ export class WalletContractV1R1 implements Contract {
     /**
      * Sign and send transfer
      */
-    async sendTransfer(provider: ContractProvider, args: {
-        seqno: number,
-        secretKey: Buffer,
-        message?: Maybe<MessageRelaxed>,
-        sendMode?: Maybe<SendMode>
-    }) {
+    async sendTransfer(
+        provider: ContractProvider,
+        args: {
+            seqno: number;
+            secretKey: Buffer;
+            message?: Maybe<MessageRelaxed>;
+            sendMode?: Maybe<SendMode>;
+        },
+    ) {
         let transfer = this.createTransfer(args);
         await this.send(provider, transfer);
     }
@@ -79,10 +97,10 @@ export class WalletContractV1R1 implements Contract {
      * Create signed transfer
      */
     createTransfer(args: {
-        seqno: number,
-        secretKey: Buffer,
-        message?: Maybe<MessageRelaxed>,
-        sendMode?: Maybe<SendMode>,
+        seqno: number;
+        secretKey: Buffer;
+        message?: Maybe<MessageRelaxed>;
+        sendMode?: Maybe<SendMode>;
     }) {
         let sendMode = SendMode.PAY_GAS_SEPARATELY;
         if (args.sendMode !== null && args.sendMode !== undefined) {
@@ -92,7 +110,7 @@ export class WalletContractV1R1 implements Contract {
             seqno: args.seqno,
             sendMode,
             secretKey: args.secretKey,
-            message: args.message
+            message: args.message,
         });
     }
 
@@ -113,11 +131,11 @@ export class WalletContractV1R1 implements Contract {
                         extracurrency: args.extracurrency,
                         init: args.init,
                         body: args.body,
-                        bounce: args.bounce
-                    })
+                        bounce: args.bounce,
+                    }),
                 });
                 await this.send(provider, transfer);
-            }
+            },
         };
     }
 }

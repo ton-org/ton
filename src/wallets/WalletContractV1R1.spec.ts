@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Whales Corp. 
+ * Copyright (c) Whales Corp.
  * All Rights Reserved.
  *
  * This source code is licensed under the MIT license found in the
@@ -12,26 +12,40 @@ import { Address, internal } from "@ton/core";
 import { WalletContractV1R1 } from "./WalletContractV1R1";
 import { tillNextSeqno } from "../utils/testWallets";
 
-describe('WalletContractV1R1', () => {
-    
-    it('should has balance and correct address', async () => {
-
+describe("WalletContractV1R1", () => {
+    it("should has balance and correct address", async () => {
         // Create contract
         let client = createTestClient4();
-        let key = randomTestKey('v4-treasure');
-        let contract = client.open(WalletContractV1R1.create({ workchain: 0, publicKey: key.publicKey }));
+        let key = randomTestKey("v4-treasure");
+        let contract = client.open(
+            WalletContractV1R1.create({
+                workchain: 0,
+                publicKey: key.publicKey,
+            }),
+        );
         let balance = await contract.getBalance();
 
         // Check parameters
-        expect(contract.address.equals(Address.parse('EQCtW_zzk6n82ebaVQFq8P_04wOemYhtwqMd3NuArmPODRvD'))).toBe(true);
+        expect(
+            contract.address.equals(
+                Address.parse(
+                    "EQCtW_zzk6n82ebaVQFq8P_04wOemYhtwqMd3NuArmPODRvD",
+                ),
+            ),
+        ).toBe(true);
         expect(balance > 0n).toBe(true);
     });
 
-    it.skip('should perform transfer', async () => {
+    it.skip("should perform transfer", async () => {
         // Create contract
         let client = createTestClient4();
-        let key = randomTestKey('v4-treasure');
-        let contract = client.open(WalletContractV1R1.create({ workchain: 0, publicKey: key.publicKey }));
+        let key = randomTestKey("v4-treasure");
+        let contract = client.open(
+            WalletContractV1R1.create({
+                workchain: 0,
+                publicKey: key.publicKey,
+            }),
+        );
 
         // Prepare transfer
         let seqno = await contract.getSeqno();
@@ -39,10 +53,10 @@ describe('WalletContractV1R1', () => {
             seqno,
             secretKey: key.secretKey,
             message: internal({
-                to: 'kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt',
-                value: '0.1',
-                body: 'Hello, world!'
-            })
+                to: "kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt",
+                value: "0.1",
+                body: "Hello, world!",
+            }),
         });
 
         // Perform transfer
@@ -50,11 +64,16 @@ describe('WalletContractV1R1', () => {
         await tillNextSeqno(contract, seqno);
     });
 
-    it.skip('should perform extra currency transfer', async () => {
+    it.skip("should perform extra currency transfer", async () => {
         // Create contract
         let client = createTestClient4();
-        let key = randomTestKey('v4-treasure');
-        let contract = client.open(WalletContractV1R1.create({ workchain: 0, publicKey: key.publicKey }));
+        let key = randomTestKey("v4-treasure");
+        let contract = client.open(
+            WalletContractV1R1.create({
+                workchain: 0,
+                publicKey: key.publicKey,
+            }),
+        );
 
         // Prepare transfer
         let seqno = await contract.getSeqno();
@@ -62,11 +81,11 @@ describe('WalletContractV1R1', () => {
             seqno,
             secretKey: key.secretKey,
             message: internal({
-                to: 'kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt',
-                value: '0.01',
-                extracurrency: {100: BigInt(10 ** 6)},
-                body: 'Hello, extra currency v1r1!'
-            })
+                to: "kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt",
+                value: "0.01",
+                extracurrency: { 100: BigInt(10 ** 6) },
+                body: "Hello, extra currency v1r1!",
+            }),
         });
 
         // Perform transfer

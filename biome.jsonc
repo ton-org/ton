@@ -8,12 +8,12 @@
     "files": {
         "ignoreUnknown": false,
         "includes": [
-			"**",
-			"!**/yarn.lock",
-			"!**/__testdata__/**",
-			"!coverage/**",
-			"!.yarn"
-		]
+            "**",
+            "!**/yarn.lock",
+            "!**/__testdata__/**",
+            "!coverage/**",
+            "!.yarn"
+        ]
     },
     "formatter": {
         "indentStyle": "space",
