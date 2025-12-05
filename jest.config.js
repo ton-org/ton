@@ -1,7 +1,9 @@
 const SINGLETHREADED =
     process.env.SINGLETHREADED === "1" || process.env.SINGLETHREADED === "true";
-/** @type {import('jest').Config} */
-const options = {
+/**
+ * @type {import("jest").Config}
+ */
+const config = {
     transform: {
         "^.+\\.ts": "@swc/jest",
     },
@@ -9,7 +11,7 @@ const options = {
     testPathIgnorePatterns: ["/node_modules/", "/dist/"],
     collectCoverageFrom: ["src/**/*.{ts,js}"],
     testTimeout: 60000,
-    setupFilesAfterEnv: ["./setup-jest.js"],
+    setupFilesAfterEnv: ["./setup-jest.ts"],
     moduleNameMapper: {
         "^axios$": require.resolve("axios"),
     },
@@ -17,7 +19,7 @@ const options = {
 
 if (SINGLETHREADED) {
     /** setting value to undfined throws */
-    options.maxWorkers = 1;
+    config.maxWorkers = 1;
 }
 
-module.exports = options;
+module.exports = config;
