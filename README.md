@@ -30,7 +30,7 @@ To use this library you need HTTP API endpoint, you can use one of the public en
 - Mainnet: https://toncenter.com/api/v2/jsonRPC
 - Testnet: https://testnet.toncenter.com/api/v2/jsonRPC
 
-```js
+```ts
 import { TonClient, WalletContractV4, internal } from "@ton/ton";
 import { mnemonicNew, mnemonicToPrivateKey } from "@ton/crypto";
 
@@ -40,20 +40,22 @@ const client = new TonClient({
 });
 
 // Generate new key
-let mnemonics = await mnemonicNew();
-let keyPair = await mnemonicToPrivateKey(mnemonics);
+const mnemonic = await mnemonicNew();
+const keyPair = await mnemonicToPrivateKey(mnemonic);
 
 // Create wallet contract
-let workchain = 0; // Usually you need a workchain 0
-let wallet = WalletContractV4.create({ workchain, publicKey: keyPair.publicKey });
-let contract = client.open(wallet);
+const wallet = WalletContractV4.create({
+  workchain: 0, // basechain
+  publicKey: keyPair.publicKey,
+});
+const contract = client.open(wallet);
 
 // Get balance
-let balance: bigint = await contract.getBalance();
+const balance = await contract.getBalance();
 
 // Create a transfer
-let seqno: number = await contract.getSeqno();
-let transfer = await contract.createTransfer({
+const seqno = await contract.getSeqno();
+const transfer = await contract.createTransfer({
   seqno,
   secretKey: keyPair.secretKey,
   messages: [internal({
@@ -62,7 +64,6 @@ let transfer = await contract.createTransfer({
     body: 'Hello world',
   })]
 });
-
 ```
 
 ## Formatting
