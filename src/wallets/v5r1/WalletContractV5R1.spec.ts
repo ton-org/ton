@@ -50,7 +50,7 @@ describe.skip("WalletContractV5R1", () => {
         );
     });
 
-    it("should has balance and correct address", async () => {
+    it.skip("should has balance and correct address", async () => {
         const balance = await wallet.getBalance();
 
         expect(

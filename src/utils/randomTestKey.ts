@@ -6,14 +6,10 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import Prando from "prando";
-import { keyPairFromSeed } from "@ton/crypto";
+import { keyPairFromSeed, sha256, sha256_sync } from "@ton/crypto";
 
 export function randomTestKey(seed: string) {
-    let random = new Prando(seed);
-    let res = Buffer.alloc(32);
-    for (let i = 0; i < res.length; i++) {
-        res[i] = random.nextInt(0, 256);
-    }
-    return keyPairFromSeed(res);
+    const hash = sha256_sync(seed);
+
+    return keyPairFromSeed(hash);
 }

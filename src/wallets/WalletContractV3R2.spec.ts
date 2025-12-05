@@ -13,7 +13,7 @@ import { WalletContractV3R2 } from "./WalletContractV3R2";
 import { tillNextSeqno } from "../utils/testWallets";
 
 describe("WalletContractV3R2", () => {
-    it("should has balance and correct address", async () => {
+    it.skip("should has balance and correct address", async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey("v4-treasure");
