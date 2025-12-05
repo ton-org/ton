@@ -6,10 +6,17 @@
     "license": "MIT",
     "main": "dist/index.js",
     "files": [
-        "dist"
+        "dist",
+        "!*.test.*",
+        "!*.spec.*",
+        "!*.trait.*",
+        "!__snapshots__",
+        "!__testdata__",
+        "!__tests__"
     ],
     "scripts": {
-        "build": "rm -fr dist && tsc --declaration",
+        "build": "rm -fr dist && tsc -p ./tsconfig.build.json",
+        "typecheck": "tsc",
         "test": "jest --verbose",
         "format": "biome format --write .",
         "format:check": "biome format .",

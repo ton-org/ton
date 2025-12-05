@@ -1,7 +1,7 @@
-const axios = require("axios");
+import { isAxiosError } from "axios";
 
 const wrapFlat =
-    (original) =>
+    (original: FlatClbk): FlatClbk =>
     (...args) => {
         const clbk = args[1];
         args[1] = (...args) => {
@@ -11,9 +11,9 @@ const wrapFlat =
                     // axios errors contains node (request + response)
                     // each of them is reqursive as hell
                     // so we need to strip them
-                    if (axios.isAxiosError(err)) {
+                    if (isAxiosError(err)) {
                         err.request = null;
-                        err.response = null;
+                        err.response = undefined;
                         throw err;
                     } else throw err;
                 });
@@ -22,14 +22,14 @@ const wrapFlat =
             return res;
         };
 
-        original(...args);
+        return original(...args);
     };
 
-const recursiveKeys = ["only", "failing", "skip", "concurrent"];
+const recursiveKeys = ["only", "failing", "skip", "concurrent"] as const;
 const recusiveKeyError = () => {
     throw new Error("TODO: support recursive keys");
 };
-const defineRecursiveError = (value) => {
+const defineRecursiveError = (value: TestFn) => {
     for (const key of recursiveKeys) {
         Object.defineProperty(value, key, {
             get: recusiveKeyError,
@@ -37,13 +37,28 @@ const defineRecursiveError = (value) => {
     }
 };
 
-const wrap = (original) => {
-    const modified = wrapFlat(original);
+type FlatClbk = {
+    (
+        name: unknown,
+        clbk: (...args: unknown[]) => unknown,
+        ...args: unknown[]
+    ): unknown;
+};
+
+type TestFn = FlatClbk & {
+    skip: TestFn;
+    only: TestFn;
+    failing: TestFn;
+    concurrent: TestFn;
+};
+
+const wrap = (original: TestFn): TestFn => {
+    const modified = wrapFlat(original) as TestFn;
     Object.assign(modified, original);
 
     for (const key of recursiveKeys) {
         if (key in modified) {
-            const next = wrapFlat(modified[key]);
+            const next = wrapFlat(modified[key]) as TestFn;
             Object.assign(next, modified);
             defineRecursiveError(next);
 
@@ -53,5 +68,5 @@ const wrap = (original) => {
 
     return modified;
 };
-globalThis.test = wrap(test);
-globalThis.it = wrap(it);
+(globalThis.test as TestFn) = wrap(test as TestFn);
+(globalThis.it as TestFn) = wrap(it as TestFn);
