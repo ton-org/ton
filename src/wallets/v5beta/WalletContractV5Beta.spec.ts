@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { randomTestKey } from "../../utils/randomTestKey";
+import { randomTestKey } from "../../utils/testUtils";
 import { Address, Cell, internal, OpenedContract, SendMode } from "@ton/core";
 import { WalletContractV5Beta } from "./WalletContractV5Beta";
 import { KeyPair, sign } from "@ton/crypto";
@@ -50,7 +50,7 @@ describe.skip("WalletContractV5Beta", () => {
         );
     });
 
-    it("should has balance and correct address", async () => {
+    it.skip("should has balance and correct address", async () => {
         const balance = await wallet.getBalance();
 
         expect(

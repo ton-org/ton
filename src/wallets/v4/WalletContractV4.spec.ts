@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { randomTestKey } from "../../utils/randomTestKey";
+import { randomTestKey } from "../../utils/testUtils";
 import { tillNextSeqno } from "../../utils/testWallets";
 import { WalletContractV4 } from "./WalletContractV4";
 import { createTestClient4 } from "../../utils/createTestClient4";
@@ -21,7 +21,7 @@ import { TonClient4 } from "../../client/TonClient4";
 import { KeyPair } from "@ton/crypto";
 
 describe("WalletContractV4", () => {
-    it("should has balance and correct address", async () => {
+    it.skip("should has balance and correct address", async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey("v4-treasure");

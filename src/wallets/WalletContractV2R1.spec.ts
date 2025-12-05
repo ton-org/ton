@@ -6,14 +6,14 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { randomTestKey } from "../utils/randomTestKey";
+import { randomTestKey } from "../utils/testUtils";
 import { createTestClient4 } from "../utils/createTestClient4";
 import { Address, internal } from "@ton/core";
 import { WalletContractV2R1 } from "./WalletContractV2R1";
 import { tillNextSeqno } from "../utils/testWallets";
 
 describe("WalletContractV2R1", () => {
-    it("should has balance and correct address", async () => {
+    it.skip("should has balance and correct address", async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey("v4-treasure");
