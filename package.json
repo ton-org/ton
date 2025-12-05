@@ -24,19 +24,17 @@
         "release": "yarn build && yarn release-it --npm.yarn1"
     },
     "devDependencies": {
-        "@biomejs/biome": "2.3.8",
         "@release-it/keep-a-changelog": "^5.0.0",
-        "@swc/core": "^1.15.3",
-        "@swc/jest": "^0.2.39",
-        "@ton/core": "^0.62.0",
-        "@ton/crypto": "3.2.0",
-        "@ton/sandbox": "^0.40.0",
-        "@ton/test-utils": "^0.12.0",
-        "@types/jest": "^29.5.12",
-        "@types/node": "^20.11.30",
-        "jest": "^29.7.0",
-        "release-it": "^17.1.1",
-        "typescript": "^5.6.3"
+        "@swc/core": "catalog:",
+        "@swc/jest": "catalog:",
+        "@ton/core": "workspace:*",
+        "@ton/crypto": "catalog:",
+        "@ton/sandbox": "catalog:",
+        "@ton/test-utils": "catalog:",
+        "@types/jest": "catalog:",
+        "@types/node": "catalog:",
+        "jest": "catalog:",
+        "release-it": "catalog:"
     },
     "dependencies": {
         "axios": "^1.6.7",
@@ -60,6 +58,5 @@
                 "filename": "CHANGELOG.md"
             }
         }
-    },
-    "packageManager": "yarn@3.4.1"
+    }
 }
