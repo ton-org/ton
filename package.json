@@ -23,7 +23,6 @@
         "@swc/jest": "^0.2.39",
         "@ton/core": "^0.62.0",
         "@ton/crypto": "3.2.0",
-        "@ton/emulator": "^2.1.1",
         "@ton/sandbox": "^0.40.0",
         "@ton/test-utils": "^0.12.0",
         "@types/jest": "^29.5.12",

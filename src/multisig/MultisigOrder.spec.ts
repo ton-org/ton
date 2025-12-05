@@ -2,7 +2,7 @@
 
 import { beginCell, Cell, MessageRelaxed, Address } from "@ton/core";
 import { getSecureRandomBytes, keyPairFromSeed, sign } from "@ton/crypto";
-import { testAddress } from "@ton/emulator";
+import { testAddress } from "../utils/testUtils";
 import { MultisigOrderBuilder } from "./MultisigOrderBuilder";
 import { MultisigWallet } from "./MultisigWallet";
 import { MultisigOrder } from "./MultisigOrder";

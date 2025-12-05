@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { randomTestKey } from "../utils/randomTestKey";
+import { randomTestKey } from "../utils/testUtils";
 import { createTestClient4 } from "../utils/createTestClient4";
 import { Address, internal } from "@ton/core";
 import { WalletContractV2R1 } from "./WalletContractV2R1";

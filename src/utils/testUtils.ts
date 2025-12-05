@@ -6,10 +6,17 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { keyPairFromSeed, sha256, sha256_sync } from "@ton/crypto";
+import { Address } from "@ton/core";
+import { keyPairFromSeed, sha256_sync } from "@ton/crypto";
 
 export function randomTestKey(seed: string) {
     const hash = sha256_sync(seed);
 
     return keyPairFromSeed(hash);
+}
+
+export function testAddress(seed: string, workchain: number = 0) {
+    const hash = sha256_sync(seed);
+
+    return new Address(workchain, hash);
 }
