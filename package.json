@@ -15,7 +15,7 @@
         "!__tests__"
     ],
     "scripts": {
-        "build": "rm -fr dist && tsc -p ./tsconfig.build.json",
+        "build": "rm -fr dist && tsc",
         "typecheck": "tsc",
         "test": "jest --verbose",
         "format": "biome format --write .",

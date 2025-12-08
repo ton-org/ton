@@ -11,3 +11,5 @@
 !.yarn/plugins
 !.yarn/sdks
 !.yarn/versions
+
+.turbo
