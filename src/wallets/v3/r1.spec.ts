@@ -6,11 +6,11 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { randomTestKey } from "../utils/testUtils";
-import { createTestClient4 } from "../utils/createTestClient4";
+import { randomTestKey } from "../../utils/testUtils";
+import { createTestClient4 } from "../../utils/createTestClient4";
 import { Address, internal } from "@ton/core";
-import { WalletContractV3R1 } from "./WalletContractV3R1";
-import { tillNextSeqno } from "../utils/testWallets";
+import { WalletContractV3R1 } from "./r1";
+import { tillNextSeqno } from "../../utils/testWallets";
 
 describe("WalletContractV3R1", () => {
     it.skip("should has balance and correct address", async () => {

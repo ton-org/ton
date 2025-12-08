@@ -18,56 +18,32 @@ import {
     Sender,
     SendMode,
 } from "@ton/core";
-import { Maybe } from "../utils/maybe";
-import { createWalletTransferV3 } from "./signing/createWalletTransfer";
-import {
-    WalletV3SendArgsSignable,
-    WalletV3SendArgsSigned,
-} from "./WalletContractV3Types";
+import { Maybe } from "../../utils/maybe";
+import { createWalletTransferV2 } from "../signing/createWalletTransfer";
 
-export class WalletContractV3R1 implements Contract {
-    static create(args: {
-        workchain: number;
-        publicKey: Buffer;
-        walletId?: Maybe<number>;
-    }) {
-        return new WalletContractV3R1(
-            args.workchain,
-            args.publicKey,
-            args.walletId,
-        );
+export class WalletContractV2R2 implements Contract {
+    static create(args: { workchain: number; publicKey: Buffer }) {
+        return new WalletContractV2R2(args.workchain, args.publicKey);
     }
 
     readonly workchain: number;
     readonly publicKey: Buffer;
     readonly address: Address;
-    readonly walletId: number;
     readonly init: { data: Cell; code: Cell };
 
-    constructor(
-        workchain: number,
-        publicKey: Buffer,
-        walletId?: Maybe<number>,
-    ) {
-        // Resolve parameters
+    constructor(workchain: number, publicKey: Buffer) {
         this.workchain = workchain;
         this.publicKey = publicKey;
-        if (walletId !== null && walletId !== undefined) {
-            this.walletId = walletId;
-        } else {
-            this.walletId = 698983191 + workchain;
-        }
 
         // Build initial code and data
         let code = Cell.fromBoc(
             Buffer.from(
-                "te6cckEBAQEAYgAAwP8AIN0gggFMl7qXMO1E0NcLH+Ck8mCDCNcYINMf0x/TH/gjE7vyY+1E0NMf0x/T/9FRMrryoVFEuvKiBPkBVBBV+RDyo/gAkyDXSpbTB9QC+wDo0QGkyMsfyx/L/8ntVD++buA=",
+                "te6cckEBAQEAYwAAwv8AIN0gggFMl7ohggEznLqxnHGw7UTQ0x/XC//jBOCk8mCDCNcYINMf0x8B+CO78mPtRNDTH9P/0VExuvKhA/kBVBBC+RDyovgAApMg10qW0wfUAvsA6NGkyMsfy//J7VQETNeh",
                 "base64",
             ),
         )[0];
         let data = beginCell()
             .storeUint(0, 32) // Seqno
-            .storeUint(this.walletId, 32)
             .storeBuffer(publicKey)
             .endCell();
         this.init = { code, data };
@@ -75,7 +51,7 @@ export class WalletContractV3R1 implements Contract {
     }
 
     /**
-     * Get wallet balance
+     * Get Wallet Balance
      */
     async getBalance(provider: ContractProvider) {
         let state = await provider.getState();
@@ -120,15 +96,25 @@ export class WalletContractV3R1 implements Contract {
     }
 
     /**
-     * Create transfer
+     * Create signed transfer
      */
-    createTransfer<T extends WalletV3SendArgsSigned | WalletV3SendArgsSignable>(
-        args: T,
-    ) {
-        return createWalletTransferV3<T>({
-            ...args,
-            sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
-            walletId: this.walletId,
+    createTransfer(args: {
+        seqno: number;
+        secretKey: Buffer;
+        messages: MessageRelaxed[];
+        sendMode?: Maybe<SendMode>;
+        timeout?: Maybe<number>;
+    }) {
+        let sendMode = SendMode.PAY_GAS_SEPARATELY;
+        if (args.sendMode !== null && args.sendMode !== undefined) {
+            sendMode = args.sendMode;
+        }
+        return createWalletTransferV2({
+            seqno: args.seqno,
+            sendMode,
+            secretKey: args.secretKey,
+            messages: args.messages,
+            timeout: args.timeout,
         });
     }
 

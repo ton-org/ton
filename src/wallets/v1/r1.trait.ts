@@ -1,7 +1,7 @@
 import "@ton/test-utils";
 
 import { beginCell, internal, toNano } from "@ton/core";
-import { WalletContractV1R1 } from "./WalletContractV1R1";
+import { WalletContractV1R1 } from "./r1";
 import { mnemonicToPrivateKey, KeyPair } from "@ton/crypto";
 
 import {

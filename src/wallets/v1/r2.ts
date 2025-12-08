@@ -18,12 +18,12 @@ import {
     Sender,
     SendMode,
 } from "@ton/core";
-import { Maybe } from "../utils/maybe";
-import { createWalletTransferV1 } from "./signing/createWalletTransfer";
+import { Maybe } from "../../utils/maybe";
+import { createWalletTransferV1 } from "../signing/createWalletTransfer";
 
-export class WalletContractV1R3 implements Contract {
+export class WalletContractV1R2 implements Contract {
     static create(args: { workchain: number; publicKey: Buffer }) {
-        return new WalletContractV1R3(args.workchain, args.publicKey);
+        return new WalletContractV1R2(args.workchain, args.publicKey);
     }
 
     readonly workchain: number;
@@ -38,7 +38,7 @@ export class WalletContractV1R3 implements Contract {
         // Build initial code and data
         let code = Cell.fromBoc(
             Buffer.from(
-                "te6cckEBAQEAXwAAuv8AIN0gggFMl7ohggEznLqxnHGw7UTQ0x/XC//jBOCk8mCBAgDXGCDXCx/tRNDTH9P/0VESuvKhIvkBVBBE+RDyovgAAdMfMSDXSpbTB9QC+wDe0aTIyx/L/8ntVLW4bkI=",
+                "te6cckEBAQEAUwAAov8AIN0gggFMl7qXMO1E0NcLH+Ck8mCBAgDXGCDXCx/tRNDTH9P/0VESuvKhIvkBVBBE+RDyovgAAdMfMSDXSpbTB9QC+wDe0aTIyx/L/8ntVNDieG8=",
                 "base64",
             ),
         )[0];
@@ -74,8 +74,8 @@ export class WalletContractV1R3 implements Contract {
     /**
      * Send signed transfer
      */
-    async send(executor: ContractProvider, message: Cell) {
-        await executor.external(message);
+    async send(provider: ContractProvider, message: Cell) {
+        await provider.external(message);
     }
 
     /**
@@ -109,7 +109,7 @@ export class WalletContractV1R3 implements Contract {
         }
         return createWalletTransferV1({
             seqno: args.seqno,
-            sendMode: sendMode,
+            sendMode,
             secretKey: args.secretKey,
             message: args.message,
         });
@@ -129,6 +129,7 @@ export class WalletContractV1R3 implements Contract {
                     message: internal({
                         to: args.to,
                         value: args.value,
+                        extracurrency: args.extracurrency,
                         init: args.init,
                         body: args.body,
                         bounce: args.bounce,

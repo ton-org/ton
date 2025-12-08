@@ -6,19 +6,19 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { randomTestKey } from "../utils/testUtils";
-import { createTestClient4 } from "../utils/createTestClient4";
+import { randomTestKey } from "../../utils/testUtils";
+import { createTestClient4 } from "../../utils/createTestClient4";
 import { Address, internal } from "@ton/core";
-import { WalletContractV2R2 } from "./WalletContractV2R2";
-import { tillNextSeqno } from "../utils/testWallets";
+import { WalletContractV3R2 } from "./r2";
+import { tillNextSeqno } from "../../utils/testWallets";
 
-describe("WalletContractV2R2", () => {
+describe("WalletContractV3R2", () => {
     it.skip("should has balance and correct address", async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey("v4-treasure");
         let contract = client.open(
-            WalletContractV2R2.create({
+            WalletContractV3R2.create({
                 workchain: 0,
                 publicKey: key.publicKey,
             }),
@@ -29,18 +29,19 @@ describe("WalletContractV2R2", () => {
         expect(
             contract.address.equals(
                 Address.parse(
-                    "EQAkAcNLtzCHudScK9Hsk9I_7SrunBWf_9VrA2xJmGebwEsl",
+                    "EQA0D_5WdusaCB-SpnoE6l5TzdBmgOkzTcXrdh0px6g3zJSk",
                 ),
             ),
         ).toBe(true);
         expect(balance > 0n).toBe(true);
     });
+
     it.skip("should perform transfer", async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey("v4-treasure");
         let contract = client.open(
-            WalletContractV2R2.create({
+            WalletContractV3R2.create({
                 workchain: 0,
                 publicKey: key.publicKey,
             }),
@@ -62,15 +63,16 @@ describe("WalletContractV2R2", () => {
 
         // Perform transfer
         await contract.send(transfer);
+
         await tillNextSeqno(contract, seqno);
     });
 
-    it.skip("should perfrorm extra currency transfer", async () => {
+    it.skip("should perform extra currency transfer", async () => {
         // Create contract
         let client = createTestClient4();
         let key = randomTestKey("v4-treasure");
         let contract = client.open(
-            WalletContractV2R2.create({
+            WalletContractV3R2.create({
                 workchain: 0,
                 publicKey: key.publicKey,
             }),
@@ -84,15 +86,16 @@ describe("WalletContractV2R2", () => {
             messages: [
                 internal({
                     to: "kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt",
-                    value: "0.01",
+                    value: "0.05",
                     extracurrency: { 100: BigInt(10 ** 6) },
-                    body: "Hello, extra currency v2r2!",
+                    body: "Hello, extra currency v3r2!",
                 }),
             ],
         });
 
         // Perform transfer
         await contract.send(transfer);
+
         await tillNextSeqno(contract, seqno);
     });
 });

@@ -1,6 +1,6 @@
 import { SandboxContract } from "@ton/sandbox";
-import { WalletContractV1R3 } from "./WalletContractV1R3";
-import { v1r2Tests } from "./WalletContractV1R2.trait";
+import { WalletContractV1R3 } from "./r3";
+import { v1r2Tests } from "./r2.trait";
 
 type V1R3SetupResult = Omit<
     Awaited<ReturnType<Parameters<typeof v1r2Tests>[0]>>,

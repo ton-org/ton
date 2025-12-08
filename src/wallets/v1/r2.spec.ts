@@ -1,17 +1,17 @@
-import { v1r3Tests } from "./WalletContractV1R3.trait";
+import { v1r2Tests } from "./r2.trait";
 import { Blockchain, SandboxContract } from "@ton/sandbox";
 import { mnemonicToPrivateKey } from "@ton/crypto";
-import { toNano } from "@ton/core";
-import { WalletContractV1R3 } from "./WalletContractV1R3";
+import { Cell, toNano } from "@ton/core";
+import { WalletContractV1R2 } from "./r2";
 
 const setup = async () => {
     const blockchain = await Blockchain.create();
-    const keyPair = await mnemonicToPrivateKey(["v1r3"]);
+    const keyPair = await mnemonicToPrivateKey(["v1r2"]);
 
     const deployer = await blockchain.treasury("deployer");
 
     const contract = blockchain.openContract(
-        WalletContractV1R3.create({
+        WalletContractV1R2.create({
             workchain: 0,
             publicKey: keyPair.publicKey,
         }),
@@ -24,14 +24,13 @@ const setup = async () => {
     });
 
     const getPublicKey = async (
-        contract: SandboxContract<WalletContractV1R3>,
+        contract: SandboxContract<WalletContractV1R2>,
     ) => {
         const state = await blockchain.provider(contract.address).getState();
         if (state.state.type === "active") {
-            const res = await blockchain
-                .provider(contract.address)
-                .get("get_public_key", []);
-            return Buffer.from(res.stack.readBigNumber().toString(16), "hex");
+            const ds = Cell.fromBoc(state.state.data!)[0].beginParse();
+            ds.loadUint(32);
+            return ds.loadBuffer(32);
         } else {
             return Buffer.from([]);
         }
@@ -47,4 +46,4 @@ const setup = async () => {
     };
 };
 
-v1r3Tests(setup);
+v1r2Tests(setup);
