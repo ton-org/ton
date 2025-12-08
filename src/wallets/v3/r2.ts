@@ -18,12 +18,12 @@ import {
     Sender,
     SendMode,
 } from "@ton/core";
-import { Maybe } from "../utils/maybe";
-import { createWalletTransferV3 } from "./signing/createWalletTransfer";
+import { Maybe } from "../../utils/maybe";
+import { createWalletTransferV3 } from "../signing/createWalletTransfer";
 import {
     WalletV3SendArgsSignable,
     WalletV3SendArgsSigned,
-} from "./WalletContractV3Types";
+} from "../WalletContractV3Types";
 
 export class WalletContractV3R2 implements Contract {
     static create(args: {

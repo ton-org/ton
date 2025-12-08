@@ -18,12 +18,12 @@ import {
     Sender,
     SendMode,
 } from "@ton/core";
-import { Maybe } from "../utils/maybe";
-import { createWalletTransferV1 } from "./signing/createWalletTransfer";
+import { Maybe } from "../../utils/maybe";
+import { createWalletTransferV2 } from "../signing/createWalletTransfer";
 
-export class WalletContractV1R1 implements Contract {
+export class WalletContractV2R1 implements Contract {
     static create(args: { workchain: number; publicKey: Buffer }) {
-        return new WalletContractV1R1(args.workchain, args.publicKey);
+        return new WalletContractV2R1(args.workchain, args.publicKey);
     }
 
     readonly workchain: number;
@@ -38,7 +38,7 @@ export class WalletContractV1R1 implements Contract {
         // Build initial code and data
         let code = Cell.fromBoc(
             Buffer.from(
-                "te6cckEBAQEARAAAhP8AIN2k8mCBAgDXGCDXCx/tRNDTH9P/0VESuvKhIvkBVBBE+RDyovgAAdMfMSDXSpbTB9QC+wDe0aTIyx/L/8ntVEH98Ik=",
+                "te6cckEBAQEAVwAAqv8AIN0gggFMl7qXMO1E0NcLH+Ck8mCDCNcYINMf0x8B+CO78mPtRNDTH9P/0VExuvKhA/kBVBBC+RDyovgAApMg10qW0wfUAvsA6NGkyMsfy//J7VShNwu2",
                 "base64",
             ),
         )[0];
@@ -64,7 +64,8 @@ export class WalletContractV1R1 implements Contract {
     async getSeqno(provider: ContractProvider) {
         let state = await provider.getState();
         if (state.state.type === "active") {
-            return Cell.fromBoc(state.state.data!)[0].beginParse().loadUint(32);
+            let res = await provider.get("seqno", []);
+            return res.stack.readNumber();
         } else {
             return 0;
         }
@@ -85,8 +86,9 @@ export class WalletContractV1R1 implements Contract {
         args: {
             seqno: number;
             secretKey: Buffer;
-            message?: Maybe<MessageRelaxed>;
+            messages: MessageRelaxed[];
             sendMode?: Maybe<SendMode>;
+            timeout?: Maybe<number>;
         },
     ) {
         let transfer = this.createTransfer(args);
@@ -99,18 +101,20 @@ export class WalletContractV1R1 implements Contract {
     createTransfer(args: {
         seqno: number;
         secretKey: Buffer;
-        message?: Maybe<MessageRelaxed>;
+        messages: MessageRelaxed[];
         sendMode?: Maybe<SendMode>;
+        timeout?: Maybe<number>;
     }) {
         let sendMode = SendMode.PAY_GAS_SEPARATELY;
         if (args.sendMode !== null && args.sendMode !== undefined) {
             sendMode = args.sendMode;
         }
-        return createWalletTransferV1({
+        return createWalletTransferV2({
             seqno: args.seqno,
             sendMode,
             secretKey: args.secretKey,
-            message: args.message,
+            messages: args.messages,
+            timeout: args.timeout,
         });
     }
 
@@ -125,14 +129,16 @@ export class WalletContractV1R1 implements Contract {
                     seqno,
                     secretKey,
                     sendMode: args.sendMode,
-                    message: internal({
-                        to: args.to,
-                        value: args.value,
-                        extracurrency: args.extracurrency,
-                        init: args.init,
-                        body: args.body,
-                        bounce: args.bounce,
-                    }),
+                    messages: [
+                        internal({
+                            to: args.to,
+                            value: args.value,
+                            extracurrency: args.extracurrency,
+                            init: args.init,
+                            body: args.body,
+                            bounce: args.bounce,
+                        }),
+                    ],
                 });
                 await this.send(provider, transfer);
             },

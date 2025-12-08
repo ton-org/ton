@@ -18,12 +18,12 @@ import {
     Sender,
     SendMode,
 } from "@ton/core";
-import { Maybe } from "../utils/maybe";
-import { createWalletTransferV1 } from "./signing/createWalletTransfer";
+import { Maybe } from "../../utils/maybe";
+import { createWalletTransferV1 } from "../signing/createWalletTransfer";
 
-export class WalletContractV1R2 implements Contract {
+export class WalletContractV1R1 implements Contract {
     static create(args: { workchain: number; publicKey: Buffer }) {
-        return new WalletContractV1R2(args.workchain, args.publicKey);
+        return new WalletContractV1R1(args.workchain, args.publicKey);
     }
 
     readonly workchain: number;
@@ -38,7 +38,7 @@ export class WalletContractV1R2 implements Contract {
         // Build initial code and data
         let code = Cell.fromBoc(
             Buffer.from(
-                "te6cckEBAQEAUwAAov8AIN0gggFMl7qXMO1E0NcLH+Ck8mCBAgDXGCDXCx/tRNDTH9P/0VESuvKhIvkBVBBE+RDyovgAAdMfMSDXSpbTB9QC+wDe0aTIyx/L/8ntVNDieG8=",
+                "te6cckEBAQEARAAAhP8AIN2k8mCBAgDXGCDXCx/tRNDTH9P/0VESuvKhIvkBVBBE+RDyovgAAdMfMSDXSpbTB9QC+wDe0aTIyx/L/8ntVEH98Ik=",
                 "base64",
             ),
         )[0];
@@ -64,8 +64,7 @@ export class WalletContractV1R2 implements Contract {
     async getSeqno(provider: ContractProvider) {
         let state = await provider.getState();
         if (state.state.type === "active") {
-            let res = await provider.get("seqno", []);
-            return res.stack.readNumber();
+            return Cell.fromBoc(state.state.data!)[0].beginParse().loadUint(32);
         } else {
             return 0;
         }

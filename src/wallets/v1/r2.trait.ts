@@ -1,4 +1,4 @@
-import { v1r1Tests } from "./WalletContractV1R1.trait";
+import { v1r1Tests } from "./r1.trait";
 
 export const v1r2Tests = async (setup: Parameters<typeof v1r1Tests>[0]) => {
     v1r1Tests(setup);
