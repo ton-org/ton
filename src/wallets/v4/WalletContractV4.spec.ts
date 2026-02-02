@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { randomTestKey } from "../../utils/testUtils";
+import { randomTestKey, testAddress } from "../../utils/testUtils";
 import { tillNextSeqno } from "../../utils/testWallets";
 import { WalletContractV4 } from "./WalletContractV4";
 import { createTestClient4 } from "../../utils/createTestClient4";
@@ -21,6 +21,35 @@ import { TonClient4 } from "../../client/TonClient4";
 import { KeyPair } from "@ton/crypto";
 
 describe("WalletContractV4", () => {
+    it("should produce different transfer body when created with domain (signature differs)", () => {
+        const key = randomTestKey("v4-domain");
+        const walletDefault = WalletContractV4.create({
+            workchain: 0,
+            publicKey: key.publicKey,
+        });
+        const walletWithDomain = WalletContractV4.create({
+            workchain: 0,
+            publicKey: key.publicKey,
+            domain: { type: "l2", globalId: 42 },
+        });
+        const args = {
+            seqno: 1,
+            secretKey: key.secretKey,
+            messages: [
+                internal({
+                    to: testAddress("domain"),
+                    value: toNano("0.01"),
+                    bounce: false,
+                }),
+            ],
+        };
+        expect(
+            walletDefault
+                .createTransfer(args)
+                .equals(walletWithDomain.createTransfer(args)),
+        ).toBe(false);
+    });
+
     it.skip("should has balance and correct address", async () => {
         // Create contract
         let client = createTestClient4();

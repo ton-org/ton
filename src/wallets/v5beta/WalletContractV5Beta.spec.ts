@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { randomTestKey } from "../../utils/testUtils";
+import { randomTestKey, testAddress } from "../../utils/testUtils";
 import {
     Address,
     Cell,
@@ -14,6 +14,7 @@ import {
     internal,
     OpenedContract,
     SendMode,
+    toNano,
 } from "@ton/core";
 import { WalletContractV5Beta } from "./WalletContractV5Beta";
 import { KeyPair } from "@ton/crypto";
@@ -55,6 +56,34 @@ describe.skip("WalletContractV5Beta", () => {
                 publicKey: walletKey.publicKey,
             }),
         );
+    });
+
+    it("should produce different transfer body when created with domain (signature differs)", () => {
+        const key = randomTestKey("v5beta-domain");
+        const walletDefault = WalletContractV5Beta.create({
+            publicKey: key.publicKey,
+        });
+        const walletWithDomain = WalletContractV5Beta.create({
+            publicKey: key.publicKey,
+            domain: { type: "l2", globalId: 42 },
+        });
+        const args = {
+            seqno: 1,
+            secretKey: key.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
+            messages: [
+                internal({
+                    to: testAddress("domain"),
+                    value: toNano("0.01"),
+                    bounce: false,
+                }),
+            ],
+        };
+        expect(
+            walletDefault
+                .createTransfer(args)
+                .equals(walletWithDomain.createTransfer(args)),
+        ).toBe(false);
     });
 
     it.skip("should has balance and correct address", async () => {
