@@ -1503,14 +1503,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ton/core@npm:^0.62.0":
-  version: 0.62.0
-  resolution: "@ton/core@npm:0.62.0"
-  dependencies:
-    symbol.inspect: 1.0.1
+"@ton/core@npm:^0.63.0":
+  version: 0.63.0
+  resolution: "@ton/core@npm:0.63.0"
   peerDependencies:
     "@ton/crypto": ">=3.2.0"
-  checksum: d1e4810a7b312e828e017411ca57d832aadc3a085f570ddb131522ff651370a2ef531bd3e57a0e19255eb5cc252d033ca8db308dfa7d8ab136861762dbaf277b
+  checksum: 5b3dbe2bea796bc5d12aec0968f99d153b28200089ec9fb8cacbd8f13179ea6cf243e201894ddc44d258bd26e1901b35a377c72ba2fa9aa0d78f3dfdf2eb3ac3
   languageName: node
   linkType: hard
 
@@ -1587,7 +1585,7 @@ __metadata:
     "@release-it/keep-a-changelog": ^5.0.0
     "@swc/core": ^1.15.3
     "@swc/jest": ^0.2.39
-    "@ton/core": ^0.62.0
+    "@ton/core": ^0.63.0
     "@ton/crypto": 3.2.0
     "@ton/sandbox": ^0.40.0
     "@ton/test-utils": ^0.12.0
@@ -1600,7 +1598,7 @@ __metadata:
     typescript: ^5.6.3
     zod: ^3.21.4
   peerDependencies:
-    "@ton/core": ">=0.62.0 <1.0.0"
+    "@ton/core": ">=0.63.0 <1.0.0"
     "@ton/crypto": ">=3.2.0"
   languageName: unknown
   linkType: soft
@@ -6612,13 +6610,6 @@ __metadata:
   version: 1.0.0
   resolution: "supports-preserve-symlinks-flag@npm:1.0.0"
   checksum: 53b1e247e68e05db7b3808b99b892bd36fb096e6fba213a06da7fab22045e97597db425c724f2bbd6c99a3c295e1e73f3e4de78592289f38431049e1277ca0ae
-  languageName: node
-  linkType: hard
-
-"symbol.inspect@npm:1.0.1":
-  version: 1.0.1
-  resolution: "symbol.inspect@npm:1.0.1"
-  checksum: 47fa8d38d0bc5d04c06df2f71bba1a723ee0e015ca042c47b29c11f107877dd1a2e2d2154c9ef5eec11e92e4165d126c844f06d05da80e477581c8f284f05fdf
   languageName: node
   linkType: hard
 

@@ -19,6 +19,7 @@ import {
     OutActionSendMsg,
     Sender,
     SendMode,
+    SignatureDomain,
 } from "@ton/core";
 import { Maybe } from "../../utils/maybe";
 import { createWalletTransferV5R1 } from "../signing/createWalletTransfer";
@@ -67,7 +68,7 @@ export class WalletContractV5R1 implements Contract {
     static create<
         C extends WalletIdV5R1ClientContext | WalletIdV5R1CustomContext,
     >(
-        args: C extends WalletIdV5R1ClientContext
+        args: (C extends WalletIdV5R1ClientContext
             ? {
                   walletId?: Maybe<WalletIdV5R1<C>>;
                   publicKey: Buffer;
@@ -76,7 +77,7 @@ export class WalletContractV5R1 implements Contract {
                   workchain?: number;
                   publicKey: Buffer;
                   walletId?: Maybe<Partial<WalletIdV5R1<C>>>;
-              },
+              }) & { domain?: SignatureDomain },
     ) {
         let workchain = 0;
 
@@ -92,18 +93,24 @@ export class WalletContractV5R1 implements Contract {
             workchain = args.walletId.context.workchain;
         }
 
-        return new WalletContractV5R1(workchain, args.publicKey, {
-            networkGlobalId: args.walletId?.networkGlobalId ?? -239,
-            context: args.walletId?.context ?? {
-                workchain: 0,
-                walletVersion: "v5r1",
-                subwalletNumber: 0,
+        return new WalletContractV5R1(
+            workchain,
+            args.publicKey,
+            {
+                networkGlobalId: args.walletId?.networkGlobalId ?? -239,
+                context: args.walletId?.context ?? {
+                    workchain: 0,
+                    walletVersion: "v5r1",
+                    subwalletNumber: 0,
+                },
             },
-        });
+            args.domain,
+        );
     }
 
     readonly address: Address;
     readonly init: { data: Cell; code: Cell };
+    public domain?: SignatureDomain;
 
     constructor(
         workchain: number,
@@ -111,8 +118,11 @@ export class WalletContractV5R1 implements Contract {
         readonly walletId: WalletIdV5R1<
             WalletIdV5R1ClientContext | WalletIdV5R1CustomContext
         >,
+        domain?: SignatureDomain,
+        readonly globalId?: number,
     ) {
         this.walletId = walletId;
+        this.domain = domain;
 
         // https://github.com/ton-blockchain/wallet-contract-v5/blob/4fab977f4fae3a37c1aac216ed2b7e611a9bc2af/build/wallet_v5.compiled.json
         let code = Cell.fromBoc(
@@ -321,6 +331,7 @@ export class WalletContractV5R1 implements Contract {
                 | WalletV5R1SendArgsSignable
             ) & { actions: OutActionWalletV5[] }),
             walletId: storeWalletIdV5R1(this.walletId),
+            domain: this.domain,
         }) as WalletV5R1PackedCell<T>;
     }
 

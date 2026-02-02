@@ -7,8 +7,15 @@
  */
 
 import { randomTestKey } from "../../utils/testUtils";
-import { Address, Cell, internal, OpenedContract, SendMode } from "@ton/core";
-import { KeyPair, sign } from "@ton/crypto";
+import {
+    Address,
+    Cell,
+    domainSign,
+    internal,
+    OpenedContract,
+    SendMode,
+} from "@ton/core";
+import { KeyPair } from "@ton/crypto";
 import { Buffer } from "buffer";
 import { createTestClient4 } from "../../utils/createTestClient4";
 import { TonClient4 } from "../../client/TonClient4";
@@ -115,7 +122,10 @@ describe.skip("WalletContractV5R1", () => {
         const signer = (payload: Cell) =>
             new Promise<Buffer>((r) =>
                 setTimeout(() => {
-                    const signature = sign(payload.hash(), walletKey.secretKey);
+                    const signature = domainSign({
+                        data: payload.hash(),
+                        secretKey: walletKey.secretKey,
+                    });
                     r(signature);
                 }, 100),
             );

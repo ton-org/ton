@@ -17,6 +17,7 @@ import {
     MessageRelaxed,
     Sender,
     SendMode,
+    SignatureDomain,
     StateInit,
     TupleReader,
 } from "@ton/core";
@@ -46,11 +47,13 @@ export class WalletContractV4 implements Contract {
         workchain: number;
         publicKey: Buffer;
         walletId?: Maybe<number>;
+        domain?: SignatureDomain;
     }) {
         return new WalletContractV4(
             args.workchain,
             args.publicKey,
             args.walletId,
+            args.domain,
         );
     }
 
@@ -59,15 +62,18 @@ export class WalletContractV4 implements Contract {
     readonly address: Address;
     readonly walletId: number;
     readonly init: { data: Cell; code: Cell };
+    public domain?: SignatureDomain;
 
     constructor(
         workchain: number,
         publicKey: Buffer,
         walletId?: Maybe<number>,
+        domain?: SignatureDomain,
     ) {
         // Resolve parameters
         this.workchain = workchain;
         this.publicKey = publicKey;
+        this.domain = domain;
         if (walletId !== null && walletId !== undefined) {
             this.walletId = walletId;
         } else {
@@ -208,6 +214,7 @@ export class WalletContractV4 implements Contract {
         return createWalletTransferV4<T>({
             ...args,
             walletId: this.walletId,
+            domain: this.domain,
         });
     }
 

@@ -17,6 +17,7 @@ import {
     MessageRelaxed,
     Sender,
     SendMode,
+    SignatureDomain,
 } from "@ton/core";
 import { Maybe } from "../../utils/maybe";
 import { createWalletTransferV3 } from "../signing/createWalletTransfer";
@@ -30,11 +31,13 @@ export class WalletContractV3R2 implements Contract {
         workchain: number;
         publicKey: Buffer;
         walletId?: Maybe<number>;
+        domain?: SignatureDomain;
     }) {
         return new WalletContractV3R2(
             args.workchain,
             args.publicKey,
             args.walletId,
+            args.domain,
         );
     }
 
@@ -43,15 +46,18 @@ export class WalletContractV3R2 implements Contract {
     readonly address: Address;
     readonly walletId: number;
     readonly init: { data: Cell; code: Cell };
+    public domain?: SignatureDomain;
 
     constructor(
         workchain: number,
         publicKey: Buffer,
         walletId?: Maybe<number>,
+        domain?: SignatureDomain,
     ) {
         // Resolve parameters
         this.workchain = workchain;
         this.publicKey = publicKey;
+        this.domain = domain;
         if (walletId !== null && walletId !== undefined) {
             this.walletId = walletId;
         } else {
@@ -129,6 +135,7 @@ export class WalletContractV3R2 implements Contract {
             ...args,
             sendMode: args.sendMode ?? SendMode.PAY_GAS_SEPARATELY,
             walletId: this.walletId,
+            domain: this.domain,
         });
     }
 
