@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+## Added
+- `domain` parameter to all wallets to support domain signature verification
+
 ## [16.1.0] - 2025-10-03
 
 ## Added
@@ -42,11 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Added
 - Extracurrencies support (thx @Trinketer22)
 
-## [15.1.0] - 2024-10-09 
+## [15.1.0] - 2024-10-09
 
 This update requires `@ton/core` >0.59.0
 
-## Fixed 
+## Fixed
 - `TonClient4` and `TonClient` providers restrict using method id as number
 - Updated typescript to 5.6.3
 
@@ -59,7 +64,7 @@ This update requires `@ton/core` >0.59.0
 - Added V5 wallet support (thx Tonkeeper Team)
 - Fixed stack serialization for TonCenter v2 client (thx @aspite)
 
-## Fixed 
+## Fixed
 - Types for different wallet versions
 
 ## [13.11.2] - 2024-05-31
@@ -81,7 +86,7 @@ This update requires `@ton/core` >0.59.0
 
 This update requires `@ton/core` >0.56.0
 
-## Fixed 
+## Fixed
 - Updated `TonClient4` and `TonClient` to match contract providers at `@ton/core@0.56.0`
 
 ## [13.10.0] - 2024-02-06

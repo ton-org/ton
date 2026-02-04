@@ -3,7 +3,6 @@ import "@ton/test-utils";
 import { beginCell, internal, toNano } from "@ton/core";
 import { WalletContractV1R1 } from "./r1";
 import { mnemonicToPrivateKey, KeyPair } from "@ton/crypto";
-
 import {
     Blockchain,
     SandboxContract,
@@ -149,5 +148,28 @@ export const v1r1Tests = async (setup: () => Promise<V1R1SetupResult>) => {
                 }),
             }),
         ).toThrowExitCode(34);
+    });
+
+    it("should produce different transfer body when created with domain (signature differs)", async () => {
+        const { keyPair, contract } = await setup();
+        const walletDefault = WalletContractV1R1.create({
+            workchain: 0,
+            publicKey: keyPair.publicKey,
+        });
+        const walletWithDomain = WalletContractV1R1.create({
+            workchain: 0,
+            publicKey: keyPair.publicKey,
+            domain: { type: "l2", globalId: 42 },
+        });
+        const args = {
+            seqno: 1,
+            secretKey: keyPair.secretKey,
+            message: internal({ to: contract.address, value: toNano("1") }),
+        };
+        expect(
+            walletDefault
+                .createTransfer(args)
+                .equals(walletWithDomain.createTransfer(args)),
+        ).toBe(false);
     });
 };

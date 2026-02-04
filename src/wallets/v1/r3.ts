@@ -17,23 +17,38 @@ import {
     MessageRelaxed,
     Sender,
     SendMode,
+    SignatureDomain,
 } from "@ton/core";
 import { Maybe } from "../../utils/maybe";
 import { createWalletTransferV1 } from "../signing/createWalletTransfer";
 
 export class WalletContractV1R3 implements Contract {
-    static create(args: { workchain: number; publicKey: Buffer }) {
-        return new WalletContractV1R3(args.workchain, args.publicKey);
+    static create(args: {
+        workchain: number;
+        publicKey: Buffer;
+        domain?: SignatureDomain;
+    }) {
+        return new WalletContractV1R3(
+            args.workchain,
+            args.publicKey,
+            args.domain,
+        );
     }
 
     readonly workchain: number;
     readonly publicKey: Buffer;
     readonly address: Address;
     readonly init: { data: Cell; code: Cell };
+    public domain?: SignatureDomain;
 
-    constructor(workchain: number, publicKey: Buffer) {
+    constructor(
+        workchain: number,
+        publicKey: Buffer,
+        domain?: SignatureDomain,
+    ) {
         this.workchain = workchain;
         this.publicKey = publicKey;
+        this.domain = domain;
 
         // Build initial code and data
         let code = Cell.fromBoc(
@@ -112,6 +127,7 @@ export class WalletContractV1R3 implements Contract {
             sendMode: sendMode,
             secretKey: args.secretKey,
             message: args.message,
+            domain: this.domain,
         });
     }
 

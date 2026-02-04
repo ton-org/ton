@@ -10,12 +10,13 @@ import {
     beginCell,
     Builder,
     Cell,
+    domainSign,
     MessageRelaxed,
     OutActionSendMsg,
+    SignatureDomain,
     storeMessageRelaxed,
     storeStateInit,
 } from "@ton/core";
-import { sign } from "@ton/crypto";
 import { Maybe } from "../../utils/maybe";
 import {
     WalletV5BetaSendArgsSignable,
@@ -76,6 +77,7 @@ export function createWalletTransferV1(args: {
     sendMode: number;
     message: Maybe<MessageRelaxed>;
     secretKey: Buffer;
+    domain?: SignatureDomain;
 }) {
     // Create message
     let signingMessage = beginCell().storeUint(args.seqno, 32);
@@ -87,7 +89,11 @@ export function createWalletTransferV1(args: {
     }
 
     // Sign message
-    let signature = sign(signingMessage.endCell().hash(), args.secretKey);
+    let signature = domainSign({
+        data: signingMessage.endCell().hash(),
+        secretKey: args.secretKey,
+        domain: args.domain,
+    });
 
     // Body
     const body = beginCell()
@@ -104,6 +110,7 @@ export function createWalletTransferV2(args: {
     messages: MessageRelaxed[];
     secretKey: Buffer;
     timeout?: Maybe<number>;
+    domain?: SignatureDomain;
 }) {
     // Check number of messages
     if (args.messages.length > 4) {
@@ -128,7 +135,11 @@ export function createWalletTransferV2(args: {
     }
 
     // Sign message
-    let signature = sign(signingMessage.endCell().hash(), args.secretKey);
+    let signature = domainSign({
+        data: signingMessage.endCell().hash(),
+        secretKey: args.secretKey,
+        domain: args.domain,
+    });
 
     // Body
     const body = beginCell()
@@ -141,7 +152,7 @@ export function createWalletTransferV2(args: {
 
 export function createWalletTransferV3<
     T extends WalletV3SendArgsSignable | WalletV3SendArgsSigned,
->(args: T & { sendMode: number; walletId: number }) {
+>(args: T & { sendMode: number; walletId: number; domain?: SignatureDomain }) {
     // Check number of messages
     if (args.messages.length > 4) {
         throw Error("Maximum number of messages in a single transfer is 4");
@@ -174,7 +185,7 @@ export function createWalletTransferV3<
 
 export function createWalletTransferV4<
     T extends WalletV4SendArgs & { action: OutActionWalletV4 },
->(args: T & { walletId: number }) {
+>(args: T & { walletId: number; domain?: SignatureDomain }) {
     let signingMessage = beginCell().storeUint(args.walletId, 32);
     if (args.seqno === 0) {
         for (let i = 0; i < 32; i++) {
@@ -197,12 +208,12 @@ export function createWalletTransferV4<
 }
 
 export function createWalletTransferV5Beta<T extends WalletV5BetaSendArgs>(
-    args: T extends WalletV5BetaSendArgsExtensionAuth
+    args: (T extends WalletV5BetaSendArgsExtensionAuth
         ? T & { actions: (OutActionSendMsg | OutActionExtended)[] }
         : T & {
               actions: (OutActionSendMsg | OutActionExtended)[];
               walletId: (builder: Builder) => void;
-          },
+          }) & { domain?: SignatureDomain },
 ): WalletV5BetaPackedCell<T> {
     // Check number of actions
     if (args.actions.length > 255) {
@@ -248,12 +259,12 @@ export function createWalletTransferV5Beta<T extends WalletV5BetaSendArgs>(
 }
 
 export function createWalletTransferV5R1<T extends WalletV5R1SendArgs>(
-    args: T extends Wallet5VR1SendArgsExtensionAuth
+    args: (T extends Wallet5VR1SendArgsExtensionAuth
         ? T & { actions: (OutActionSendMsg | OutActionExtended)[] }
         : T & {
               actions: (OutActionSendMsg | OutActionExtended)[];
               walletId: (builder: Builder) => void;
-          },
+          }) & { domain?: SignatureDomain },
 ): WalletV5R1PackedCell<T> {
     // Check number of actions
     if (args.actions.length > 255) {

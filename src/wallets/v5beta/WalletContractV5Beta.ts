@@ -19,6 +19,7 @@ import {
     OutActionSendMsg,
     Sender,
     SendMode,
+    SignatureDomain,
 } from "@ton/core";
 import { Maybe } from "../../utils/maybe";
 import { SendArgsSignable, SendArgsSigned } from "../signing/singer";
@@ -64,6 +65,7 @@ export class WalletContractV5Beta implements Contract {
     static create(args: {
         walletId?: Partial<WalletIdV5Beta>;
         publicKey: Buffer;
+        domain?: SignatureDomain;
     }) {
         const walletId = {
             networkGlobalId: args.walletId?.networkGlobalId ?? -239,
@@ -71,17 +73,20 @@ export class WalletContractV5Beta implements Contract {
             subwalletNumber: args?.walletId?.subwalletNumber ?? 0,
             walletVersion: args?.walletId?.walletVersion ?? "v5",
         };
-        return new WalletContractV5Beta(walletId, args.publicKey);
+        return new WalletContractV5Beta(walletId, args.publicKey, args.domain);
     }
 
     readonly address: Address;
     readonly init: { data: Cell; code: Cell };
+    public domain?: SignatureDomain;
 
     constructor(
         readonly walletId: WalletIdV5Beta,
         readonly publicKey: Buffer,
+        domain?: SignatureDomain,
     ) {
         this.walletId = walletId;
+        this.domain = domain;
 
         // https://github.com/tonkeeper/w5/commit/fa1b372a417a32af104fe1b949b6b31d29cee349 code with library
         let code = Cell.fromBoc(
@@ -302,6 +307,7 @@ export class WalletContractV5Beta implements Contract {
                 | WalletV5BetaSendArgsSignable
             ) & { actions: OutActionWalletV5[] }),
             walletId: storeWalletIdV5Beta(this.walletId),
+            domain: this.domain,
         }) as WalletV5BetaPackedCell<T>;
     }
 

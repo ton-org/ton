@@ -1,8 +1,8 @@
-import { Builder, Cell } from "@ton/core";
-import { sign } from "@ton/crypto";
+import { Builder, Cell, domainSign, SignatureDomain } from "@ton/core";
 
 export type SendArgsSigned = {
     secretKey: Buffer;
+    domain?: SignatureDomain;
 };
 
 export type SendArgsSignable = {
@@ -18,8 +18,13 @@ export function signPayload<T extends SendArgsSigned | SendArgsSignable>(
         /**
          * Client provider an secretKey to sign transaction.
          */
+        const signature = domainSign({
+            data: signingMessage.endCell().hash(),
+            secretKey: args.secretKey,
+            domain: args.domain,
+        });
         return packMessage(
-            sign(signingMessage.endCell().hash(), args.secretKey),
+            signature,
             signingMessage,
         ) as T extends SendArgsSignable ? Promise<Cell> : Cell;
     } else {
