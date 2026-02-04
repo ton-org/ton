@@ -78,11 +78,8 @@ jobs:
       - name: Release with release-it
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           yarn release-it ${{ github.event.inputs.release-type }} --ci --npm.skipChecks
       
-      - name: Publish to NPM with provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance --access public
+      - name: Publish to NPM with OIDC
+        run: npm publish --access public
