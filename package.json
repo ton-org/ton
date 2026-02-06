@@ -1,6 +1,6 @@
 {
     "name": "@ton/ton",
-    "version": "16.2.0",
+    "version": "16.2.1",
     "repository": "https://github.com/ton-org/ton.git",
     "author": "Whales Corp. <developers@whalescorp.com>",
     "license": "MIT",
