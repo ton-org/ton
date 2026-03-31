@@ -7,7 +7,6 @@
  */
 
 import { HttpApi } from "./api/HttpApi";
-import { AxiosAdapter } from 'axios';
 import {
     Address,
     beginCell,
@@ -30,6 +29,7 @@ import {
     ExtraCurrency
 } from '@ton/core';
 import { Maybe } from "../utils/maybe";
+import { Fetch } from "../types";
 
 export type TonClientParameters = {
     /**
@@ -48,9 +48,9 @@ export type TonClientParameters = {
     apiKey?: string;
 
     /**
-     * HTTP Adapter for axios
+     * HTTP Adapter for fetch
      */
-    httpAdapter?: AxiosAdapter;
+    httpAdapter?: Fetch;
 }
 
 export class TonClient {

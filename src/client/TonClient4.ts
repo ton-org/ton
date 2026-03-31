@@ -6,11 +6,13 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import axios, { AxiosAdapter, InternalAxiosRequestConfig, AxiosInstance } from "axios";
+// import axios, { AxiosAdapter, InternalAxiosRequestConfig, AxiosInstance } from "axios";
 import { Address, beginCell, Cell, comment, Contract, ContractProvider, ContractState, external, ExtraCurrency, loadTransaction, openContract, OpenedContract, parseTuple, serializeTuple, StateInit, storeMessage, toNano, Transaction, TupleItem, TupleReader } from "@ton/core";
 import { Maybe } from "../utils/maybe";
 import { toUrlSafe } from "../utils/toUrlSafe";
 import { z } from 'zod';
+import { Fetch } from "../types";
+import util from "util";
 
 export type TonClient4Parameters = {
 
@@ -25,31 +27,91 @@ export type TonClient4Parameters = {
     timeout?: number;
 
     /**
-     * HTTP Adapter for axios
+     * HTTP Adapter for fetch
      */
-    httpAdapter?: AxiosAdapter;
+    httpAdapter?: Fetch;
 
     /**
      * HTTP request interceptor for axios
      */
-    requestInterceptor?: (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig;
+    // requestInterceptor?: (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig;
 }
 
 export class TonClient4 {
 
     #endpoint: string;
     #timeout: number;
-    #adapter?: AxiosAdapter;
-    #axios: AxiosInstance
+    #adapter?: Fetch;
+    // #axios: AxiosInstance
 
     constructor(args: TonClient4Parameters) {
-        this.#axios = axios.create()
+        // this.#axios = axios.create()
         this.#endpoint = args.endpoint;
         this.#timeout = args.timeout || 5000;
         this.#adapter = args.httpAdapter;
-        if (args.requestInterceptor) {
-            this.#axios.interceptors.request.use(args.requestInterceptor)
+        // if (args.requestInterceptor) {
+        //     this.#axios.interceptors.request.use(args.requestInterceptor)
+        // }
+    }
+
+    async getJson(url: string, options: RequestInit, {
+        timeout = this.#timeout,
+    }: {
+        timeout?: number;
+    } = {}) {
+        const timeoutAbortController = new AbortController();
+        setTimeout(() => {
+            timeoutAbortController.abort();
+        }, timeout);
+        let res = await fetch(url, {
+            ...options,
+            signal: timeoutAbortController.signal
+        });
+        // if (res.status !== 200 || !res.ok) {
+        //     throw Error('Received error: ' + res.statusText);
+        // }
+        let result;
+        try {
+            result = await res.json();
+        } catch (error) {
+            throw Error('Received error: ' + JSON.stringify(error));
         }
+        return {res, data: result};
+    }
+
+    async postJson(url: string, body: any, options: RequestInit, {
+        timeout = this.#timeout,
+    }: {
+        timeout?: number;
+    } = {}) {
+        const timeoutAbortController = new AbortController();
+        setTimeout(() => {
+            timeoutAbortController.abort();
+        }, timeout);
+        console.log('postJson', body, JSON.stringify(body));
+        let res = await fetch(url, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            method: 'POST',
+            body: JSON.stringify(body),
+            signal: timeoutAbortController.signal
+        });
+        // if (res.status !== 200 || !res.ok) {
+        //     throw Error('Received error: ' + res.statusText);
+        // }
+        let result;
+        try {
+            const responseText = await res.text();
+            console.log('postJson response text', responseText);
+            result = JSON.parse(responseText)  //await res.json();
+        } catch (error) {
+            // const responseText = await res.text();
+            // console.log('postJson response text', responseText);
+            throw Error('Received error: ' + JSON.stringify(error));
+        }
+        return {res, data: result};
     }
 
     /**
@@ -57,7 +119,7 @@ export class TonClient4 {
      * @returns last block info
      */
     async getLastBlock() {
-        let res = await this.#axios.get(this.#endpoint + '/block/latest', { adapter: this.#adapter, timeout: this.#timeout });
+        let res = await this.getJson(this.#endpoint + '/block/latest', {}, { timeout: this.#timeout });
         let lastBlock = lastBlockCodec.safeParse(res.data);
         if (!lastBlock.success) {
             throw Error('Mailformed response: ' + lastBlock.error.format()._errors.join(', '));
@@ -71,7 +133,7 @@ export class TonClient4 {
      * @returns block info
      */
     async getBlock(seqno: number) {
-        let res = await this.#axios.get(this.#endpoint + '/block/' + seqno, { adapter: this.#adapter, timeout: this.#timeout });
+        let res = await this.getJson(this.#endpoint + '/block/' + seqno, {}, { timeout: this.#timeout });
         let block = blockCodec.safeParse(res.data);
         if (!block.success) {
             throw Error('Mailformed response');
@@ -88,7 +150,7 @@ export class TonClient4 {
      * @returns block info
      */
     async getBlockByUtime(ts: number) {
-        let res = await this.#axios.get(this.#endpoint + '/block/utime/' + ts, { adapter: this.#adapter, timeout: this.#timeout });
+        let res = await this.getJson(this.#endpoint + '/block/utime/' + ts, {}, { timeout: this.#timeout });
         let block = blockCodec.safeParse(res.data);
         if (!block.success) {
             throw Error('Mailformed response');
@@ -106,7 +168,7 @@ export class TonClient4 {
      * @returns account info
      */
     async getAccount(seqno: number, address: Address) {
-        let res = await this.#axios.get(this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }), { adapter: this.#adapter, timeout: this.#timeout });
+        let res = await this.getJson(this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }), {}, { timeout: this.#timeout });
         let account = accountCodec.safeParse(res.data);
         if (!account.success) {
             throw Error('Mailformed response');
@@ -121,7 +183,7 @@ export class TonClient4 {
      * @returns account lite info
      */
     async getAccountLite(seqno: number, address: Address) {
-        let res = await this.#axios.get(this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }) + '/lite', { adapter: this.#adapter, timeout: this.#timeout });
+        let res = await this.getJson(this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }) + '/lite', {}, { timeout: this.#timeout });
         let account = accountLiteCodec.safeParse(res.data);
         if (!account.success) {
             throw Error('Mailformed response');
@@ -148,7 +210,7 @@ export class TonClient4 {
      * @returns account change info
      */
     async isAccountChanged(seqno: number, address: Address, lt: bigint) {
-        let res = await this.#axios.get(this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }) + '/changed/' + lt.toString(10), { adapter: this.#adapter, timeout: this.#timeout });
+        let res = await this.getJson(this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }) + '/changed/' + lt.toString(10), {}, { timeout: this.#timeout });
         let changed = changedCodec.safeParse(res.data);
         if (!changed.success) {
             throw Error('Mailformed response');
@@ -164,7 +226,7 @@ export class TonClient4 {
      * @returns unparsed transactions
      */
     async getAccountTransactions(address: Address, lt: bigint, hash: Buffer) {
-        let res = await this.#axios.get(this.#endpoint + '/account/' + address.toString({ urlSafe: true }) + '/tx/' + lt.toString(10) + '/' + toUrlSafe(hash.toString('base64')), { adapter: this.#adapter, timeout: this.#timeout });
+        let res = await this.getJson(this.#endpoint + '/account/' + address.toString({ urlSafe: true }) + '/tx/' + lt.toString(10) + '/' + toUrlSafe(hash.toString('base64')), {}, { timeout: this.#timeout });
         let transactions = transactionsCodec.safeParse(res.data);
         if (!transactions.success) {
             throw Error('Mailformed response');
@@ -199,14 +261,12 @@ export class TonClient4 {
      * @returns parsed transactions
      */
     async getAccountTransactionsParsed(address: Address, lt: bigint, hash: Buffer, count: number = 20) {
-        let res = await this.#axios.get(
-            this.#endpoint + '/account/' + address.toString({ urlSafe: true }) + '/tx/parsed/' + lt.toString(10) + '/' + toUrlSafe(hash.toString('base64')),
+        // todo check count
+        let res = await this.getJson(
+            this.#endpoint + '/account/' + address.toString({ urlSafe: true }) + '/tx/parsed/' + lt.toString(10) + '/' + toUrlSafe(hash.toString('base64')) + '?' + new URLSearchParams({ count: count.toString() }),
+            {},
             {
-                adapter: this.#adapter,
                 timeout: this.#timeout,
-                params: {
-                    count
-                }
             }
         );
         let parsedTransactionsRes = parsedTransactionsCodec.safeParse(res.data);
@@ -229,7 +289,7 @@ export class TonClient4 {
         if (ids && ids.length > 0) {
             tail = '/' + [...ids].sort().join(',');
         }
-        let res = await this.#axios.get(this.#endpoint + '/block/' + seqno + '/config' + tail, { adapter: this.#adapter, timeout: this.#timeout });
+        let res = await this.getJson(this.#endpoint + '/block/' + seqno + '/config' + tail, {}, { timeout: this.#timeout });
         let config = configCodec.safeParse(res.data);
         if (!config.success) {
             throw Error('Mailformed response');
@@ -248,7 +308,7 @@ export class TonClient4 {
     async runMethod(seqno: number, address: Address, name: string, args?: TupleItem[]) {
         let tail = args && args.length > 0 ? '/' + toUrlSafe(serializeTuple(args).toBoc({ idx: false, crc32: false }).toString('base64')) : '';
         let url = this.#endpoint + '/block/' + seqno + '/' + address.toString({ urlSafe: true }) + '/run/' + encodeURIComponent(name) + tail;
-        let res = await this.#axios.get(url, { adapter: this.#adapter, timeout: this.#timeout });
+        let res = await this.getJson(url, {}, { timeout: this.#timeout });
         let runMethod = runMethodCodec.safeParse(res.data);
         if (!runMethod.success) {
             throw Error('Mailformed response');
@@ -270,8 +330,9 @@ export class TonClient4 {
      * @returns message status
      */
     async sendMessage(message: Buffer) {
-        let res = await this.#axios.post(this.#endpoint + '/send', { boc: message.toString('base64') }, { adapter: this.#adapter, timeout: this.#timeout });
+        let res = await this.postJson(this.#endpoint + '/send', { boc: message.toString('base64') }, {}, { timeout: this.#timeout });
         let send = sendCodec.safeParse(res.data);
+        console.log('send', res.data, util.inspect((send as any)?.error, { depth: null }));
         if (!send.success) {
             throw Error('Mailformed response');
         }

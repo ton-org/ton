@@ -7,9 +7,11 @@
  */
 import { InMemoryCache, TonCache } from './TonCache';
 import DataLoader from 'dataloader';
-import axios, { AxiosAdapter } from 'axios';
+// import axios, { AxiosAdapter } from 'axios';
 import { Address, Cell, TupleItem } from '@ton/core';
 import { z } from 'zod';
+import { Fetch } from '../../types';
+import axios from 'axios';
 
 const version = require('../../../package.json').version as string;
 
@@ -185,7 +187,7 @@ export interface HttpApiParameters {
     /**
      * Adapter for Axios
      */
-    adapter?: AxiosAdapter;
+    adapter?: Fetch;
 }
 
 interface HttpApiResolvedParameters extends HttpApiParameters {
@@ -346,11 +348,49 @@ export class HttpApi {
         }), {
             headers,
             timeout: this.parameters.timeout,
-            adapter: this.parameters.adapter
+            // adapter: this.parameters.adapter
         })
-        if (res.status !== 200 || !res.data.ok) {
-            throw Error('Received error: ' + JSON.stringify(res.data));
-        }
+        // const timeoutAbortController = new AbortController();
+        // setTimeout(() => {
+        //     timeoutAbortController.abort();
+        // }, this.parameters.timeout);
+        // let res = await fetch(this.endpoint, {
+        //     method: 'POST',
+        //     body: JSON.stringify({
+        //         id: '1',
+        //         jsonrpc: '2.0',
+        //         method: method,
+        //         params: body
+        //     }),
+        //     headers,
+        //     signal: timeoutAbortController.signal
+        // })
+        // if (res.status !== 200 || !res.ok) {
+        //     let result
+        //     try {
+        //         result = await res.json();
+        //     } catch (error) {
+        //         //
+        //     }
+        //     if (!result) {
+        //         try {
+        //             result = await res.text();
+        //         } catch (error) {
+        //             //
+        //         }
+        //     }
+        //     console.log('result', res, result);
+        //     throw Error('Received error: ' + JSON.stringify(result));
+        // }
+
+        // let result;
+        // try {
+        //     result = await res.json();
+        // } catch (error) {
+        //     throw new Error('Received error: ' + JSON.stringify(error));
+        // }
+       
+      
         let decoded = codec.safeParse(res.data.result);
         if (decoded.success) {
             return decoded.data;
