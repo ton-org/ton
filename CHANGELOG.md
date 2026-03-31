@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed GitHub Actions workflow permissions for automated releases
+- Pin axios to version 1.14.0 to prevent installation of compromised version 1.14.1 containing remote access trojan (RAT). See https://github.com/axios/axios/issues/10604
 
 ## [16.2.1] - 2026-02-06
 
