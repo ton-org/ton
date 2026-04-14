@@ -13,20 +13,18 @@ import {
     FetchLike,
     ReadableStreamLike,
     StreamingEventMap,
-    StreamingProvider,
     StreamingSseParameters,
     StreamingSubscription,
     StreamingUnsubscribe,
 } from "./types";
 import {
     appendQueryParameter,
-    compactRecord,
     describeHttpError,
     describeUnexpectedMessage,
     ensureError,
     isAbortError,
     isRecord,
-    mergeHeaders,
+    resolveProviderEndpoint,
 } from "./utils";
 import {
     NormalizedStreamingSubscription,
@@ -42,29 +40,11 @@ type ConnectHandshake = {
     reject: (error: Error) => void;
 };
 
-const STREAMING_SSE_PROVIDER_DEFAULTS = {
-    tonapi: {
-        endpoint: "https://tonapi.io/streaming/v2/sse",
-        apiKeyParam: "token",
-    },
-    toncenter: {
-        endpoint: "https://toncenter.com/api/streaming/v2/sse",
-        apiKeyParam: "api_key",
-    },
-} satisfies Record<
-    StreamingProvider,
-    {
-        endpoint: string;
-        apiKeyParam: string;
-    }
->;
-
 /**
  * SSE client for Streaming API v2-compatible endpoints.
  *
- * SSE subscriptions are immutable for the lifetime of the HTTP stream.
- * Consequently, `subscribe()` and `unsubscribe()` are implemented by closing
- * the current stream (if any) and reconnecting with the desired snapshot.
+ * SSE subscriptions are immutable for the lifetime of the HTTP stream,
+ * so `subscribe()` / `unsubscribe()` reconnect with the desired snapshot.
  */
 export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
     readonly #endpoint: string;
@@ -86,21 +66,14 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
 
     constructor(parameters: StreamingSseParameters) {
         super();
-        if (parameters.provider) {
-            const providerDefaults =
-                STREAMING_SSE_PROVIDER_DEFAULTS[parameters.provider];
-            this.#endpoint = providerDefaults.endpoint;
-            this.#apiKeyParam = providerDefaults.apiKeyParam;
-        } else {
-            if (!parameters.endpoint) {
-                throw new Error(
-                    "Streaming endpoint is required when provider is not specified",
-                );
-            }
-
-            this.#endpoint = parameters.endpoint;
-            this.#apiKeyParam = parameters.apiKeyParam ?? "api_key";
-        }
+        const resolved = resolveProviderEndpoint(
+            "sse",
+            parameters.provider,
+            parameters.endpoint,
+            parameters.apiKeyParam,
+        );
+        this.#endpoint = resolved.endpoint;
+        this.#apiKeyParam = resolved.apiKeyParam;
         this.#apiKey = parameters.apiKey;
         this.#bearerAuth = parameters.bearerAuth ?? false;
         this.#fetchFn =
@@ -114,12 +87,6 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
         this.#headers = { ...(parameters.headers ?? {}) };
     }
 
-    /**
-     * Open the SSE connection.
-     *
-     * When `params` are provided they become the active subscription snapshot.
-     * When omitted, the most recently requested snapshot is reused.
-     */
     async connect(params?: StreamingSubscription): Promise<void> {
         const normalized = params
             ? normalizeStreamingSubscription(params)
@@ -146,18 +113,10 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
         await this.#connectNormalized(normalized);
     }
 
-    /**
-     * Replace the current SSE subscription snapshot.
-     * Internally this reconnects the stream.
-     */
     async subscribe(params: StreamingSubscription): Promise<void> {
         await this.connect(params);
     }
 
-    /**
-     * Remove addresses and/or trace hashes from the current SSE snapshot.
-     * Internally this reconnects the stream with the reduced snapshot.
-     */
     async unsubscribe(params: StreamingUnsubscribe): Promise<void> {
         const normalizedUnsubscribe = normalizeStreamingUnsubscribe(params);
 
@@ -192,12 +151,6 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
         await this.#connectNormalized(nextSubscription);
     }
 
-    /**
-     * Close the SSE connection.
-     *
-     * The last requested subscription snapshot is preserved so `connect()` can
-     * reuse it later.
-     */
     close(): void {
         const abortController = this.#abortController;
         const hadConnection = this.#reading || abortController !== null;
@@ -225,9 +178,6 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
         }
     }
 
-    /**
-     * Whether the SSE stream is currently active.
-     */
     get connected(): boolean {
         return this.#reading;
     }
@@ -253,45 +203,42 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
             this.#apiKey && this.#bearerAuth
                 ? `Bearer ${this.#apiKey}`
                 : undefined;
-        const headers = mergeHeaders(
-            {
-                "Content-Type": "application/json",
-                Accept: "text/event-stream",
-                "Cache-Control": "no-cache",
-                ...(authorizationHeader
-                    ? {
-                          Authorization: authorizationHeader,
-                      }
-                    : {}),
-            },
-            this.#headers,
-        );
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream",
+            "Cache-Control": "no-cache",
+            ...(authorizationHeader
+                ? { Authorization: authorizationHeader }
+                : {}),
+            ...this.#headers,
+        };
+
+        const releaseAbort = () => {
+            if (this.#abortController === abortController) {
+                this.#abortController = null;
+            }
+        };
 
         let response;
         try {
             response = await this.#fetchFn(url, {
                 method: "POST",
                 headers,
-                body: JSON.stringify(
-                    compactRecord({
-                        types: normalized.types,
-                        addresses: normalized.addresses,
-                        trace_external_hash_norms:
-                            normalized.traceExternalHashNorms,
-                        min_finality: normalized.minFinality,
-                        include_address_book: normalized.includeAddressBook,
-                        include_metadata: normalized.includeMetadata,
-                        action_types: normalized.actionTypes,
-                        supported_action_types: normalized.supportedActionTypes,
-                    }),
-                ),
+                body: JSON.stringify({
+                    types: normalized.types,
+                    addresses: normalized.addresses,
+                    trace_external_hash_norms:
+                        normalized.traceExternalHashNorms,
+                    min_finality: normalized.minFinality,
+                    include_address_book: normalized.includeAddressBook,
+                    include_metadata: normalized.includeMetadata,
+                    action_types: normalized.actionTypes,
+                    supported_action_types: normalized.supportedActionTypes,
+                }),
                 signal: abortController.signal,
             });
         } catch (error) {
-            if (this.#abortController === abortController) {
-                this.#abortController = null;
-            }
-
+            releaseAbort();
             if (isAbortError(error)) {
                 throw new Error(
                     "Streaming SSE connection was closed before subscription confirmation",
@@ -301,19 +248,18 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
         }
 
         if (!response.ok) {
-            if (this.#abortController === abortController) {
-                this.#abortController = null;
-            }
+            releaseAbort();
             throw new Error(
                 `Streaming SSE connection failed: ${await describeHttpError(response)}`,
             );
         }
 
         if (!response.body || typeof response.body.getReader !== "function") {
+            releaseAbort();
             throw new Error("SSE response does not expose a readable body");
         }
         const body = response.body;
-        
+
         if (this.#abortController !== abortController) {
             body.cancel?.();
             throw new Error(
@@ -350,14 +296,21 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
         });
 
         this.#pendingHandshake = { abortController, handshake };
-        void this.#readStream(
-            body,
-            connectionId,
-            abortController,
-            handshake,
-            normalized,
-        );
+        void this.#readStream(body, connectionId, abortController, handshake);
         return waitForSubscribed;
+    }
+
+    #rejectOrEmitError(
+        handshake: ConnectHandshake,
+        abortController: AbortController,
+        error: Error,
+    ): void {
+        if (!handshake.settled) {
+            handshake.reject(error);
+            abortController.abort();
+        } else {
+            this.emit("error", error);
+        }
     }
 
     async #readStream(
@@ -365,36 +318,28 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
         connectionId: number,
         abortController: AbortController,
         handshake: ConnectHandshake,
-        normalized: NormalizedStreamingSubscription,
     ): Promise<void> {
         const parser = new SseParser((sseEvent) => {
             let payload: unknown;
             try {
                 payload = JSON.parse(sseEvent.data) as unknown;
             } catch (error) {
-                const normalizedError = ensureError(
-                    error,
-                    "Failed to parse streaming SSE event",
+                this.#rejectOrEmitError(
+                    handshake,
+                    abortController,
+                    ensureError(error, "Failed to parse streaming SSE event"),
                 );
-                if (!handshake.settled) {
-                    handshake.reject(normalizedError);
-                    abortController.abort();
-                } else {
-                    this.emit("error", normalizedError);
-                }
                 return;
             }
 
             if (!isRecord(payload)) {
-                const normalizedError = new Error(
-                    `Unexpected streaming SSE payload: ${describeUnexpectedMessage(payload)}`,
+                this.#rejectOrEmitError(
+                    handshake,
+                    abortController,
+                    new Error(
+                        `Unexpected streaming SSE payload: ${describeUnexpectedMessage(payload)}`,
+                    ),
                 );
-                if (!handshake.settled) {
-                    handshake.reject(normalizedError);
-                    abortController.abort();
-                } else {
-                    this.emit("error", normalizedError);
-                }
                 return;
             }
 
@@ -407,16 +352,8 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
 
             if (typeof payload.status === "string") {
                 if (payload.status === "subscribed") {
-                    if (
-                        this.#connectionId !== connectionId ||
-                        this.#abortController !== abortController
-                    ) {
-                        return;
-                    }
-
                     if (!this.#reading) {
                         this.#reading = true;
-                        this.#activeSubscription = normalized;
                         this.emit("open", undefined);
                     }
                     if (!handshake.settled) {
@@ -425,7 +362,9 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
                     return;
                 }
 
-                const statusError =
+                this.#rejectOrEmitError(
+                    handshake,
+                    abortController,
                     payload.error !== undefined
                         ? ensureError(
                               payload.error,
@@ -433,14 +372,8 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
                           )
                         : new Error(
                               `Unexpected streaming SSE status message: ${describeUnexpectedMessage(payload)}`,
-                          );
-
-                if (!handshake.settled) {
-                    handshake.reject(statusError);
-                    abortController.abort();
-                } else {
-                    this.emit("error", statusError);
-                }
+                          ),
+                );
                 return;
             }
 
@@ -451,16 +384,11 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
                     event as never,
                 );
             } catch (error) {
-                const normalizedError = ensureError(
-                    error,
-                    "Invalid streaming SSE notification",
+                this.#rejectOrEmitError(
+                    handshake,
+                    abortController,
+                    ensureError(error, "Invalid streaming SSE notification"),
                 );
-                if (!handshake.settled) {
-                    handshake.reject(normalizedError);
-                    abortController.abort();
-                } else {
-                    this.emit("error", normalizedError);
-                }
             }
         });
 

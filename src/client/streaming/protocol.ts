@@ -17,17 +17,11 @@ import {
     StreamingTraceInvalidatedEvent,
     StreamingTransactionsEvent,
 } from "./types";
-import { isRecord } from "./utils";
-
-const FINALITY_LEVELS = new Set<Finality>([
-    "pending",
-    "confirmed",
-    "finalized",
-]);
-const NON_PENDING_FINALITY_LEVELS = new Set<"confirmed" | "finalized">([
-    "confirmed",
-    "finalized",
-]);
+import {
+    FINALITY_LEVELS,
+    NON_PENDING_FINALITY_LEVELS,
+    isRecord,
+} from "./utils";
 
 function expectRecord(
     value: unknown,
@@ -52,11 +46,7 @@ function expectOptionalString(
     value: unknown,
     fieldName: string,
 ): string | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    return expectString(value, fieldName);
+    return value === undefined ? undefined : expectString(value, fieldName);
 }
 
 function expectFinality(value: unknown, fieldName: string): Finality {
@@ -73,7 +63,9 @@ function expectNonPendingFinality(
     fieldName: string,
 ): "confirmed" | "finalized" {
     const finality = expectString(value, fieldName);
-    if (!NON_PENDING_FINALITY_LEVELS.has(finality as "confirmed" | "finalized")) {
+    if (
+        !NON_PENDING_FINALITY_LEVELS.has(finality as "confirmed" | "finalized")
+    ) {
         throw new Error(`${fieldName} has unsupported value: ${finality}`);
     }
 
@@ -98,11 +90,7 @@ function expectOptionalObjectArray(
     value: unknown,
     fieldName: string,
 ): JsonObject[] | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    return expectObjectArray(value, fieldName);
+    return value === undefined ? undefined : expectObjectArray(value, fieldName);
 }
 
 function expectRecordOfObjects(
@@ -124,34 +112,39 @@ function expectOptionalRecordOfObjects(
     value: unknown,
     fieldName: string,
 ): Record<string, JsonObject> | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
+    return value === undefined ? undefined : expectRecordOfObjects(value, fieldName);
+}
 
-    return expectRecordOfObjects(value, fieldName);
+function parseTraceCollectionEventBase(
+    payload: Record<string, unknown>,
+    eventType: "transactions" | "actions",
+) {
+    return {
+        finality: expectFinality(payload.finality, `${eventType}.finality`),
+        trace_external_hash_norm: expectString(
+            payload.trace_external_hash_norm,
+            `${eventType}.trace_external_hash_norm`,
+        ),
+        address_book: expectOptionalRecordOfObjects(
+            payload.address_book,
+            `${eventType}.address_book`,
+        ),
+        metadata: expectOptionalRecordOfObjects(
+            payload.metadata,
+            `${eventType}.metadata`,
+        ),
+    };
 }
 
 function parseTransactionsEvent(
     payload: Record<string, unknown>,
 ): StreamingTransactionsEvent {
     return {
+        ...parseTraceCollectionEventBase(payload, "transactions"),
         type: "transactions",
-        finality: expectFinality(payload.finality, "transactions.finality"),
-        trace_external_hash_norm: expectString(
-            payload.trace_external_hash_norm,
-            "transactions.trace_external_hash_norm",
-        ),
         transactions: expectObjectArray(
             payload.transactions,
             "transactions.transactions",
-        ),
-        address_book: expectOptionalRecordOfObjects(
-            payload.address_book,
-            "transactions.address_book",
-        ),
-        metadata: expectOptionalRecordOfObjects(
-            payload.metadata,
-            "transactions.metadata",
         ),
     };
 }
@@ -160,25 +153,15 @@ function parseActionsEvent(
     payload: Record<string, unknown>,
 ): StreamingActionsEvent {
     return {
+        ...parseTraceCollectionEventBase(payload, "actions"),
         type: "actions",
-        finality: expectFinality(payload.finality, "actions.finality"),
-        trace_external_hash_norm: expectString(
-            payload.trace_external_hash_norm,
-            "actions.trace_external_hash_norm",
-        ),
         actions: expectObjectArray(payload.actions, "actions.actions"),
-        address_book: expectOptionalRecordOfObjects(
-            payload.address_book,
-            "actions.address_book",
-        ),
-        metadata: expectOptionalRecordOfObjects(
-            payload.metadata,
-            "actions.metadata",
-        ),
     };
 }
 
-function parseTraceEvent(payload: Record<string, unknown>): StreamingTraceEvent {
+function parseTraceEvent(
+    payload: Record<string, unknown>,
+): StreamingTraceEvent {
     return {
         type: "trace",
         finality: expectFinality(payload.finality, "trace.finality"),
@@ -249,8 +232,14 @@ function parseJettonsEvent(
             "jettons_change.finality",
         ),
         jetton: {
-            address: expectString(jetton.address, "jettons_change.jetton.address"),
-            balance: expectString(jetton.balance, "jettons_change.jetton.balance"),
+            address: expectString(
+                jetton.address,
+                "jettons_change.jetton.address",
+            ),
+            balance: expectString(
+                jetton.balance,
+                "jettons_change.jetton.balance",
+            ),
             owner: expectString(jetton.owner, "jettons_change.jetton.owner"),
             jetton: expectString(jetton.jetton, "jettons_change.jetton.jetton"),
             last_transaction_lt: expectString(

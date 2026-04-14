@@ -13,6 +13,7 @@ import {
     StreamingUnsubscribe,
 } from "./types";
 import {
+    FINALITY_LEVELS,
     areStringListsEqual,
     requireStringList,
     sanitizeStringList,
@@ -24,12 +25,6 @@ const STREAMING_EVENT_TYPES = new Set<StreamingEventType>([
     "trace",
     "account_state_change",
     "jettons_change",
-]);
-
-const FINALITY_LEVELS = new Set<Finality>([
-    "pending",
-    "confirmed",
-    "finalized",
 ]);
 
 export type NormalizedStreamingSubscription = {

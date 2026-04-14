@@ -1,4 +1,4 @@
-import { TonStreaming } from "../TonStreaming";
+import { TonStreaming } from "./TonStreaming";
 import { StreamingSubscription } from "./types";
 
 function makeMockClient() {

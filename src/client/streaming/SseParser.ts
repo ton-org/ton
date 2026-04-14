@@ -48,7 +48,9 @@ export class SseParser {
                 break;
             }
 
-            const part = this.#normalizeChunk(this.#buffer.slice(0, boundary.index));
+            const part = this.#normalizeChunk(
+                this.#buffer.slice(0, boundary.index),
+            );
             this.#buffer = this.#buffer.slice(boundary.index + boundary.length);
             this.#dispatch(part);
         }
@@ -85,7 +87,7 @@ export class SseParser {
     }
 
     #normalizeChunk(part: string): string {
-        return part.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        return part.replace(/\r\n?/g, "\n");
     }
 
     #dispatch(part: string): void {

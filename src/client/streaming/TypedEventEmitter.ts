@@ -44,7 +44,7 @@ export class TypedEventEmitter<TEvents extends { error: Error }> {
             return;
         }
 
-        for (const handler of Array.from(handlers)) {
+        for (const handler of handlers) {
             try {
                 handler(data as TEvents[keyof TEvents]);
             } catch (error) {
@@ -55,10 +55,6 @@ export class TypedEventEmitter<TEvents extends { error: Error }> {
                 this.emit("error" as K, ensureError(error) as TEvents[K]);
             }
         }
-    }
-
-    protected removeAllListeners(): void {
-        this.#listeners.clear();
     }
 
     #getOrCreateHandlers<K extends keyof TEvents>(

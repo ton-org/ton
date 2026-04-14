@@ -10,7 +10,6 @@ import { parseStreamingEvent } from "./protocol";
 import { TypedEventEmitter } from "./TypedEventEmitter";
 import {
     StreamingEventMap,
-    StreamingProvider,
     StreamingSubscription,
     StreamingUnsubscribe,
     StreamingWebSocketParameters,
@@ -21,12 +20,11 @@ import {
     DEFAULT_PING_INTERVAL_MS,
     DEFAULT_REQUEST_TIMEOUT_MS,
     appendQueryParameter,
-    compactRecord,
-    createMissingWebSocketConstructor,
     describeUnexpectedMessage,
     ensureError,
     isRecord,
     normalizeTimeoutMs,
+    resolveProviderEndpoint,
 } from "./utils";
 import {
     NormalizedStreamingSubscription,
@@ -49,22 +47,7 @@ type StreamingResponse = {
     [key: string]: unknown;
 };
 
-const STREAMING_WEBSOCKET_PROVIDER_DEFAULTS = {
-    tonapi: {
-        endpoint: "wss://tonapi.io/streaming/v2/ws",
-        apiKeyParam: "token",
-    },
-    toncenter: {
-        endpoint: "wss://toncenter.com/api/streaming/v2/ws",
-        apiKeyParam: "api_key",
-    },
-} satisfies Record<
-    StreamingProvider,
-    {
-        endpoint: string;
-        apiKeyParam: string;
-    }
->;
+const textDecoder = new TextDecoder();
 
 function decodeWebSocketMessage(rawMessage: unknown): string {
     if (typeof rawMessage === "string") {
@@ -72,11 +55,11 @@ function decodeWebSocketMessage(rawMessage: unknown): string {
     }
 
     if (rawMessage instanceof ArrayBuffer) {
-        return new TextDecoder().decode(new Uint8Array(rawMessage));
+        return textDecoder.decode(new Uint8Array(rawMessage));
     }
 
     if (ArrayBuffer.isView(rawMessage)) {
-        return new TextDecoder().decode(
+        return textDecoder.decode(
             new Uint8Array(
                 rawMessage.buffer,
                 rawMessage.byteOffset,
@@ -133,14 +116,12 @@ function createUnsubscribeDelta(
     };
 }
 
-/**
- * WebSocket client for Streaming API v2-compatible endpoints.
- */
+/** WebSocket client for Streaming API v2-compatible endpoints. */
 export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
     readonly #endpoint: string;
     readonly #apiKey: string | undefined;
     readonly #apiKeyParam: string;
-    readonly #WsCtor: IWebSocketConstructor;
+    readonly #wsCtor: IWebSocketConstructor;
     readonly #requestTimeoutMs: number;
     readonly #pingIntervalMs: number;
 
@@ -159,26 +140,24 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
 
     constructor(parameters: StreamingWebSocketParameters) {
         super();
-        if (parameters.provider) {
-            const providerDefaults =
-                STREAMING_WEBSOCKET_PROVIDER_DEFAULTS[parameters.provider];
-            this.#endpoint = providerDefaults.endpoint;
-            this.#apiKeyParam = providerDefaults.apiKeyParam;
-        } else {
-            if (!parameters.endpoint) {
-                throw new Error(
-                    "Streaming endpoint is required when provider is not specified",
-                );
-            }
-
-            this.#endpoint = parameters.endpoint;
-            this.#apiKeyParam = parameters.apiKeyParam ?? "api_key";
-        }
+        const resolved = resolveProviderEndpoint(
+            "ws",
+            parameters.provider,
+            parameters.endpoint,
+            parameters.apiKeyParam,
+        );
+        this.#endpoint = resolved.endpoint;
+        this.#apiKeyParam = resolved.apiKeyParam;
         this.#apiKey = parameters.apiKey;
-        this.#WsCtor =
+        const wsCtor =
             parameters.WebSocket ??
-            (globalThis as { WebSocket?: IWebSocketConstructor }).WebSocket ??
-            createMissingWebSocketConstructor();
+            (globalThis as { WebSocket?: IWebSocketConstructor }).WebSocket;
+        if (!wsCtor) {
+            throw new Error(
+                "WebSocket is not available. Pass a WebSocket constructor via parameters.",
+            );
+        }
+        this.#wsCtor = wsCtor;
         this.#requestTimeoutMs = normalizeTimeoutMs(
             parameters.requestTimeoutMs,
             DEFAULT_REQUEST_TIMEOUT_MS,
@@ -191,12 +170,6 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
         );
     }
 
-    /**
-     * Connect to the streaming WebSocket endpoint.
-     *
-     * When `params` are provided they become the active subscription snapshot.
-     * When omitted, the most recently requested snapshot is reused.
-     */
     async connect(params?: StreamingSubscription): Promise<void> {
         const targetSubscription = params
             ? normalizeStreamingSubscription(params)
@@ -222,9 +195,6 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
         }
     }
 
-    /**
-     * Replace the current subscription snapshot (snapshot semantics).
-     */
     async subscribe(params: StreamingSubscription): Promise<void> {
         const normalized = normalizeStreamingSubscription(params);
         this.#requestedSubscription = normalized;
@@ -243,12 +213,6 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
         await this.#replaceSubscriptionSnapshot(normalized);
     }
 
-    /**
-     * Remove specific addresses or trace hashes from the current subscription.
-     *
-     * If the socket is currently disconnected, the stored subscription snapshot
-     * is updated locally and will be reused on the next `connect()`.
-     */
     async unsubscribe(params: StreamingUnsubscribe): Promise<void> {
         const normalized = normalizeStreamingUnsubscribe(params);
 
@@ -280,12 +244,6 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
         }
     }
 
-    /**
-     * Close the WebSocket connection and clean up.
-     *
-     * The last requested subscription snapshot is preserved so `connect()` can
-     * restore it later.
-     */
     close(): void {
         const ws = this.#ws;
         const wasConnecting = this.#state === "connecting";
@@ -314,12 +272,9 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
         }
     }
 
-    /**
-     * Whether the WebSocket connection is currently open.
-     */
     get connected(): boolean {
         return (
-            this.#state === "open" && this.#ws?.readyState === this.#WsCtor.OPEN
+            this.#state === "open" && this.#ws?.readyState === this.#wsCtor.OPEN
         );
     }
 
@@ -341,7 +296,7 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
                   this.#apiKey,
               )
             : this.#endpoint;
-        const ws = new this.#WsCtor(url);
+        const ws = new this.#wsCtor(url);
 
         this.#ws = ws;
         this.#state = "connecting";
@@ -576,7 +531,7 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
             });
 
             try {
-                ws.send(JSON.stringify(compactRecord(message)));
+                ws.send(JSON.stringify(message));
             } catch (error) {
                 this.#pendingRequests.delete(id);
                 clearTimeout(timeout);

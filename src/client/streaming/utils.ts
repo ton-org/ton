@@ -6,14 +6,20 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import {
-    FetchResponseLike,
-    IWebSocket,
-    IWebSocketConstructor,
-} from "./types";
+import { Finality, FetchResponseLike, StreamingProvider } from "./types";
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 export const DEFAULT_PING_INTERVAL_MS = 15_000;
+
+export const FINALITY_LEVELS = new Set<Finality>([
+    "pending",
+    "confirmed",
+    "finalized",
+]);
+export const NON_PENDING_FINALITY_LEVELS = new Set<"confirmed" | "finalized">([
+    "confirmed",
+    "finalized",
+]);
 
 export function ensureError(reason: unknown, fallback?: string): Error {
     if (reason instanceof Error) {
@@ -120,18 +126,6 @@ export function appendQueryParameter(
     return url.toString();
 }
 
-export function mergeHeaders(
-    ...headersList: Array<Record<string, string> | undefined>
-): Record<string, string> {
-    const merged: Record<string, string> = {};
-    for (const headers of headersList) {
-        if (headers) {
-            Object.assign(merged, headers);
-        }
-    }
-    return merged;
-}
-
 export async function describeHttpError(
     response: FetchResponseLike,
 ): Promise<string> {
@@ -149,31 +143,6 @@ export async function describeHttpError(
     return bodyText ? `${statusPart} — ${bodyText}` : statusPart;
 }
 
-export function createMissingWebSocketConstructor(): IWebSocketConstructor {
-    class MissingWebSocket implements IWebSocket {
-        static readonly OPEN = 1;
-        readonly readyState = 3;
-        onopen = null;
-        onclose = null;
-        onmessage = null;
-        onerror = null;
-
-        constructor(_url: string) {
-            throw new Error(
-                "WebSocket is not available. Pass a WebSocket constructor via parameters.",
-            );
-        }
-
-        send(_data: string): void {
-            throw new Error("WebSocket is not available");
-        }
-
-        close(): void {}
-    }
-
-    return MissingWebSocket;
-}
-
 export function describeUnexpectedMessage(payload: unknown): string {
     try {
         return JSON.stringify(payload);
@@ -186,16 +155,49 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function compactRecord(
-    message: Record<string, unknown>,
-): Record<string, unknown> {
-    const compact: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(message)) {
-        if (value !== undefined) {
-            compact[key] = value;
-        }
+type ProviderDefaults = { endpoint: string; apiKeyParam: string };
+
+const PROVIDER_DEFAULTS: Record<
+    StreamingProvider,
+    { sse: ProviderDefaults; ws: ProviderDefaults }
+> = {
+    tonapi: {
+        sse: {
+            endpoint: "https://tonapi.io/streaming/v2/sse",
+            apiKeyParam: "token",
+        },
+        ws: {
+            endpoint: "wss://tonapi.io/streaming/v2/ws",
+            apiKeyParam: "token",
+        },
+    },
+    toncenter: {
+        sse: {
+            endpoint: "https://toncenter.com/api/streaming/v2/sse",
+            apiKeyParam: "api_key",
+        },
+        ws: {
+            endpoint: "wss://toncenter.com/api/streaming/v2/ws",
+            apiKeyParam: "api_key",
+        },
+    },
+};
+
+export function resolveProviderEndpoint(
+    transport: "sse" | "ws",
+    provider: StreamingProvider | undefined,
+    endpoint: string | undefined,
+    apiKeyParam: string | undefined,
+): { endpoint: string; apiKeyParam: string } {
+    if (provider) {
+        return PROVIDER_DEFAULTS[provider][transport];
     }
-    return compact;
+    if (!endpoint) {
+        throw new Error(
+            "Streaming endpoint is required when provider is not specified",
+        );
+    }
+    return { endpoint, apiKeyParam: apiKeyParam ?? "api_key" };
 }
 
 export function areStringListsEqual(

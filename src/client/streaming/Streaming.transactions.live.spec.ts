@@ -1,5 +1,6 @@
 import { StreamingWebSocket } from "./StreamingWebSocket";
 import { StreamingSse } from "./StreamingSse";
+import type { StreamingTransactionsEvent } from "./types";
 
 const TONCENTER_API_KEY = process.env.TONCENTER_API_KEY;
 const TONAPI_API_KEY = process.env.TONAPI_API_KEY;
@@ -23,6 +24,36 @@ type SeenEvent = {
     txCount?: number;
     finality?: string;
 };
+
+type TransactionsSource = {
+    on(
+        event: "transactions",
+        handler: (event: StreamingTransactionsEvent) => void,
+    ): void;
+    off(
+        event: "transactions",
+        handler: (event: StreamingTransactionsEvent) => void,
+    ): void;
+};
+
+function attachTransactionsCollector(
+    target: TransactionsSource,
+    source: SeenEvent["source"],
+    events: SeenEvent[],
+): () => void {
+    const handler = (event: StreamingTransactionsEvent) => {
+        events.push({
+            source,
+            kind: "transactions",
+            trace: event.trace_external_hash_norm,
+            txCount: event.transactions.length,
+            finality: event.finality,
+        });
+    };
+
+    target.on("transactions", handler);
+    return () => target.off("transactions", handler);
+}
 
 describeLive("streaming live transaction watch", () => {
     jest.setTimeout(130_000);
@@ -48,47 +79,12 @@ describeLive("streaming live transaction watch", () => {
         });
 
         const events: SeenEvent[] = [];
-        const onToncenterWs = (event: any) => {
-            events.push({
-                source: "toncenter-ws",
-                kind: "transactions",
-                trace: event.trace_external_hash_norm,
-                txCount: event.transactions?.length,
-                finality: event.finality,
-            });
-        };
-        const onToncenterSse = (event: any) => {
-            events.push({
-                source: "toncenter-sse",
-                kind: "transactions",
-                trace: event.trace_external_hash_norm,
-                txCount: event.transactions?.length,
-                finality: event.finality,
-            });
-        };
-        const onTonapiWs = (event: any) => {
-            events.push({
-                source: "tonapi-ws",
-                kind: "transactions",
-                trace: event.trace_external_hash_norm,
-                txCount: event.transactions?.length,
-                finality: event.finality,
-            });
-        };
-        const onTonapiSse = (event: any) => {
-            events.push({
-                source: "tonapi-sse",
-                kind: "transactions",
-                trace: event.trace_external_hash_norm,
-                txCount: event.transactions?.length,
-                finality: event.finality,
-            });
-        };
-
-        toncenterWs.on("transactions", onToncenterWs);
-        toncenterSse.on("transactions", onToncenterSse);
-        tonapiWs.on("transactions", onTonapiWs);
-        tonapiSse.on("transactions", onTonapiSse);
+        const detachHandlers = [
+            attachTransactionsCollector(toncenterWs, "toncenter-ws", events),
+            attachTransactionsCollector(toncenterSse, "toncenter-sse", events),
+            attachTransactionsCollector(tonapiWs, "tonapi-ws", events),
+            attachTransactionsCollector(tonapiSse, "tonapi-sse", events),
+        ];
 
         const startedAt = Date.now();
 
@@ -119,10 +115,9 @@ describeLive("streaming live transaction watch", () => {
 
             await delay(WATCH_MS);
         } finally {
-            toncenterWs.off("transactions", onToncenterWs);
-            toncenterSse.off("transactions", onToncenterSse);
-            tonapiWs.off("transactions", onTonapiWs);
-            tonapiSse.off("transactions", onTonapiSse);
+            for (const detach of detachHandlers) {
+                detach();
+            }
 
             toncenterWs.close();
             tonapiWs.close();
