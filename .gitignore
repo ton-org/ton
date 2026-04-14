@@ -11,3 +11,7 @@
 !.yarn/plugins
 !.yarn/sdks
 !.yarn/versions
+streaming.md
+.omx/
+.env
+ton-streaming-client

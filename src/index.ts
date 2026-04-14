@@ -25,6 +25,38 @@ export {
 } from "./client/TonClient4";
 
 //
+// Streaming Clients
+//
+
+export {
+    StreamingWebSocket,
+    StreamingSse,
+    SseParser,
+} from "./client/streaming";
+export { TonStreaming } from "./client/TonStreaming";
+export type {
+    Finality,
+    FetchLike,
+    IWebSocket,
+    IWebSocketConstructor,
+    SseEvent,
+    StreamingAccountStateEvent,
+    StreamingActionsEvent,
+    StreamingClient,
+    StreamingEvent,
+    StreamingEventMap,
+    StreamingEventType,
+    StreamingJettonsEvent,
+    StreamingSseParameters,
+    StreamingSubscription,
+    StreamingTraceEvent,
+    StreamingTraceInvalidatedEvent,
+    StreamingTransactionsEvent,
+    StreamingUnsubscribe,
+    StreamingWebSocketParameters,
+} from "./client/streaming";
+
+//
 // Wallets
 //
 
