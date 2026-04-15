@@ -39,7 +39,7 @@
         "typescript": "^5.6.3"
     },
     "dependencies": {
-        "axios": "1.14.0",
+        "axios": "1.15.0",
         "dataloader": "^2.0.0",
         "zod": "^3.21.4"
     },

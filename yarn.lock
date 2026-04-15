@@ -1591,7 +1591,7 @@ __metadata:
     "@ton/test-utils": ^0.12.0
     "@types/jest": ^29.5.12
     "@types/node": ^20.11.30
-    axios: 1.14.0
+    axios: 1.15.0
     dataloader: ^2.0.0
     jest: ^29.7.0
     release-it: ^17.1.1
@@ -1988,14 +1988,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"axios@npm:1.14.0":
-  version: 1.14.0
-  resolution: "axios@npm:1.14.0"
+"axios@npm:1.15.0":
+  version: 1.15.0
+  resolution: "axios@npm:1.15.0"
   dependencies:
     follow-redirects: ^1.15.11
     form-data: ^4.0.5
     proxy-from-env: ^2.1.0
-  checksum: 505d21ea777e7613ec61dc2ca92647a55878b6c86ae268e791747fb199913e68b1a9bdb9faa5a72eb59dcefc5e93c2579636504b84dbfed59aa9a680ade749e6
+  checksum: 95a8455554867a083ab3772fcadba42a22ec4bb546dccc66011556d837a07e544ae006675a30a5c43453f3e37e7c0982e934cec482c06b75abead2a2c157448a
   languageName: node
   linkType: hard
 
