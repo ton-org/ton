@@ -15,11 +15,6 @@ import {
     sanitizeStringList,
 } from "./utils";
 
-/**
- * A fully resolved subscription with all defaults materialized and arrays
- * sorted. Two resolved subscriptions can be compared with
- * `sameSubscription()` for cheap equality.
- */
 export type ResolvedStreamingSubscription = {
     addresses: string[];
     traceExternalHashNorms: string[];

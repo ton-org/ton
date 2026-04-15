@@ -11,6 +11,7 @@ export {
     StreamingError,
     StreamingHandshakeError,
     StreamingRequestTimeoutError,
+    StreamingSupersededError,
 } from "./errors";
 export { TonSseClient } from "./TonSseClient";
 export { TonWsClient } from "./TonWsClient";

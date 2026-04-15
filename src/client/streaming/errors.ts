@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { ensureError } from "./utils";
+import { isRecord } from "./utils";
 
 export type StreamingTransport = "sse" | "ws";
 
@@ -36,7 +36,7 @@ export class StreamingError extends Error {
                 configurable: true,
                 enumerable: false,
                 value: options.cause,
-                writable: true,
+                writable: false,
             });
         }
     }
@@ -48,10 +48,8 @@ export class StreamingClosedError extends StreamingError {}
 
 export class StreamingHandshakeError extends StreamingError {}
 
-/**
- * Wrap an unknown reason into a StreamingError. If the reason is already a
- * StreamingError, it is returned as-is.
- */
+export class StreamingSupersededError extends StreamingError {}
+
 export function wrapStreamingError(
     reason: unknown,
     context: StreamingErrorContext,
@@ -61,6 +59,17 @@ export function wrapStreamingError(
         return reason;
     }
 
-    const error = ensureError(reason, fallback);
-    return new StreamingError(error.message, context, { cause: reason });
+    let message = fallback ?? String(reason);
+    if (reason instanceof Error) {
+        message = reason.message;
+    } else if (typeof reason === "string" && reason) {
+        message = reason;
+    } else if (isRecord(reason)) {
+        const msg = reason.message ?? reason.error;
+        if (typeof msg === "string" && msg) {
+            message = msg;
+        }
+    }
+
+    return new StreamingError(message, context, { cause: reason });
 }

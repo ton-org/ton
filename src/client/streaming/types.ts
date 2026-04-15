@@ -33,6 +33,8 @@ export interface IWebSocket {
     readonly readyState: number;
     send(data: string): void;
     close(): void;
+    /** Immediately destroy the underlying socket (available in Node.js `ws` and native WebSocket). */
+    terminate?(): void;
     onopen: ((event: unknown) => void) | null;
     onclose: ((event: unknown) => void) | null;
     onmessage: ((event: { data: unknown }) => void) | null;
@@ -51,60 +53,25 @@ export type StreamingLifecycleEvents = {
 };
 
 export type StreamingBaseParameters = {
-    /**
-     * Known streaming service.
-     * When set, endpoint and API key query parameter are inferred automatically.
-     * Cannot be combined with `endpoint`.
-     */
+    /** When set, endpoint and API key query parameter are inferred. Cannot be combined with `endpoint`. */
     service?: StreamingService;
-
-    /**
-     * Network to use with the streaming service.
-     * Ignored when `endpoint` is provided directly.
-     * @default "mainnet"
-     */
+    /** @default "mainnet" */
     network?: StreamingNetwork;
-
-    /**
-     * Transport endpoint URL.
-     * Required when `service` is omitted. Cannot be combined with `service`.
-     */
+    /** Required when `service` is omitted. Cannot be combined with `service`. */
     endpoint?: string;
-
-    /** API key for authentication. */
     apiKey?: string;
-
-    /**
-     * Query parameter name for the API key.
-     * Ignored when `service` is set (inferred from the service).
-     * @default "api_key"
-     */
+    /** @default "api_key" */
     apiKeyParam?: string;
 };
 
 export type StreamingWebSocketParameters = StreamingBaseParameters & {
     /** Custom WebSocket constructor (for Node.js < 22 use the `ws` package). */
     WebSocket?: IWebSocketConstructor;
-
-    /**
-     * Extra headers to send with the WebSocket handshake.
-     *
-     * Requires a custom `WebSocket` constructor (for example, Node.js `ws`).
-     * Browser WebSocket does not support arbitrary headers — providing headers
-     * without a custom constructor will throw.
-     */
+    /** Requires a custom `WebSocket` constructor; browser WebSocket does not support arbitrary headers. */
     headers?: Record<string, string>;
-
-    /**
-     * Time to wait for a request/response pair before rejecting.
-     * @default 5000
-     */
+    /** @default 5000 */
     requestTimeoutMs?: number;
-
-    /**
-     * Ping interval in milliseconds. Set to 0 to disable automatic pings.
-     * @default 15000
-     */
+    /** Set to 0 to disable. @default 15000 */
     pingIntervalMs?: number;
 };
 
@@ -135,12 +102,6 @@ export type StreamingAddressBookEntry = JsonObject & {
 
 export type StreamingMetadataEntry = JsonObject;
 
-/**
- * Streaming payloads may expose different decode depth for the same message
- * across notification types. The public surface is kept loose: callers may
- * discriminate on `@type` when present, but should not assume a fully
- * normalized payload shape.
- */
 export type StreamingDecodedMessage = JsonObject & {
     "@type": string;
 };
@@ -151,13 +112,7 @@ export type StreamingMessageContent = JsonObject & {
     decoded: StreamingDecodedMessage | null;
 };
 
-/**
- * Message payload from the streaming API.
- *
- * Many fields may be `null` for external messages (e.g. `source`, `value`,
- * `fwd_fee`, etc.). The type is kept conservative — prefer null-checks at
- * usage sites.
- */
+// Many fields are null for external messages (source, value, fwd_fee, etc.)
 export type StreamingMessage = JsonObject & {
     hash: string;
     source: string | null;
@@ -328,14 +283,9 @@ export type StreamingEventMap = StreamingLifecycleEvents & {
 };
 
 /**
- * Common interface for streaming clients (WebSocket or SSE).
- *
- * The lifecycle is subscription-centric:
- * - `subscribe(params)` starts (or replaces) the active subscription. Resolves
- *   when the server confirms the subscription and notifications may arrive.
- * - `ready` is `true` while an active subscription is confirmed.
- * - `open` / `close` events bracket the `ready` state.
- * - `close()` shuts down the client. Resolves when transport cleanup finishes.
+ * A streaming client does NOT auto-reconnect. When the connection drops the client
+ * emits an `"error"` event followed by `"close"`. To resume, create a new client
+ * (or call `subscribe()` again on a WebSocket client) and re-attach listeners.
  */
 export type StreamingClient = {
     subscribe(params: StreamingSubscription): Promise<void>;
@@ -352,12 +302,7 @@ export type StreamingClient = {
 };
 
 export type StreamingSseParameters = StreamingBaseParameters & {
-    /**
-     * Custom fetch function (defaults to `globalThis.fetch`).
-     * Must support streaming responses (ReadableStream body).
-     */
+    /** Defaults to `globalThis.fetch`. Must support streaming responses. */
     fetch?: typeof fetch;
-
-    /** Extra headers to send with the SSE request. */
     headers?: Record<string, string>;
 };

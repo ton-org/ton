@@ -1,3 +1,34 @@
+/**
+ * Live end-to-end test for the streaming clients (SSE / WebSocket) against the TON testnet.
+ *
+ * The suite derives a wallet from a mnemonic, opens two streaming connections
+ * (one for address-level events, one for trace-level events), and then:
+ *
+ *  1. Sends a small TON self-transfer and verifies that the address stream
+ *     delivers matching `transactions`, `actions`, `account_state_change`
+ *     events and that the trace stream delivers a corresponding `trace` event
+ *     with a consistent `trace_external_hash_norm` across all of them.
+ *
+ *  2. Discovers a jetton with a non-zero balance on the wallet (via TonAPI),
+ *     sends a minimal jetton transfer, and — in addition to the checks above —
+ *     verifies that a `jettons_change` event arrives with the correct owner.
+ *     If no transferable jetton is found the test logs a warning and returns
+ *     early rather than failing.
+ *
+ * Configuration is read from environment variables (use `node --env-file=.env`
+ * to load from a file). The suite is skipped entirely when
+ * `RUN_STREAMING_WALLET_E2E` is not set or the required env vars are missing.
+ *
+ * Required env vars:
+ *   WALLET_MNEMONIC            – space-separated mnemonic words
+ *   WALLET_VERSION             – one of "v3r1", "v3r2", "v4", "v5"
+ *   TONCENTER_API_KEY_TESTNET  – Toncenter testnet API key
+ *   TONAPI_API_KEY             – TonAPI key (used for jetton discovery and optionally as streaming key)
+ *   STREAMING_PROVIDER         – "toncenter" or "tonapi"
+ *   CONNECTION_TYPE            – "sse" or "websocket" (default "sse")
+ *   RUN_STREAMING_WALLET_E2E   – "1" or "true" to enable the suite
+ */
+
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -32,8 +63,6 @@ import type {
     StreamingTraceEvent,
     StreamingTransactionsEvent,
 } from "./types";
-
-loadDotEnvIntoProcessEnv();
 
 const liveEnvSchema = z.object({
     WALLET_MNEMONIC: z.string().min(1),
@@ -70,7 +99,6 @@ const TON_TRANSFER_VALUE = toNano("0.001");
 const JETTON_TRANSFER_MESSAGE_VALUE = toNano("0.03");
 const TRACE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 500;
-const CLOSE_SETTLE_MS = 1_000;
 const ADDRESS_STREAM_TYPES = [
     "transactions",
     "actions",
@@ -162,47 +190,57 @@ const tonApiJettonsSchema = z.object({
 describeLive("streaming wallet testnet e2e", () => {
     jest.setTimeout(30_000);
 
-    it("derives a wallet from mnemonic, streams address updates, and validates TON plus jetton sends", async () => {
+    let env: z.infer<typeof liveEnvSchema>;
+    let wallet: WalletContext;
+    let auxRecipient: WalletContractV4;
+    let tonClient: TonClient;
+    let addressStream: StreamingClient;
+    let traceStream: StreamingClient;
+    let addressEvents: ObservedAddressEvents;
+    let logWriter: StreamingLogWriter;
+    let detachAddressHandlers: () => void;
+    let detachTraceHandlers: () => void;
+
+    beforeAll(async () => {
         if (!liveEnvResult.success) {
             throw new Error(
                 `Invalid live streaming environment: ${liveEnvResult.error.message}`,
             );
         }
 
-        const env = liveEnvResult.data;
+        env = liveEnvResult.data;
         const mnemonicWords = env.WALLET_MNEMONIC.trim().split(/\s+/);
         const keyPair = await mnemonicToPrivateKey(mnemonicWords);
 
-        const wallet = createWalletContext(env.WALLET_VERSION, keyPair);
-        const auxRecipient = WalletContractV4.create({
+        wallet = createWalletContext(env.WALLET_VERSION, keyPair);
+        auxRecipient = WalletContractV4.create({
             workchain: 0,
             publicKey: keyPair.publicKey,
             walletId: 0,
         });
 
-        const tonClient = new TonClient({
+        tonClient = new TonClient({
             endpoint: TESTNET_TONCENTER_RPC,
             apiKey: env.TONCENTER_API_KEY,
         });
 
-        const streamingService = env.STREAMING_PROVIDER;
         const streamingApiKey =
             env.STREAMING_PROVIDER === "tonapi"
                 ? env.TONAPI_API_KEY
                 : env.TONCENTER_API_KEY;
 
-        const addressStream = createStreamingClient(
+        addressStream = createStreamingClient(
             env.CONNECTION_TYPE,
-            streamingService,
+            env.STREAMING_PROVIDER,
             streamingApiKey,
         );
-        const traceStream = createStreamingClient(
+        traceStream = createStreamingClient(
             env.CONNECTION_TYPE,
-            streamingService,
+            env.STREAMING_PROVIDER,
             streamingApiKey,
         );
 
-        const addressEvents: ObservedAddressEvents = {
+        addressEvents = {
             transactions: [],
             actions: [],
             traces: [],
@@ -210,174 +248,160 @@ describeLive("streaming wallet testnet e2e", () => {
             jettons: [],
             errors: [],
         };
-        const logWriter = createStreamingLogWriter({
+
+        logWriter = createStreamingLogWriter({
             connectionType: env.CONNECTION_TYPE,
             provider: env.STREAMING_PROVIDER,
             walletAddress: wallet.contract.address,
         });
-        const detachAddressHandlers = attachAddressCollectors(
+
+        detachAddressHandlers = attachEventCollectors(
             addressStream,
+            "address-stream",
             addressEvents,
             logWriter,
         );
-        const detachTraceHandlers = attachTraceCollectors(
+        detachTraceHandlers = attachEventCollectors(
             traceStream,
+            "trace-stream",
             addressEvents,
             logWriter,
         );
 
-        try {
-            const walletProvider = tonClient.provider(
-                wallet.contract.address,
-                wallet.contract.init,
+        const walletProvider = tonClient.provider(
+            wallet.contract.address,
+            wallet.contract.init,
+        );
+        const balance = await wallet.contract.getBalance(walletProvider);
+        expect(balance).toBeGreaterThan(TON_TRANSFER_VALUE);
+
+        await addressStream.subscribe(
+            addressSubscription(wallet.contract.address),
+        );
+        expect(addressStream.ready).toBe(true);
+    });
+
+    afterAll(async () => {
+        detachAddressHandlers();
+        detachTraceHandlers();
+        await Promise.all([
+            addressStream.close(),
+            traceStream.close(),
+        ]);
+        logWriter.flush();
+    });
+
+    afterAll(() => {
+        expect(addressEvents.errors).toEqual([]);
+    });
+
+    it("streams address updates for a TON self-transfer", async () => {
+        const observation = await sendAndObserve({
+            addressEvents,
+            traceStreaming: traceStream,
+            tonClient,
+            wallet,
+            buildMessages: () => [
+                internal({
+                    to: wallet.contract.address,
+                    value: TON_TRANSFER_VALUE,
+                    bounce: false,
+                    body: "streaming wallet e2e ton transfer",
+                }),
+            ],
+        });
+
+        expectObservedSend(observation, wallet.contract.address);
+    });
+
+    it("streams address and jetton updates for a jetton transfer", async () => {
+        const transferableJetton = await discoverTransferableJetton(
+            env.TONAPI_API_KEY,
+            wallet.contract.address,
+        );
+
+        if (!transferableJetton) {
+            console.warn(
+                "No transferable jetton found on testnet wallet — skipping jetton assertions",
             );
-            const balanceBefore =
-                await wallet.contract.getBalance(walletProvider);
-            expect(balanceBefore).toBeGreaterThan(TON_TRANSFER_VALUE);
-
-            await addressStream.subscribe(
-                addressSubscription(wallet.contract.address),
-            );
-
-            expect(addressStream.ready).toBe(true);
-
-            const tonObservation = await sendAndObserve({
-                addressEvents,
-                traceStreaming: traceStream,
-                tonClient,
-                wallet,
-                buildMessages: () => [
-                    internal({
-                        to: wallet.contract.address,
-                        value: TON_TRANSFER_VALUE,
-                        bounce: false,
-                        body: "streaming wallet e2e ton transfer",
-                    }),
-                ],
-            });
-
-            expectObservedSend(tonObservation, wallet.contract.address);
-
-            const transferableJetton = await discoverTransferableJetton(
-                env.TONAPI_API_KEY,
-                wallet.contract.address,
-            );
-
-            if (transferableJetton) {
-                expect(balanceBefore).toBeGreaterThan(
-                    TON_TRANSFER_VALUE + JETTON_TRANSFER_MESSAGE_VALUE,
-                );
-
-                const jettonMaster = JettonMaster.create(
-                    Address.parse(transferableJetton.jettonAddress),
-                );
-                const jettonWalletAddress = Address.parse(
-                    transferableJetton.walletAddress,
-                );
-                const resolvedWalletAddress = await tonClient
-                    .open(jettonMaster)
-                    .getWalletAddress(wallet.contract.address);
-                expect(
-                    resolvedWalletAddress.equals(jettonWalletAddress),
-                ).toBeTruthy();
-
-                const jettonWallet = JettonWallet.create(jettonWalletAddress);
-                const jettonBalance = await tonClient
-                    .open(jettonWallet)
-                    .getBalance();
-                expect(jettonBalance).toBeGreaterThan(0n);
-                const jettonTransferAmount =
-                    jettonBalance > 1n ? 1n : jettonBalance;
-
-                const jettonObservation = await sendAndObserve({
-                    addressEvents,
-                    traceStreaming: traceStream,
-                    tonClient,
-                    wallet,
-                    buildMessages: () => [
-                        internal({
-                            to: jettonWalletAddress,
-                            value: JETTON_TRANSFER_MESSAGE_VALUE,
-                            bounce: true,
-                            body: createJettonTransferBody({
-                                amount: jettonTransferAmount,
-                                destination: auxRecipient.address,
-                                responseDestination: wallet.contract.address,
-                                commentText:
-                                    "streaming wallet e2e jetton transfer",
-                            }),
-                        }),
-                    ],
-                });
-
-                expectObservedSend(jettonObservation, wallet.contract.address);
-
-                const jettonsEvent = await waitForNextEvent(
-                    "jettons_change event",
-                    addressEvents.jettons,
-                    jettonObservation.cursor.jettons,
-                    (event) =>
-                        sameAddress(event.jetton.address, jettonWalletAddress),
-                );
-
-                expect(
-                    sameAddress(
-                        jettonsEvent.jetton.owner,
-                        wallet.contract.address,
-                    ),
-                ).toBe(true);
-            }
-        } finally {
-            detachAddressHandlers();
-            detachTraceHandlers();
-            await Promise.all([
-                closeStreamingClient(addressStream, "address-stream"),
-                closeStreamingClient(traceStream, "trace-stream"),
-            ]);
-            logWriter.flush();
+            return;
         }
 
-        expect(addressEvents.errors).toEqual([]);
+        const walletProvider = tonClient.provider(
+            wallet.contract.address,
+            wallet.contract.init,
+        );
+        const balance = await wallet.contract.getBalance(walletProvider);
+        expect(balance).toBeGreaterThan(
+            TON_TRANSFER_VALUE + JETTON_TRANSFER_MESSAGE_VALUE,
+        );
+
+        const jettonMaster = JettonMaster.create(
+            Address.parse(transferableJetton.jettonAddress),
+        );
+        const jettonWalletAddress = Address.parse(
+            transferableJetton.walletAddress,
+        );
+        const resolvedWalletAddress = await tonClient
+            .open(jettonMaster)
+            .getWalletAddress(wallet.contract.address);
+        expect(resolvedWalletAddress.equals(jettonWalletAddress)).toBeTruthy();
+
+        const jettonWallet = JettonWallet.create(jettonWalletAddress);
+        const jettonBalance = await tonClient.open(jettonWallet).getBalance();
+        expect(jettonBalance).toBeGreaterThan(0n);
+        const jettonTransferAmount = jettonBalance > 1n ? 1n : jettonBalance;
+
+        const observation = await sendAndObserve({
+            addressEvents,
+            traceStreaming: traceStream,
+            tonClient,
+            wallet,
+            buildMessages: () => [
+                internal({
+                    to: jettonWalletAddress,
+                    value: JETTON_TRANSFER_MESSAGE_VALUE,
+                    bounce: true,
+                    body: createJettonTransferBody({
+                        amount: jettonTransferAmount,
+                        destination: auxRecipient.address,
+                        responseDestination: wallet.contract.address,
+                        commentText: "streaming wallet e2e jetton transfer",
+                    }),
+                }),
+            ],
+        });
+
+        expectObservedSend(observation, wallet.contract.address);
+
+        const jettonsEvent = await waitForNextEvent(
+            "jettons_change event",
+            addressEvents.jettons,
+            observation.cursor.jettons,
+            (event) => sameAddress(event.jetton.address, jettonWalletAddress),
+        );
+
+        expect(
+            sameAddress(jettonsEvent.jetton.owner, wallet.contract.address),
+        ).toBe(true);
     });
 });
 
-function loadDotEnvIntoProcessEnv() {
-    const envPath = path.join(process.cwd(), ".env");
-    if (!fs.existsSync(envPath)) {
-        return;
+function normalizeConnectionType(value: string): "sse" | "websocket" {
+    if (value === "ws" || value === "websocket") {
+        return "websocket";
     }
 
-    const content = fs.readFileSync(envPath, "utf8");
-    for (const line of content.split(/\r?\n/)) {
-        const trimmed = line.trim();
-        if (trimmed.length === 0 || trimmed.startsWith("#")) {
-            continue;
-        }
-
-        const separator = trimmed.indexOf("=");
-        if (separator <= 0) {
-            continue;
-        }
-
-        const key = trimmed.slice(0, separator).trim();
-        const rawValue = trimmed.slice(separator + 1).trim();
-        if (process.env[key] !== undefined) {
-            continue;
-        }
-
-        process.env[key] = stripWrappingQuotes(rawValue);
+    if (value === "sse") {
+        return "sse";
     }
+
+    return value as "sse" | "websocket";
 }
 
-function stripWrappingQuotes(value: string): string {
-    if (
-        (value.startsWith('"') && value.endsWith('"')) ||
-        (value.startsWith("'") && value.endsWith("'"))
-    ) {
-        return value.slice(1, -1);
-    }
-    return value;
-}
+// ---------------------------------------------------------------------------
+// Wallet helpers
+// ---------------------------------------------------------------------------
 
 function createWalletContext(
     version: SupportedWalletVersion,
@@ -430,6 +454,47 @@ function createWalletContext(
     }
 }
 
+async function createTransferBody(
+    wallet: WalletContext,
+    tonClient: TonClient,
+    messages: MessageRelaxed[],
+): Promise<Cell> {
+    const provider = tonClient.provider(
+        wallet.contract.address,
+        wallet.contract.init,
+    );
+    const seqno = await wallet.contract.getSeqno(provider);
+    const baseArgs = {
+        seqno,
+        secretKey: wallet.secretKey,
+        messages,
+        sendMode: SendMode.PAY_GAS_SEPARATELY,
+    };
+
+    switch (wallet.version) {
+        case "v3r1":
+            return (wallet.contract as WalletContractV3R1).createTransfer(
+                baseArgs,
+            ) as Cell;
+        case "v3r2":
+            return (wallet.contract as WalletContractV3R2).createTransfer(
+                baseArgs,
+            ) as Cell;
+        case "v4":
+            return (wallet.contract as WalletContractV4).createTransfer(
+                baseArgs,
+            ) as Cell;
+        case "v5":
+            return (await (
+                wallet.contract as WalletContractV5R1
+            ).createTransfer(baseArgs)) as Cell;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Jetton helpers
+// ---------------------------------------------------------------------------
+
 async function discoverTransferableJetton(
     tonApiApiKey: string,
     ownerAddress: Address,
@@ -480,6 +545,10 @@ function createJettonTransferBody(args: {
         .endCell();
 }
 
+// ---------------------------------------------------------------------------
+// Streaming: send + observe
+// ---------------------------------------------------------------------------
+
 async function sendAndObserve(args: {
     addressEvents: ObservedAddressEvents;
     traceStreaming: StreamingClient;
@@ -489,10 +558,22 @@ async function sendAndObserve(args: {
 }): Promise<SendObservation> {
     const cursor = markAddressEvents(args.addressEvents);
 
-    const externalMessage = await createExternalMessage({
-        tonClient: args.tonClient,
-        wallet: args.wallet,
-        messages: args.buildMessages(),
+    const messages = args.buildMessages();
+    const transferBody = await createTransferBody(
+        args.wallet,
+        args.tonClient,
+        messages,
+    );
+    const deployed = await args.tonClient.isContractDeployed(
+        args.wallet.contract.address,
+    );
+    const externalMessage = external({
+        to: args.wallet.contract.address,
+        init:
+            !deployed && args.wallet.contract.init
+                ? args.wallet.contract.init
+                : undefined,
+        body: transferBody,
     });
 
     await args.traceStreaming.subscribe(
@@ -524,117 +605,61 @@ async function sendAndObserve(args: {
         cursor.traces,
     );
 
-    return {
-        cursor,
-        transactions,
-        actions,
-        trace,
-        accountState,
-    };
+    return { cursor, transactions, actions, trace, accountState };
 }
 
-async function createExternalMessage(args: {
-    tonClient: TonClient;
-    wallet: WalletContext;
-    messages: MessageRelaxed[];
-}): Promise<Message> {
-    const transferBody = await createTransferBody(
-        args.wallet,
-        args.tonClient,
-        args.messages,
-    );
-    const deployed = await args.tonClient.isContractDeployed(
-        args.wallet.contract.address,
-    );
-    const externalMessage = external({
-        to: args.wallet.contract.address,
-        init:
-            !deployed && args.wallet.contract.init
-                ? args.wallet.contract.init
-                : undefined,
-        body: transferBody,
-    });
-    return externalMessage;
-}
+// ---------------------------------------------------------------------------
+// Streaming: subscriptions + event collection
+// ---------------------------------------------------------------------------
 
-async function createTransferBody(
-    wallet: WalletContext,
-    tonClient: TonClient,
-    messages: MessageRelaxed[],
-): Promise<Cell> {
-    const provider = tonClient.provider(
-        wallet.contract.address,
-        wallet.contract.init,
-    );
-    const seqno = await wallet.contract.getSeqno(provider);
-    const baseArgs = {
-        seqno,
-        secretKey: wallet.secretKey,
-        messages,
-        sendMode: SendMode.PAY_GAS_SEPARATELY,
-    };
-
-    switch (wallet.version) {
-        case "v3r1":
-            return (wallet.contract as WalletContractV3R1).createTransfer(
-                baseArgs,
-            ) as Cell;
-        case "v3r2":
-            return (wallet.contract as WalletContractV3R2).createTransfer(
-                baseArgs,
-            ) as Cell;
-        case "v4":
-            return (wallet.contract as WalletContractV4).createTransfer(
-                baseArgs,
-            ) as Cell;
-        case "v5":
-            return (await (
-                wallet.contract as WalletContractV5R1
-            ).createTransfer(baseArgs)) as Cell;
-    }
-}
-
-function attachAddressCollectors(
+function attachEventCollectors(
     target: StreamingClient,
+    source: StreamLogSource,
     sink: ObservedAddressEvents,
     logWriter: StreamingLogWriter,
 ): () => void {
-    const onTransactions = (event: StreamingTransactionsEvent) => {
-        logWriter.recordEvent("address-stream", event.type, event);
-        sink.transactions.push(event);
-    };
-    const onActions = (event: StreamingActionsEvent) => {
-        logWriter.recordEvent("address-stream", event.type, event);
-        sink.actions.push(event);
-    };
-    const onAccountState = (event: StreamingAccountStateEvent) => {
-        logWriter.recordEvent("address-stream", event.type, event);
-        sink.accountStates.push(event);
-    };
-    const onJettons = (event: StreamingJettonsEvent) => {
-        logWriter.recordEvent("address-stream", event.type, event);
-        sink.jettons.push(event);
-    };
-    const onError = (error: Error) => {
-        logWriter.recordError("address-stream", error);
-        if (!isExpectedStreamingAbort(error)) {
-            sink.errors.push(error);
-        }
-    };
+    const detachers: (() => void)[] = [];
 
-    target.on("transactions", onTransactions);
-    target.on("actions", onActions);
-    target.on("account_state_change", onAccountState);
-    target.on("jettons_change", onJettons);
-    target.on("error", onError);
+    if (source === "address-stream") {
+        detachers.push(
+            target.on("transactions", (event) => {
+                logWriter.recordEvent(source, event.type, event);
+                sink.transactions.push(event);
+            }),
+            target.on("actions", (event) => {
+                logWriter.recordEvent(source, event.type, event);
+                sink.actions.push(event);
+            }),
+            target.on("account_state_change", (event) => {
+                logWriter.recordEvent(source, event.type, event);
+                sink.accountStates.push(event);
+            }),
+            target.on("jettons_change", (event) => {
+                logWriter.recordEvent(source, event.type, event);
+                sink.jettons.push(event);
+            }),
+        );
+    }
 
-    return () => {
-        target.off("transactions", onTransactions);
-        target.off("actions", onActions);
-        target.off("account_state_change", onAccountState);
-        target.off("jettons_change", onJettons);
-        target.off("error", onError);
-    };
+    if (source === "trace-stream") {
+        detachers.push(
+            target.on("trace", (event) => {
+                logWriter.recordEvent(source, event.type, event);
+                sink.traces.push(event);
+            }),
+        );
+    }
+
+    detachers.push(
+        target.on("error", (error) => {
+            logWriter.recordError(source, error);
+            if (!isExpectedStreamingAbort(error)) {
+                sink.errors.push(error);
+            }
+        }),
+    );
+
+    return () => detachers.forEach((d) => d());
 }
 
 function markAddressEvents(events: ObservedAddressEvents): AddressEventCursor {
@@ -685,34 +710,60 @@ function getExternalMessageHashNorm(message: Message): string {
         .toString("base64");
 }
 
-function attachTraceCollectors(
-    target: StreamingClient,
-    sink: ObservedAddressEvents,
-    logWriter: StreamingLogWriter,
-): () => void {
-    const onTrace = (event: StreamingTraceEvent) => {
-        logWriter.recordEvent("trace-stream", event.type, event);
-        sink.traces.push(event);
-    };
-    const onError = (error: Error) => {
-        logWriter.recordError("trace-stream", error);
-        if (!isExpectedStreamingAbort(error)) {
-            sink.errors.push(error);
-        }
-    };
-
-    target.on("trace", onTrace);
-    target.on("error", onError);
-
-    return () => {
-        target.off("trace", onTrace);
-        target.off("error", onError);
-    };
-}
-
 function isExpectedStreamingAbort(error: Error): boolean {
     return /aborted/i.test(error.message);
 }
+
+// ---------------------------------------------------------------------------
+// Streaming: client lifecycle
+// ---------------------------------------------------------------------------
+
+function createStreamingClient(
+    connectionType: "sse" | "websocket",
+    service: "toncenter" | "tonapi",
+    apiKey: string,
+): StreamingClient {
+    if (connectionType === "websocket") {
+        return new TonWsClient({
+            service,
+            network: "testnet",
+            apiKey,
+        });
+    }
+
+    return new TonSseClient({
+        service,
+        network: "testnet",
+        apiKey,
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Assertions
+// ---------------------------------------------------------------------------
+
+function expectObservedSend(
+    observation: SendObservation,
+    walletAddress: Address,
+) {
+    expect(observation.transactions.transactions.length).toBeGreaterThan(0);
+    expect(observation.actions.actions.length).toBeGreaterThan(0);
+    expect(Object.keys(observation.trace.transactions).length).toBeGreaterThan(
+        0,
+    );
+
+    const traceHash = observation.transactions.trace_external_hash_norm;
+    expect(traceHash).toBeTruthy();
+    expect(traceHash).toBe(observation.actions.trace_external_hash_norm);
+    expect(traceHash).toBe(observation.trace.trace_external_hash_norm);
+    expect(
+        sameAddress(observation.accountState.account, walletAddress),
+    ).toBeTruthy();
+}
+
+// ---------------------------------------------------------------------------
+// Logging
+// ---------------------------------------------------------------------------
 
 function createStreamingLogWriter(args: {
     connectionType: "sse" | "websocket";
@@ -778,14 +829,7 @@ function createStreamingLogWriter(args: {
         flush() {
             fs.writeFileSync(
                 filePath,
-                JSON.stringify(
-                    {
-                        meta,
-                        entries,
-                    },
-                    null,
-                    2,
-                ),
+                JSON.stringify({ meta, entries }, null, 2),
                 "utf8",
             );
         },
@@ -856,36 +900,11 @@ function summarizeStreamingEvent(
         case "error":
             return "error";
     }
-
-    return type;
 }
 
-function shortHash(value: string): string {
-    if (value.length <= 16) {
-        return value;
-    }
-
-    return `${value.slice(0, 8)}...${value.slice(-6)}`;
-}
-
-function expectObservedSend(
-    observation: SendObservation,
-    walletAddress: Address,
-) {
-    expect(observation.transactions.transactions.length).toBeGreaterThan(0);
-    expect(observation.actions.actions.length).toBeGreaterThan(0);
-    expect(Object.keys(observation.trace.transactions).length).toBeGreaterThan(
-        0,
-    );
-
-    const traceHash = observation.transactions.trace_external_hash_norm;
-    expect(traceHash).toBeTruthy();
-    expect(traceHash).toBe(observation.actions.trace_external_hash_norm);
-    expect(traceHash).toBe(observation.trace.trace_external_hash_norm);
-    expect(
-        sameAddress(observation.accountState.account, walletAddress),
-    ).toBeTruthy();
-}
+// ---------------------------------------------------------------------------
+// Generic utilities
+// ---------------------------------------------------------------------------
 
 async function waitForNextEvent<T>(
     label: string,
@@ -893,9 +912,12 @@ async function waitForNextEvent<T>(
     startIndex: number,
     match: (event: T) => boolean = () => true,
 ): Promise<T> {
-    return waitFor(label, TRACE_TIMEOUT_MS, () =>
-        events.slice(startIndex).find(match),
-    );
+    return waitFor(label, TRACE_TIMEOUT_MS, () => {
+        for (let i = startIndex; i < events.length; i++) {
+            if (match(events[i])) return events[i];
+        }
+        return undefined;
+    });
 }
 
 async function waitFor<T>(
@@ -916,63 +938,16 @@ async function waitFor<T>(
     throw new Error(`Timed out waiting for ${label}`);
 }
 
-async function closeStreamingClient(
-    client: StreamingClient,
-    label: StreamLogSource,
-): Promise<void> {
-    await new Promise<void>((resolve) => {
-        let settled = false;
-        const finish = () => {
-            if (settled) {
-                return;
-            }
-
-            settled = true;
-            detachClose();
-            resolve();
-        };
-        const detachClose = client.on("close", finish);
-
-        client.close();
-
-        setTimeout(finish, CLOSE_SETTLE_MS);
-    });
-}
-
 function delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function normalizeConnectionType(value: string): "sse" | "websocket" {
-    if (value === "ws" || value === "websocket") {
-        return "websocket";
+function shortHash(value: string): string {
+    if (value.length <= 16) {
+        return value;
     }
 
-    if (value === "sse") {
-        return "sse";
-    }
-
-    return value as "sse" | "websocket";
-}
-
-function createStreamingClient(
-    connectionType: "sse" | "websocket",
-    service: "toncenter" | "tonapi",
-    apiKey: string,
-): StreamingClient {
-    if (connectionType === "websocket") {
-        return new TonWsClient({
-            service,
-            network: "testnet",
-            apiKey,
-        });
-    }
-
-    return new TonSseClient({
-        service,
-        network: "testnet",
-        apiKey,
-    });
+    return `${value.slice(0, 8)}...${value.slice(-6)}`;
 }
 
 function toTestnetFriendly(address: Address): string {

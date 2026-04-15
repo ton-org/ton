@@ -42,9 +42,19 @@ export class TypedEventEmitter<TEvents extends Record<string, unknown>> {
             return;
         }
 
-        for (const handler of handlers) {
-            handler(data as TEvents[keyof TEvents]);
+        for (const handler of [...handlers]) {
+            try {
+                handler(data as TEvents[keyof TEvents]);
+            } catch (error) {
+                queueMicrotask(() => {
+                    throw error;
+                });
+            }
         }
+    }
+
+    protected removeAllListeners(): void {
+        this.#listeners.clear();
     }
 
     #getOrCreateHandlers<K extends keyof TEvents>(

@@ -6,10 +6,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-// ---------------------------------------------------------------------------
-// Deferred
-// ---------------------------------------------------------------------------
-
 export type Deferred<T> = {
     promise: Promise<T>;
     resolve(value: T): void;
@@ -43,10 +39,6 @@ export function deferred<T = void>(): Deferred<T> {
     return d;
 }
 
-// ---------------------------------------------------------------------------
-// Canonical const arrays — single source of truth for union values
-// ---------------------------------------------------------------------------
-
 export const FINALITIES = ["pending", "confirmed", "finalized"] as const;
 export type Finality = (typeof FINALITIES)[number];
 export const FINALITY_SET: ReadonlySet<string> = new Set(FINALITIES);
@@ -69,55 +61,14 @@ export const SUBSCRIBABLE_EVENT_TYPE_SET: ReadonlySet<string> = new Set(
     SUBSCRIBABLE_EVENT_TYPES,
 );
 
-// ---------------------------------------------------------------------------
-// Streaming service / network (provider resolution)
-// ---------------------------------------------------------------------------
-
 export type StreamingService = "tonapi" | "toncenter";
 export type StreamingNetwork = "mainnet" | "testnet";
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 5_000;
 export const DEFAULT_PING_INTERVAL_MS = 15_000;
 
-// ---------------------------------------------------------------------------
-// General helpers
-// ---------------------------------------------------------------------------
-
-export function ensureError(reason: unknown, fallback?: string): Error {
-    if (reason instanceof Error) {
-        return reason;
-    }
-
-    if (typeof reason === "string" && reason.length > 0) {
-        return new Error(reason);
-    }
-
-    if (isRecord(reason)) {
-        if (typeof reason.message === "string" && reason.message.length > 0) {
-            return new Error(reason.message);
-        }
-
-        if (typeof reason.error === "string" && reason.error.length > 0) {
-            return new Error(reason.error);
-        }
-
-        try {
-            return new Error(JSON.stringify(reason));
-        } catch {}
-    }
-
-    if (fallback) {
-        return new Error(fallback);
-    }
-
-    return new Error(String(reason));
-}
-
 export function isAbortError(reason: unknown): boolean {
-    return (
-        reason instanceof Error &&
-        (reason.name === "AbortError" || /aborted/i.test(reason.message))
-    );
+    return reason instanceof Error && reason.name === "AbortError";
 }
 
 export function sanitizeStringList(
@@ -215,45 +166,31 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// ---------------------------------------------------------------------------
-// Provider endpoint resolution
-// ---------------------------------------------------------------------------
-
-type ProviderDefaults = { endpoint: string; apiKeyParam: string };
-
-function createProviderDefaults(
-    service: "tonapi.io" | "toncenter.com",
-    apiKeyParam: string,
-    network: "mainnet" | "testnet",
-): { sse: ProviderDefaults; ws: ProviderDefaults } {
-    const host = network === "testnet" ? `testnet.${service}` : service;
-    const apiPrefix = service === "toncenter.com" ? "/api" : "";
-
-    return {
-        sse: {
-            endpoint: `https://${host}${apiPrefix}/streaming/v2/sse`,
-            apiKeyParam,
-        },
-        ws: {
-            endpoint: `wss://${host}${apiPrefix}/streaming/v2/ws`,
-            apiKeyParam,
-        },
-    };
+export function buildStreamingUrl(
+    transport: "sse" | "ws",
+    params: {
+        service?: StreamingService;
+        network?: StreamingNetwork;
+        endpoint?: string;
+        apiKey?: string;
+        apiKeyParam?: string;
+    },
+): string {
+    const resolved = resolveProviderEndpoint(
+        transport,
+        params.service,
+        params.network,
+        params.endpoint,
+        params.apiKeyParam,
+    );
+    return params.apiKey
+        ? appendQueryParameter(
+              resolved.endpoint,
+              resolved.apiKeyParam,
+              params.apiKey,
+          )
+        : resolved.endpoint;
 }
-
-const PROVIDER_DEFAULTS: Record<
-    StreamingService,
-    Record<StreamingNetwork, { sse: ProviderDefaults; ws: ProviderDefaults }>
-> = {
-    tonapi: {
-        mainnet: createProviderDefaults("tonapi.io", "token", "mainnet"),
-        testnet: createProviderDefaults("tonapi.io", "token", "testnet"),
-    },
-    toncenter: {
-        mainnet: createProviderDefaults("toncenter.com", "api_key", "mainnet"),
-        testnet: createProviderDefaults("toncenter.com", "api_key", "testnet"),
-    },
-};
 
 export function resolveProviderEndpoint(
     transport: "sse" | "ws",
@@ -269,7 +206,16 @@ export function resolveProviderEndpoint(
     }
 
     if (service) {
-        return PROVIDER_DEFAULTS[service][network ?? "mainnet"][transport];
+        const domain = service === "tonapi" ? "tonapi.io" : "toncenter.com";
+        const host =
+            (network ?? "mainnet") === "testnet" ? `testnet.${domain}` : domain;
+        const prefix = service === "toncenter" ? "/api" : "";
+        const proto = transport === "ws" ? "wss" : "https";
+
+        return {
+            endpoint: `${proto}://${host}${prefix}/streaming/v2/${transport}`,
+            apiKeyParam: service === "tonapi" ? "token" : "api_key",
+        };
     }
 
     if (!endpoint) {

@@ -12,13 +12,8 @@ export type SseEvent = {
     id?: string;
 };
 
-/**
- * Incremental parser for the `text/event-stream` format (SSE).
- *
- * Buffers incoming chunks and emits complete events.
- * Handles multi-line `data:` fields, strips a leading BOM, and ignores
- * comment lines (`:` prefix).
- */
+const MAX_BUFFER_SIZE = 4 * 1024 * 1024; // 4 MB
+
 export class SseParser {
     #buffer = "";
     #onEvent: (event: SseEvent) => void;
@@ -42,6 +37,12 @@ export class SseParser {
 
         this.#buffer += chunk;
 
+        if (this.#buffer.length > MAX_BUFFER_SIZE) {
+            throw new Error(
+                `SSE buffer exceeded ${MAX_BUFFER_SIZE} bytes without an event boundary`,
+            );
+        }
+
         while (true) {
             const boundary = this.#findBoundary();
             if (boundary === null) {
@@ -56,12 +57,7 @@ export class SseParser {
         }
     }
 
-    /**
-     * Flush the final buffered event at end-of-stream.
-     *
-     * Per the SSE parsing model, a trailing event without an empty-line
-     * separator must still be dispatched when the stream ends.
-     */
+    // SSE spec requires dispatching trailing events without a blank-line delimiter.
     finish(): void {
         if (this.#buffer.length === 0) {
             return;
@@ -73,8 +69,13 @@ export class SseParser {
     }
 
     #findBoundary(): { index: number; length: number } | null {
-        // Check \n\n first — the overwhelmingly common SSE delimiter.
         const nnIndex = this.#buffer.indexOf("\n\n");
+        // \n\n is the overwhelmingly common SSE delimiter.
+        // Only scan for rare \r\n\r\n and \r\r if \r exists in the buffer.
+        if (this.#buffer.indexOf("\r") === -1) {
+            return nnIndex === -1 ? null : { index: nnIndex, length: 2 };
+        }
+
         const crlfIndex = this.#buffer.indexOf("\r\n\r\n");
         const crIndex = this.#buffer.indexOf("\r\r");
 
@@ -93,7 +94,7 @@ export class SseParser {
     }
 
     #normalizeChunk(part: string): string {
-        return part.replace(/\r\n?/g, "\n");
+        return part.includes("\r") ? part.replace(/\r\n?/g, "\n") : part;
     }
 
     #dispatch(part: string): void {

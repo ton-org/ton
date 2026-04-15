@@ -24,10 +24,6 @@ import type {
 import type { Finality, NonPendingFinality } from "./utils";
 import { FINALITY_SET, NON_PENDING_FINALITY_SET, isRecord } from "./utils";
 
-// ---------------------------------------------------------------------------
-// Minimal validation helpers — envelope-level only
-// ---------------------------------------------------------------------------
-
 function expectRecord(
     value: unknown,
     fieldName: string,
@@ -75,35 +71,30 @@ function expectJsonObject(value: unknown, fieldName: string): JsonObject {
     return expectRecord(value, fieldName) as JsonObject;
 }
 
-/**
- * Cast an array of records as-is. Each element is validated only as a
- * record — no deep field-level parsing.
- */
 function castJsonObjectArray<T extends JsonObject>(
     value: unknown,
     fieldName: string,
 ): T[] {
     const arr = expectArray(value, fieldName);
-    return arr.map((entry, i) =>
-        expectRecord(entry, `${fieldName}[${i}]`),
-    ) as T[];
+    for (let i = 0; i < arr.length; i++) {
+        if (!isRecord(arr[i])) {
+            throw new Error(`${fieldName}[${i}] must be an object`);
+        }
+    }
+    return arr as T[];
 }
 
-/**
- * Cast a record-of-records as-is. Values are validated only as records.
- */
 function castJsonObjectRecord<T extends JsonObject>(
     value: unknown,
     fieldName: string,
 ): Record<string, T> {
     const record = expectRecord(value, fieldName);
-    const result: Record<string, T> = {};
-
     for (const [key, entry] of Object.entries(record)) {
-        result[key] = expectRecord(entry, `${fieldName}.${key}`) as T;
+        if (!isRecord(entry)) {
+            throw new Error(`${fieldName}.${key} must be an object`);
+        }
     }
-
-    return result;
+    return record as Record<string, T>;
 }
 
 function castOptionalJsonObjectRecord<T extends JsonObject>(
@@ -114,10 +105,6 @@ function castOptionalJsonObjectRecord<T extends JsonObject>(
         ? undefined
         : castJsonObjectRecord<T>(value, fieldName);
 }
-
-// ---------------------------------------------------------------------------
-// Envelope-level address book / metadata
-// ---------------------------------------------------------------------------
 
 function parseAddressBook(
     value: unknown,
@@ -139,29 +126,34 @@ function parseMetadata(
     );
 }
 
-// ---------------------------------------------------------------------------
-// Event parsers — envelope validation only, deep content passed through
-// ---------------------------------------------------------------------------
+function parseTraceCommonFields(
+    payload: Record<string, unknown>,
+    prefix: string,
+) {
+    return {
+        finality: expectFinality(payload.finality, `${prefix}.finality`),
+        trace_external_hash_norm: expectString(
+            payload.trace_external_hash_norm,
+            `${prefix}.trace_external_hash_norm`,
+        ),
+        address_book: parseAddressBook(
+            payload.address_book,
+            `${prefix}.address_book`,
+        ),
+        metadata: parseMetadata(payload.metadata, `${prefix}.metadata`),
+    };
+}
 
 function parseTransactionsEvent(
     payload: Record<string, unknown>,
 ): StreamingTransactionsEvent {
     return {
         type: "transactions",
-        finality: expectFinality(payload.finality, "transactions.finality"),
-        trace_external_hash_norm: expectString(
-            payload.trace_external_hash_norm,
-            "transactions.trace_external_hash_norm",
-        ),
+        ...parseTraceCommonFields(payload, "transactions"),
         transactions: castJsonObjectArray<StreamingTransaction>(
             payload.transactions,
             "transactions.transactions",
         ),
-        address_book: parseAddressBook(
-            payload.address_book,
-            "transactions.address_book",
-        ),
-        metadata: parseMetadata(payload.metadata, "transactions.metadata"),
     };
 }
 
@@ -170,20 +162,11 @@ function parseActionsEvent(
 ): StreamingActionsEvent {
     return {
         type: "actions",
-        finality: expectFinality(payload.finality, "actions.finality"),
-        trace_external_hash_norm: expectString(
-            payload.trace_external_hash_norm,
-            "actions.trace_external_hash_norm",
-        ),
+        ...parseTraceCommonFields(payload, "actions"),
         actions: castJsonObjectArray<StreamingAction>(
             payload.actions,
             "actions.actions",
         ),
-        address_book: parseAddressBook(
-            payload.address_book,
-            "actions.address_book",
-        ),
-        metadata: parseMetadata(payload.metadata, "actions.metadata"),
     };
 }
 
@@ -192,11 +175,7 @@ function parseTraceEvent(
 ): StreamingTraceEvent {
     return {
         type: "trace",
-        finality: expectFinality(payload.finality, "trace.finality"),
-        trace_external_hash_norm: expectString(
-            payload.trace_external_hash_norm,
-            "trace.trace_external_hash_norm",
-        ),
+        ...parseTraceCommonFields(payload, "trace"),
         trace: expectJsonObject(payload.trace, "trace.trace") as StreamingTrace,
         transactions: castJsonObjectRecord<StreamingTransaction>(
             payload.transactions,
@@ -209,11 +188,6 @@ function parseTraceEvent(
                       payload.actions,
                       "trace.actions",
                   ),
-        address_book: parseAddressBook(
-            payload.address_book,
-            "trace.address_book",
-        ),
-        metadata: parseMetadata(payload.metadata, "trace.metadata"),
     };
 }
 
@@ -267,27 +241,24 @@ function parseTraceInvalidatedEvent(
     };
 }
 
-// ---------------------------------------------------------------------------
-// Public entry point
-// ---------------------------------------------------------------------------
-
-export function parseStreamingEvent(payload: unknown): StreamingEvent {
-    const record = expectRecord(payload, "streaming message");
-    const type = expectString(record.type, "streaming message.type");
+export function parseStreamingEvent(
+    payload: Record<string, unknown>,
+): StreamingEvent {
+    const type = expectString(payload.type, "streaming message.type");
 
     switch (type) {
         case "transactions":
-            return parseTransactionsEvent(record);
+            return parseTransactionsEvent(payload);
         case "actions":
-            return parseActionsEvent(record);
+            return parseActionsEvent(payload);
         case "trace":
-            return parseTraceEvent(record);
+            return parseTraceEvent(payload);
         case "account_state_change":
-            return parseAccountStateEvent(record);
+            return parseAccountStateEvent(payload);
         case "jettons_change":
-            return parseJettonsEvent(record);
+            return parseJettonsEvent(payload);
         case "trace_invalidated":
-            return parseTraceInvalidatedEvent(record);
+            return parseTraceInvalidatedEvent(payload);
         default:
             throw new Error(`Unexpected streaming event type: ${type}`);
     }
