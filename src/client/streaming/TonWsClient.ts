@@ -11,13 +11,14 @@ import {
     StreamingError,
     StreamingHandshakeError,
     StreamingRequestTimeoutError,
-    createStreamingError,
+    wrapStreamingError,
 } from "./errors";
 import type { StreamingErrorContext } from "./errors";
 import { parseStreamingEvent } from "./protocol";
 import {
     type ResolvedStreamingSubscription,
     resolveStreamingSubscription,
+    sameSubscription,
     serializeSubscription,
 } from "./subscriptionState";
 import { TypedEventEmitter } from "./TypedEventEmitter";
@@ -66,6 +67,7 @@ type WsSession = {
     state: "connecting" | "open" | "closing";
     connected: Deferred<void>;
     closed: Deferred<void>;
+    isReady: boolean;
     pingInterval: ReturnType<typeof setInterval> | null;
     pendingRequests: Map<string, PendingRequest>;
     requestId: number;
@@ -78,10 +80,6 @@ type WsSession = {
 const textDecoder = new TextDecoder();
 
 function parseWebSocketMessage(rawMessage: unknown): unknown {
-    if (isRecord(rawMessage)) {
-        return rawMessage;
-    }
-
     if (typeof rawMessage === "string") {
         return JSON.parse(rawMessage) as unknown;
     }
@@ -109,9 +107,10 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
     readonly #pingIntervalMs: number;
 
     #session: WsSession | null = null;
-    #subscribed = false;
-    #subscriptionQueue: Promise<void> | null = null;
-    #subscriptionOperationVersion = 0;
+    #applied: ResolvedStreamingSubscription | null = null;
+    #desired: ResolvedStreamingSubscription | null = null;
+    #reconciling = false;
+    #waiters: Deferred<void>[] = [];
 
     constructor(parameters: StreamingWebSocketParameters) {
         super();
@@ -159,13 +158,20 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
         );
     }
 
-    async subscribe(params: StreamingSubscription): Promise<void> {
+    subscribe(params: StreamingSubscription): Promise<void> {
         const resolved = resolveStreamingSubscription(params);
-
-        return this.#enqueueSubscriptionOperation(async () => {
-            await this.#ensureSocketOpen();
-            await this.#sendSubscribe(resolved);
-        });
+        if (
+            this.ready &&
+            this.#applied &&
+            sameSubscription(this.#applied, resolved)
+        ) {
+            return Promise.resolve();
+        }
+        this.#desired = resolved;
+        const waiter = deferred<void>();
+        this.#waiters.push(waiter);
+        this.#reconcile();
+        return waiter.promise;
     }
 
     close(): Promise<void> {
@@ -176,16 +182,19 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
         }
 
         const wasConnecting = session.state === "connecting";
-        const wasSubscribed = this.#subscribed;
+        const wasSubscribed = session.isReady;
+        const error = new StreamingClosedError(
+            "Streaming transport is closing",
+            this.#ctx("close"),
+        );
 
         session.state = "closing";
-        this.#subscriptionOperationVersion += 1;
+        session.isReady = false;
+        this.#applied = null;
+        this.#desired = null;
+        this.#rejectWaiters(error);
         this.#stopPing(session);
-        this.#setSubscribed(false);
-        this.#rejectAllPending(
-            session,
-            new StreamingClosedError("Streaming transport is closing", this.#ctx("close")),
-        );
+        this.#rejectAllPending(session, error);
 
         if (wasConnecting) {
             session.connected.reject(
@@ -210,14 +219,17 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
     }
 
     get ready(): boolean {
-        return this.#subscribed;
+        return this.#session?.isReady === true;
     }
 
     // -----------------------------------------------------------------------
     // Internal — context helper
     // -----------------------------------------------------------------------
 
-    #ctx(phase: string, extra?: Partial<StreamingErrorContext>): StreamingErrorContext {
+    #ctx(
+        phase: string,
+        extra?: Partial<StreamingErrorContext>,
+    ): StreamingErrorContext {
         return { transport: "ws", endpoint: this.#endpoint, phase, ...extra };
     }
 
@@ -252,6 +264,7 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
             state: "connecting",
             connected: deferred<void>(),
             closed: deferred<void>(),
+            isReady: false,
             pingInterval: null,
             pendingRequests: new Map(),
             requestId: 0,
@@ -276,7 +289,6 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
                 "WebSocket connection error",
                 this.#ctx("connect"),
             );
-            this.emit("error", error);
 
             if (session.state === "connecting") {
                 this.#cleanupSession(session);
@@ -284,6 +296,11 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
                 try {
                     ws.close();
                 } catch {}
+                return;
+            }
+
+            if (session.isReady) {
+                this.emit("error", error);
             }
         };
 
@@ -297,8 +314,7 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
             } catch (error) {
                 this.emit(
                     "error",
-                    createStreamingError(
-                        StreamingError,
+                    wrapStreamingError(
                         error,
                         this.#ctx("message", { rawPayload: event.data }),
                         "Failed to handle streaming message",
@@ -313,7 +329,7 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
             }
 
             const wasConnecting = session.state === "connecting";
-            const wasSubscribed = this.#subscribed;
+            const wasSubscribed = session.isReady;
 
             this.#cleanupSession(session);
 
@@ -374,33 +390,61 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
             );
         }
 
-        this.#setSubscribed(true);
+        if (!session.isReady) {
+            session.isReady = true;
+            this.emit("open", undefined);
+        }
     }
 
-    #enqueueSubscriptionOperation<T>(operation: () => Promise<T>): Promise<T> {
-        const operationVersion = this.#subscriptionOperationVersion;
-        const run = async () => {
-            if (operationVersion !== this.#subscriptionOperationVersion) {
-                throw new StreamingClosedError(
-                    "Streaming transport is closing",
-                    this.#ctx("close"),
-                );
+    async #reconcile(): Promise<void> {
+        if (this.#reconciling) {
+            return;
+        }
+        this.#reconciling = true;
+
+        try {
+            while (this.#desired) {
+                const snapshot = this.#desired;
+                if (
+                    this.#applied &&
+                    sameSubscription(this.#applied, snapshot) &&
+                    this.ready
+                ) {
+                    this.#resolveWaiters();
+                    break;
+                }
+                await this.#ensureSocketOpen();
+                await this.#sendSubscribe(snapshot);
+                this.#applied = snapshot;
+                if (
+                    this.#desired &&
+                    sameSubscription(this.#desired, snapshot)
+                ) {
+                    this.#resolveWaiters();
+                    break;
+                }
             }
-            return operation();
-        };
-        const result = this.#subscriptionQueue
-            ? this.#subscriptionQueue.then(run, run)
-            : run();
-        const tail = result.then(
-            () => undefined,
-            () => undefined,
-        );
-        this.#subscriptionQueue = tail.finally(() => {
-            if (this.#subscriptionQueue === tail) {
-                this.#subscriptionQueue = null;
-            }
-        });
-        return result;
+        } catch (error) {
+            this.#rejectWaiters(error);
+        } finally {
+            this.#reconciling = false;
+        }
+    }
+
+    #resolveWaiters(): void {
+        const waiters = this.#waiters;
+        this.#waiters = [];
+        for (const w of waiters) {
+            w.resolve();
+        }
+    }
+
+    #rejectWaiters(reason: unknown): void {
+        const waiters = this.#waiters;
+        this.#waiters = [];
+        for (const w of waiters) {
+            w.reject(reason);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -459,10 +503,12 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
                 session.pendingRequests.delete(id);
                 clearTimeout(timeout);
                 reject(
-                    createStreamingError(
-                        StreamingError,
+                    wrapStreamingError(
                         error,
-                        this.#ctx("send", { requestId: id, rawPayload: message }),
+                        this.#ctx("send", {
+                            requestId: id,
+                            rawPayload: message,
+                        }),
                         "Failed to send WebSocket message",
                     ),
                 );
@@ -519,8 +565,7 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
         session.pendingRequests.delete(requestId);
         if (payload.error !== undefined) {
             pending.reject(
-                createStreamingError(
-                    StreamingError,
+                wrapStreamingError(
                     payload.error,
                     this.#ctx("request", { requestId, rawPayload: payload }),
                     `Streaming request ${requestId} failed`,
@@ -543,8 +588,7 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
         } catch (error) {
             this.emit(
                 "error",
-                createStreamingError(
-                    StreamingError,
+                wrapStreamingError(
                     error,
                     this.#ctx("notification", { rawPayload: payload }),
                     "Invalid streaming notification",
@@ -566,16 +610,17 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
 
         this.#stopPing(session);
         session.pingInterval = setInterval(() => {
-            if (!this.#subscribed || this.#session !== session) {
+            if (!session.isReady || this.#session !== session) {
                 return;
             }
 
             const id = this.#nextRequestId(session);
-            void this.#sendRequest(session, id, { operation: "ping", id }).catch(
-                (error) => {
-                    this.#handleHeartbeatFailure(session, id, error);
-                },
-            );
+            void this.#sendRequest(session, id, {
+                operation: "ping",
+                id,
+            }).catch((error) => {
+                this.#handleHeartbeatFailure(session, id, error);
+            });
         }, this.#pingIntervalMs);
     }
 
@@ -589,14 +634,13 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
         }
 
         const cause = reason instanceof Error ? reason : undefined;
-        const message =
-            cause?.message ?? "WebSocket heartbeat failed";
+        const message = cause?.message ?? "WebSocket heartbeat failed";
         const error = new StreamingError(
             message,
             this.#ctx("heartbeat", { requestId }),
             { cause },
         );
-        const wasSubscribed = this.#subscribed;
+        const wasSubscribed = session.isReady;
 
         this.emit("error", error);
         this.#cleanupSession(session);
@@ -621,16 +665,6 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
     // Internal — state helpers
     // -----------------------------------------------------------------------
 
-    #setSubscribed(next: boolean): void {
-        if (this.#subscribed === next) {
-            return;
-        }
-        this.#subscribed = next;
-        if (next) {
-            this.emit("open", undefined);
-        }
-    }
-
     #cleanupSession(session: WsSession): void {
         if (this.#session === session) {
             this.#session = null;
@@ -638,9 +672,13 @@ export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
         this.#stopPing(session);
         this.#rejectAllPending(
             session,
-            new StreamingClosedError("Connection closed", this.#ctx("transport")),
+            new StreamingClosedError(
+                "Connection closed",
+                this.#ctx("transport"),
+            ),
         );
-        this.#subscribed = false;
+        session.isReady = false;
+        this.#applied = null;
         session.closed.resolve();
     }
 }

@@ -235,7 +235,9 @@ describeLive("streaming wallet testnet e2e", () => {
                 await wallet.contract.getBalance(walletProvider);
             expect(balanceBefore).toBeGreaterThan(TON_TRANSFER_VALUE);
 
-            await addressStream.subscribe(addressSubscription(wallet.contract.address));
+            await addressStream.subscribe(
+                addressSubscription(wallet.contract.address),
+            );
 
             expect(addressStream.ready).toBe(true);
 
@@ -275,7 +277,9 @@ describeLive("streaming wallet testnet e2e", () => {
                 const resolvedWalletAddress = await tonClient
                     .open(jettonMaster)
                     .getWalletAddress(wallet.contract.address);
-                expect(resolvedWalletAddress.equals(jettonWalletAddress)).toBeTruthy()
+                expect(
+                    resolvedWalletAddress.equals(jettonWalletAddress),
+                ).toBeTruthy();
 
                 const jettonWallet = JettonWallet.create(jettonWalletAddress);
                 const jettonBalance = await tonClient
@@ -878,7 +882,9 @@ function expectObservedSend(
     expect(traceHash).toBeTruthy();
     expect(traceHash).toBe(observation.actions.trace_external_hash_norm);
     expect(traceHash).toBe(observation.trace.trace_external_hash_norm);
-    expect(sameAddress(observation.accountState.account, walletAddress)).toBeTruthy();
+    expect(
+        sameAddress(observation.accountState.account, walletAddress),
+    ).toBeTruthy();
 }
 
 async function waitForNextEvent<T>(

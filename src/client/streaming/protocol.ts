@@ -8,7 +8,6 @@
 
 import type {
     JsonObject,
-    JsonValue,
     StreamingAccountStateEvent,
     StreamingAction,
     StreamingActionsEvent,
@@ -72,42 +71,13 @@ function expectArray(value: unknown, fieldName: string): unknown[] {
     return value;
 }
 
-function isJsonValue(value: unknown): value is JsonValue {
-    if (
-        value === null ||
-        typeof value === "string" ||
-        typeof value === "number" ||
-        typeof value === "boolean"
-    ) {
-        return true;
-    }
-
-    if (Array.isArray(value)) {
-        return value.every((entry) => isJsonValue(entry));
-    }
-
-    if (isRecord(value)) {
-        return Object.values(value).every((entry) => isJsonValue(entry));
-    }
-
-    return false;
-}
-
 function expectJsonObject(value: unknown, fieldName: string): JsonObject {
-    const record = expectRecord(value, fieldName);
-
-    for (const [key, entry] of Object.entries(record)) {
-        if (!isJsonValue(entry)) {
-            throw new Error(`${fieldName}.${key} must be valid JSON`);
-        }
-    }
-
-    return record as JsonObject;
+    return expectRecord(value, fieldName) as JsonObject;
 }
 
 /**
  * Cast an array of records as-is. Each element is validated only as a
- * JsonObject — no deep field-level parsing.
+ * record — no deep field-level parsing.
  */
 function castJsonObjectArray<T extends JsonObject>(
     value: unknown,
@@ -115,12 +85,12 @@ function castJsonObjectArray<T extends JsonObject>(
 ): T[] {
     const arr = expectArray(value, fieldName);
     return arr.map((entry, i) =>
-        expectJsonObject(entry, `${fieldName}[${i}]`),
+        expectRecord(entry, `${fieldName}[${i}]`),
     ) as T[];
 }
 
 /**
- * Cast a record-of-records as-is. Values are validated only as JsonObjects.
+ * Cast a record-of-records as-is. Values are validated only as records.
  */
 function castJsonObjectRecord<T extends JsonObject>(
     value: unknown,
@@ -130,7 +100,7 @@ function castJsonObjectRecord<T extends JsonObject>(
     const result: Record<string, T> = {};
 
     for (const [key, entry] of Object.entries(record)) {
-        result[key] = expectJsonObject(entry, `${fieldName}.${key}`) as T;
+        result[key] = expectRecord(entry, `${fieldName}.${key}`) as T;
     }
 
     return result;
@@ -250,8 +220,6 @@ function parseTraceEvent(
 function parseAccountStateEvent(
     payload: Record<string, unknown>,
 ): StreamingAccountStateEvent {
-    const state = expectRecord(payload.state, "account_state_change.state");
-
     return {
         type: "account_state_change",
         finality: expectNonPendingFinality(
@@ -260,7 +228,7 @@ function parseAccountStateEvent(
         ),
         account: expectString(payload.account, "account_state_change.account"),
         state: expectJsonObject(
-            state,
+            payload.state,
             "account_state_change.state",
         ) as StreamingAccountStateEvent["state"],
     };
@@ -269,8 +237,6 @@ function parseAccountStateEvent(
 function parseJettonsEvent(
     payload: Record<string, unknown>,
 ): StreamingJettonsEvent {
-    expectRecord(payload.jetton, "jettons_change.jetton");
-
     return {
         type: "jettons_change",
         finality: expectNonPendingFinality(

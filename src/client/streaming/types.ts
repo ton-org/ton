@@ -6,13 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type {
-    StreamingClosedError,
-    StreamingHandshakeError,
-    StreamingProtocolError,
-    StreamingRequestTimeoutError,
-    StreamingTransportError,
-} from "./errors";
+import type { StreamingError } from "./errors";
 import type {
     Finality,
     NonPendingFinality,
@@ -50,15 +44,8 @@ export interface IWebSocketConstructor {
     readonly OPEN: number;
 }
 
-export type StreamingLifecycleError =
-    | StreamingClosedError
-    | StreamingHandshakeError
-    | StreamingProtocolError
-    | StreamingRequestTimeoutError
-    | StreamingTransportError;
-
 export type StreamingLifecycleEvents = {
-    error: StreamingLifecycleError;
+    error: StreamingError;
     close: undefined;
     open: undefined;
 };
@@ -208,10 +195,6 @@ export type StreamingBlockRef = JsonObject & {
     seqno: number;
 };
 
-export type StreamingTransactionDescription = JsonObject & {
-    type: string;
-};
-
 export type StreamingTransaction = JsonObject & {
     account: string;
     hash: string;
@@ -225,7 +208,9 @@ export type StreamingTransaction = JsonObject & {
     end_status: string;
     total_fees: string;
     total_fees_extra_currencies: JsonObject;
-    description: StreamingTransactionDescription;
+    description: JsonObject & {
+        type: string;
+    };
     out_msgs: StreamingMessage[];
     block_ref?: StreamingBlockRef;
     account_state_before?: StreamingTransactionAccountState;
@@ -244,8 +229,6 @@ export type StreamingTraceNode = JsonObject & {
 
 export type StreamingTrace = StreamingTraceNode;
 
-export type StreamingActionDetails = JsonObject;
-
 export type StreamingAction = JsonObject & {
     trace_id: string;
     action_id: string;
@@ -259,7 +242,7 @@ export type StreamingAction = JsonObject & {
     transactions: string[];
     success: boolean;
     type: string;
-    details: StreamingActionDetails;
+    details: JsonObject;
     trace_external_hash?: string;
     trace_external_hash_norm?: string;
     accounts: string[];
@@ -344,49 +327,6 @@ export type StreamingEventMap = StreamingLifecycleEvents & {
     trace_invalidated: StreamingTraceInvalidatedEvent;
 };
 
-export type HeadersLike = {
-    get(name: string): string | null;
-};
-
-export type ReadResultLike = {
-    done: boolean;
-    value?: Uint8Array;
-};
-
-export type ReaderLike = {
-    read(): Promise<ReadResultLike>;
-    cancel?(reason?: unknown): Promise<unknown> | void;
-    releaseLock?(): void;
-};
-
-export type ReadableStreamLike = {
-    getReader(): ReaderLike;
-    cancel?(reason?: unknown): Promise<unknown> | void;
-};
-
-export type FetchResponseLike = {
-    ok: boolean;
-    status: number;
-    statusText: string;
-    body?: ReadableStreamLike | null;
-    headers?: HeadersLike;
-    text?(): Promise<string>;
-};
-
-/**
- * Minimal fetch-like function signature.
- * Compatible with `globalThis.fetch` (Node 18+, browsers).
- */
-export type FetchLike = (
-    url: string,
-    init?: {
-        method?: string;
-        headers?: Record<string, string>;
-        body?: string;
-        signal?: AbortSignal;
-    },
-) => Promise<FetchResponseLike>;
-
 /**
  * Common interface for streaming clients (WebSocket or SSE).
  *
@@ -416,7 +356,7 @@ export type StreamingSseParameters = StreamingBaseParameters & {
      * Custom fetch function (defaults to `globalThis.fetch`).
      * Must support streaming responses (ReadableStream body).
      */
-    fetch?: FetchLike;
+    fetch?: typeof fetch;
 
     /** Extra headers to send with the SSE request. */
     headers?: Record<string, string>;

@@ -6,8 +6,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { FetchResponseLike } from "./types";
-
 // ---------------------------------------------------------------------------
 // Deferred
 // ---------------------------------------------------------------------------
@@ -70,12 +68,6 @@ export type SubscribableEventType = (typeof SUBSCRIBABLE_EVENT_TYPES)[number];
 export const SUBSCRIBABLE_EVENT_TYPE_SET: ReadonlySet<string> = new Set(
     SUBSCRIBABLE_EVENT_TYPES,
 );
-
-export const NOTIFICATION_TYPES = [
-    ...SUBSCRIBABLE_EVENT_TYPES,
-    "trace_invalidated",
-] as const;
-export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 // ---------------------------------------------------------------------------
 // Streaming service / network (provider resolution)
@@ -194,9 +186,11 @@ export function appendQueryParameter(
     return url.toString();
 }
 
-export async function describeHttpError(
-    response: FetchResponseLike,
-): Promise<string> {
+export async function describeHttpError(response: {
+    status: number;
+    statusText: string;
+    text?(): Promise<string>;
+}): Promise<string> {
     const statusPart = `${response.status} ${response.statusText}`.trim();
     let bodyText = "";
 
@@ -219,31 +213,6 @@ export function describeUnexpectedMessage(payload: unknown): string {
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-export function areStringListsEqual(
-    left?: readonly string[],
-    right?: readonly string[],
-): boolean {
-    if (left === right) {
-        return true;
-    }
-
-    if (!left || !right) {
-        return left === right;
-    }
-
-    if (left.length !== right.length) {
-        return false;
-    }
-
-    for (let i = 0; i < left.length; i += 1) {
-        if (left[i] !== right[i]) {
-            return false;
-        }
-    }
-
-    return true;
 }
 
 // ---------------------------------------------------------------------------

@@ -34,14 +34,11 @@ export {
     StreamingClosedError,
     StreamingError,
     StreamingHandshakeError,
-    StreamingProtocolError,
     StreamingRequestTimeoutError,
-    StreamingTransportError,
 } from "./client/streaming";
 export type {
     Finality,
     StreamingAction,
-    StreamingActionDetails,
     StreamingAccountStateEvent,
     StreamingAddressBookEntry,
     StreamingActionsEvent,
@@ -51,7 +48,6 @@ export type {
     StreamingEventMap,
     SubscribableEventType,
     StreamingJettonsEvent,
-    StreamingLifecycleError,
     StreamingLifecycleEvents,
     StreamingMessage,
     StreamingMessageContent,
@@ -71,7 +67,6 @@ export type {
     StreamingTraceNode,
     StreamingTransaction,
     StreamingTransactionAccountState,
-    StreamingTransactionDescription,
     StreamingTransactionsEvent,
 } from "./client/streaming";
 

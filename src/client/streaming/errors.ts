@@ -42,10 +42,6 @@ export class StreamingError extends Error {
     }
 }
 
-export class StreamingTransportError extends StreamingError {}
-
-export class StreamingProtocolError extends StreamingError {}
-
 export class StreamingRequestTimeoutError extends StreamingError {}
 
 export class StreamingClosedError extends StreamingError {}
@@ -53,23 +49,18 @@ export class StreamingClosedError extends StreamingError {}
 export class StreamingHandshakeError extends StreamingError {}
 
 /**
- * Wrap an unknown reason into a typed streaming error. If the reason is
- * already an instance of the target class, it is returned as-is.
+ * Wrap an unknown reason into a StreamingError. If the reason is already a
+ * StreamingError, it is returned as-is.
  */
-export function createStreamingError<TError extends StreamingError>(
-    ErrorCtor: new (
-        message: string,
-        context: StreamingErrorContext,
-        options?: { cause?: unknown },
-    ) => TError,
+export function wrapStreamingError(
     reason: unknown,
     context: StreamingErrorContext,
     fallback?: string,
-): TError {
-    if (reason instanceof ErrorCtor) {
+): StreamingError {
+    if (reason instanceof StreamingError) {
         return reason;
     }
 
     const error = ensureError(reason, fallback);
-    return new ErrorCtor(error.message, context, { cause: reason });
+    return new StreamingError(error.message, context, { cause: reason });
 }

@@ -2,7 +2,6 @@ import {
     StreamingClosedError,
     StreamingError,
     StreamingRequestTimeoutError,
-    StreamingTransportError,
 } from "./errors";
 import { TonWsClient } from "./TonWsClient";
 import { IWebSocket } from "./types";
@@ -462,6 +461,10 @@ describe("TonWsClient", () => {
             addresses: ["EQ3"],
             types: ["transactions"],
         });
+        let firstResolved = false;
+        void firstReplace.then(() => {
+            firstResolved = true;
+        });
 
         await flushAsyncWork();
 
@@ -471,6 +474,7 @@ describe("TonWsClient", () => {
 
         ws.receive({ id: firstSent.id, status: "subscribed" });
         await flushAsyncWork();
+        expect(firstResolved).toBe(false);
 
         const secondSent = JSON.parse(ws.sent[2]);
         expect(secondSent.addresses).toEqual(["EQ3"]);

@@ -10,9 +10,7 @@ export {
     StreamingClosedError,
     StreamingError,
     StreamingHandshakeError,
-    StreamingProtocolError,
     StreamingRequestTimeoutError,
-    StreamingTransportError,
 } from "./errors";
 export { TonSseClient } from "./TonSseClient";
 export { TonWsClient } from "./TonWsClient";
@@ -22,16 +20,12 @@ export type {
     StreamingTransport,
 } from "./errors";
 export type {
-    ResolvedStreamingSubscription,
-} from "./subscriptionState";
-export type {
     Finality,
     NonPendingFinality,
     SubscribableEventType,
     StreamingService,
     StreamingNetwork,
     StreamingAction,
-    StreamingActionDetails,
     StreamingAccountStateEvent,
     StreamingAddressBookEntry,
     StreamingActionsEvent,
@@ -42,7 +36,6 @@ export type {
     StreamingEvent,
     StreamingEventMap,
     StreamingJettonsEvent,
-    StreamingLifecycleError,
     StreamingLifecycleEvents,
     StreamingMessage,
     StreamingMessageContent,
@@ -55,7 +48,6 @@ export type {
     StreamingTraceNode,
     StreamingTransaction,
     StreamingTransactionAccountState,
-    StreamingTransactionDescription,
     StreamingTransactionsEvent,
     StreamingWebSocketParameters,
 } from "./types";

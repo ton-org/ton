@@ -179,7 +179,11 @@ describe("TonSseClient", () => {
             fetch: fetchFn,
         });
 
-        await subscribeAndConfirm(client, response, createSubscription("EQC123"));
+        await subscribeAndConfirm(
+            client,
+            response,
+            createSubscription("EQC123"),
+        );
 
         expect(fetchFn).toHaveBeenCalledWith(
             expectedUrl,
@@ -296,7 +300,11 @@ describe("TonSseClient", () => {
             fetch: fetchFn,
         });
 
-        await subscribeAndConfirm(client, response, createSubscription("EQC123"));
+        await subscribeAndConfirm(
+            client,
+            response,
+            createSubscription("EQC123"),
+        );
 
         let closeResolved = false;
         const closePromise = client.close().then(() => {
@@ -341,6 +349,41 @@ describe("TonSseClient", () => {
         await replacePromise;
     });
 
+    it("does not reject a pending subscribe when a newer SSE snapshot replaces it", async () => {
+        const first = createSseResponse();
+        const second = createSseResponse();
+        const fetchFn = createFetchMock(first, second);
+        const client = new TonSseClient({
+            endpoint: "https://example.test/sse",
+            fetch: fetchFn,
+        });
+        const errors: Error[] = [];
+
+        client.on("error", (error) => {
+            errors.push(error);
+        });
+
+        const firstSubscribe = client.subscribe(createSubscription("EQ1"));
+        await flushAsyncWork();
+
+        const secondSubscribe = client.subscribe(createSubscription("EQ2"));
+        await flushAsyncWork();
+
+        expect(fetchFn).toHaveBeenCalledTimes(2);
+        expect(JSON.parse(fetchFn.mock.calls[1][1].body)).toEqual({
+            addresses: ["EQ2"],
+            types: ["transactions"],
+        });
+
+        second.pushText('data: {"status":"subscribed"}\n\n');
+        await flushAsyncWork();
+        await Promise.all([firstSubscribe, secondSubscribe]);
+
+        expect(errors).toEqual([]);
+
+        client.close();
+    });
+
     it("surfaces invalid notifications through the error channel", async () => {
         const response = createSseResponse();
         const fetchFn = createFetchMock(response);
@@ -358,7 +401,11 @@ describe("TonSseClient", () => {
             transactions.push(event);
         });
 
-        await subscribeAndConfirm(client, response, createSubscription("EQC123"));
+        await subscribeAndConfirm(
+            client,
+            response,
+            createSubscription("EQC123"),
+        );
         await flushAsyncWork();
 
         response.pushText(
@@ -396,7 +443,11 @@ describe("TonSseClient", () => {
             errors.push(error);
         });
 
-        await subscribeAndConfirm(client, response, createSubscription("EQC123"));
+        await subscribeAndConfirm(
+            client,
+            response,
+            createSubscription("EQC123"),
+        );
         response.close();
         await flushAsyncWork();
 
