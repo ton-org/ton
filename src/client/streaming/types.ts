@@ -42,9 +42,13 @@ export type StreamingEventType =
     | "account_state_change"
     | "jettons_change";
 
-export type StreamingProvider = "tonapi" | "toncenter";
+export type StreamingProvider =
+    | "tonapiMainnet"
+    | "toncenterMainnet"
+    | "tonapiTestnet"
+    | "toncenterTestnet";
 
-export type StreamingWebSocketParameters = {
+export type StreamingBaseParameters = {
     /**
      * Known streaming provider preset.
      * When set, endpoint and API key query parameter are inferred automatically.
@@ -53,15 +57,12 @@ export type StreamingWebSocketParameters = {
     provider?: StreamingProvider;
 
     /**
-     * WebSocket endpoint.
+     * Transport endpoint URL.
      * Required when `provider` is omitted.
-     * @example "wss://toncenter.com/api/streaming/v2/ws"
      */
     endpoint?: string;
 
-    /**
-     * API key for authentication.
-     */
+    /** API key for authentication. */
     apiKey?: string;
 
     /**
@@ -71,10 +72,10 @@ export type StreamingWebSocketParameters = {
      * @default "api_key"
      */
     apiKeyParam?: string;
+};
 
-    /**
-     * Custom WebSocket constructor (for Node.js < 22 use the `ws` package).
-     */
+export type StreamingWebSocketParameters = StreamingBaseParameters & {
+    /** Custom WebSocket constructor (for Node.js < 22 use the `ws` package). */
     WebSocket?: IWebSocketConstructor;
 
     /**
@@ -263,49 +264,13 @@ export type StreamingClient = {
     readonly connected: boolean;
 };
 
-export type StreamingSseParameters = {
-    /**
-     * Known streaming provider preset.
-     * When set, endpoint and API key query parameter are inferred automatically.
-     * Explicit `endpoint` and `apiKeyParam` values are ignored.
-     */
-    provider?: StreamingProvider;
-
-    /**
-     * SSE endpoint.
-     * Required when `provider` is omitted.
-     * @example "https://toncenter.com/api/streaming/v2/sse"
-     */
-    endpoint?: string;
-
-    /**
-     * API key for authentication.
-     */
-    apiKey?: string;
-
-    /**
-     * Query parameter name for the API key.
-     * Use "token" for TonAPI-compatible query-parameter authentication.
-     * Ignored when `provider` is set.
-     * Ignored when `bearerAuth` is true.
-     * @default "api_key"
-     */
-    apiKeyParam?: string;
-
-    /**
-     * Use `Authorization: Bearer <apiKey>` instead of query-parameter auth.
-     * @default false
-     */
-    bearerAuth?: boolean;
-
+export type StreamingSseParameters = StreamingBaseParameters & {
     /**
      * Custom fetch function (defaults to `globalThis.fetch`).
      * Must support streaming responses (ReadableStream body).
      */
     fetch?: FetchLike;
 
-    /**
-     * Extra headers to send with the SSE request.
-     */
+    /** Extra headers to send with the SSE request. */
     headers?: Record<string, string>;
 };

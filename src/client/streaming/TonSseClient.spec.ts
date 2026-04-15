@@ -1,4 +1,4 @@
-import { StreamingSse } from "./StreamingSse";
+import { TonSseClient } from "./TonSseClient";
 import { Finality, StreamingSubscription } from "./types";
 
 type DeferredRead = {
@@ -14,7 +14,10 @@ function createAbortError(): Error {
     return error;
 }
 
-function createSseResponse(contentType = "text/event-stream; charset=utf-8") {
+function createSseResponse(
+    contentType = "text/event-stream; charset=utf-8",
+    abortErrorFactory: () => Error = createAbortError,
+) {
     let deferred: DeferredRead | null = null;
 
     const reader = {
@@ -46,7 +49,7 @@ function createSseResponse(contentType = "text/event-stream; charset=utf-8") {
                 getReader: () => reader,
             },
         },
-        abort: () => deferred?.reject(createAbortError()),
+        abort: () => deferred?.reject(abortErrorFactory()),
         close: () => deferred?.resolve({ done: true }),
         pushText: (text: string) =>
             deferred?.resolve({ done: false, value: encoder.encode(text) }),
@@ -82,7 +85,7 @@ function createSubscription(
 }
 
 async function connectAndConfirm(
-    client: StreamingSse,
+    client: TonSseClient,
     response: ReturnType<typeof createSseResponse>,
     subscription = createSubscription("EQC123"),
 ): Promise<void> {
@@ -93,7 +96,7 @@ async function connectAndConfirm(
     await connectPromise;
 }
 
-describe("StreamingSse", () => {
+describe("TonSseClient", () => {
     it.each([
         {
             name: "sends api_key as query parameter by default",
@@ -103,9 +106,6 @@ describe("StreamingSse", () => {
             },
             expectedUrl:
                 "https://toncenter.com/api/streaming/v2/sse?api_key=secret",
-            assertHeaders: (headers: Record<string, string>) => {
-                expect(headers).not.toHaveProperty("Authorization");
-            },
         },
         {
             name: "supports custom apiKeyParam for query-parameter auth",
@@ -115,57 +115,54 @@ describe("StreamingSse", () => {
                 apiKeyParam: "token",
             },
             expectedUrl: "https://tonapi.io/streaming/v2/sse?token=secret",
-            assertHeaders: (headers: Record<string, string>) => {
-                expect(headers).not.toHaveProperty("Authorization");
-            },
         },
         {
-            name: "uses Bearer auth header when bearerAuth is true",
+            name: "resolves Toncenter mainnet provider defaults",
             parameters: {
-                endpoint: "https://tonapi.io/streaming/v2/sse",
-                apiKey: "secret",
-                bearerAuth: true,
-            },
-            expectedUrl: "https://tonapi.io/streaming/v2/sse",
-            assertHeaders: (headers: Record<string, string>) => {
-                expect(headers).toEqual(
-                    expect.objectContaining({
-                        Authorization: "Bearer secret",
-                    }),
-                );
-            },
-        },
-        {
-            name: "resolves Toncenter provider defaults",
-            parameters: {
-                provider: "toncenter" as const,
+                provider: "toncenterMainnet" as const,
                 apiKey: "secret",
                 endpoint: "https://example.test/ignored",
                 apiKeyParam: "ignored_token",
             },
             expectedUrl:
                 "https://toncenter.com/api/streaming/v2/sse?api_key=secret",
-            assertHeaders: (headers: Record<string, string>) => {
-                expect(headers).not.toHaveProperty("Authorization");
-            },
         },
         {
-            name: "resolves TonAPI provider defaults",
+            name: "resolves TonAPI mainnet provider defaults",
             parameters: {
-                provider: "tonapi" as const,
+                provider: "tonapiMainnet" as const,
                 apiKey: "secret",
                 endpoint: "https://example.test/ignored",
                 apiKeyParam: "ignored_api_key",
             },
             expectedUrl: "https://tonapi.io/streaming/v2/sse?token=secret",
-            assertHeaders: (headers: Record<string, string>) => {
-                expect(headers).not.toHaveProperty("Authorization");
-            },
         },
-    ])("$name", async ({ parameters, expectedUrl, assertHeaders }) => {
+        {
+            name: "resolves Toncenter testnet provider defaults",
+            parameters: {
+                provider: "toncenterTestnet" as const,
+                apiKey: "secret",
+                endpoint: "https://example.test/ignored",
+                apiKeyParam: "ignored_token",
+            },
+            expectedUrl:
+                "https://testnet.toncenter.com/api/streaming/v2/sse?api_key=secret",
+        },
+        {
+            name: "resolves TonAPI testnet provider defaults",
+            parameters: {
+                provider: "tonapiTestnet" as const,
+                apiKey: "secret",
+                endpoint: "https://example.test/ignored",
+                apiKeyParam: "ignored_api_key",
+            },
+            expectedUrl:
+                "https://testnet.tonapi.io/streaming/v2/sse?token=secret",
+        },
+    ])("$name", async ({ parameters, expectedUrl }) => {
         const response = createSseResponse();
         const fetchFn = createFetchMock(response);
-        const client = new StreamingSse({
+        const client = new TonSseClient({
             ...parameters,
             fetch: fetchFn,
         });
@@ -178,7 +175,6 @@ describe("StreamingSse", () => {
         );
 
         const [, requestInit] = fetchFn.mock.calls[0];
-        assertHeaders(requestInit.headers);
         expect(JSON.parse(requestInit.body)).toEqual({
             addresses: ["EQC123"],
             types: ["transactions"],
@@ -190,7 +186,7 @@ describe("StreamingSse", () => {
     it("requires endpoint when provider is not specified", () => {
         expect(
             () =>
-                new StreamingSse({
+                new TonSseClient({
                     fetch: jest.fn(),
                 }),
         ).toThrow(
@@ -202,7 +198,7 @@ describe("StreamingSse", () => {
         const first = createSseResponse();
         const second = createSseResponse();
         const fetchFn = createFetchMock(first, second);
-        const client = new StreamingSse({
+        const client = new TonSseClient({
             endpoint: "https://example.test/sse",
             fetch: fetchFn,
         });
@@ -236,7 +232,7 @@ describe("StreamingSse", () => {
     it("closes the SSE stream when unsubscribe removes the last target", async () => {
         const first = createSseResponse();
         const fetchFn = createFetchMock(first);
-        const client = new StreamingSse({
+        const client = new TonSseClient({
             endpoint: "https://example.test/sse",
             fetch: fetchFn,
         });
@@ -262,7 +258,7 @@ describe("StreamingSse", () => {
         const first = createSseResponse();
         const second = createSseResponse();
         const fetchFn = createFetchMock(first, second);
-        const client = new StreamingSse({
+        const client = new TonSseClient({
             endpoint: "https://example.test/sse",
             fetch: fetchFn,
         });
@@ -289,7 +285,7 @@ describe("StreamingSse", () => {
     it("surfaces invalid notifications through the error channel", async () => {
         const response = createSseResponse();
         const fetchFn = createFetchMock(response);
-        const client = new StreamingSse({
+        const client = new TonSseClient({
             endpoint: "https://example.test/sse",
             fetch: fetchFn,
         });
@@ -316,6 +312,36 @@ describe("StreamingSse", () => {
         expect(errors[0].message).toContain(
             "transactions.transactions must be an array",
         );
+
+        client.close();
+    });
+
+    it("does not emit an error when reconnect aborts the previous stream", async () => {
+        const first = createSseResponse(
+            "text/event-stream; charset=utf-8",
+            () => new Error("This operation was aborted"),
+        );
+        const second = createSseResponse();
+        const fetchFn = createFetchMock(first, second);
+        const client = new TonSseClient({
+            endpoint: "https://example.test/sse",
+            fetch: fetchFn,
+        });
+        const errors: Error[] = [];
+
+        client.on("error", (error) => {
+            errors.push(error);
+        });
+
+        await connectAndConfirm(client, first, createSubscription("EQ1"));
+
+        const reconnectPromise = client.connect(createSubscription("EQ2"));
+        await flushAsyncWork();
+        second.pushText('data: {"status":"subscribed"}\n\n');
+        await flushAsyncWork();
+        await reconnectPromise;
+
+        expect(errors).toEqual([]);
 
         client.close();
     });

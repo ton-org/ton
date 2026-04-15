@@ -1,5 +1,5 @@
-import { StreamingWebSocket } from "./StreamingWebSocket";
-import { StreamingSse } from "./StreamingSse";
+import { TonWsClient } from "./TonWsClient";
+import { TonSseClient } from "./TonSseClient";
 import type { StreamingTransactionsEvent } from "./types";
 
 const TONCENTER_API_KEY = process.env.TONCENTER_API_KEY;
@@ -25,6 +25,8 @@ type SeenEvent = {
     finality?: string;
 };
 
+type Source = SeenEvent["source"];
+
 type TransactionsSource = {
     on(
         event: "transactions",
@@ -36,9 +38,14 @@ type TransactionsSource = {
     ): void;
 };
 
+type ErrorSource = {
+    on(event: "error", handler: (error: Error) => void): void;
+    off(event: "error", handler: (error: Error) => void): void;
+};
+
 function attachTransactionsCollector(
     target: TransactionsSource,
-    source: SeenEvent["source"],
+    source: Source,
     events: SeenEvent[],
 ): () => void {
     const handler = (event: StreamingTransactionsEvent) => {
@@ -55,35 +62,55 @@ function attachTransactionsCollector(
     return () => target.off("transactions", handler);
 }
 
+function attachErrorCollector(
+    target: ErrorSource,
+    errors: Error[],
+): () => void {
+    const handler = (error: Error) => {
+        errors.push(error);
+    };
+
+    target.on("error", handler);
+    return () => target.off("error", handler);
+}
+
 describeLive("streaming live transaction watch", () => {
     jest.setTimeout(130_000);
 
-    it("fails on any data mismatch between live streaming endpoints", async () => {
-        const toncenterWs = new StreamingWebSocket({
+    it("keeps the smoke checks and fails on any data mismatch between live streaming endpoints", async () => {
+        const toncenterWs = new TonWsClient({
             endpoint: "wss://toncenter.com/api/streaming/v2/ws",
             apiKey: TONCENTER_API_KEY,
         });
-        const tonapiWs = new StreamingWebSocket({
+        const tonapiWs = new TonWsClient({
             endpoint: "wss://tonapi.io/streaming/v2/ws",
             apiKey: TONAPI_API_KEY,
             apiKeyParam: "token",
         });
-        const toncenterSse = new StreamingSse({
+        const toncenterSse = new TonSseClient({
             endpoint: "https://toncenter.com/api/streaming/v2/sse",
             apiKey: TONCENTER_API_KEY,
         });
-        const tonapiSse = new StreamingSse({
+        const tonapiSse = new TonSseClient({
             endpoint: "https://tonapi.io/streaming/v2/sse",
             apiKey: TONAPI_API_KEY,
-            bearerAuth: true,
+            apiKeyParam: "token",
         });
 
         const events: SeenEvent[] = [];
+        const toncenterWsErrors: Error[] = [];
+        const toncenterSseErrors: Error[] = [];
+        const tonapiWsErrors: Error[] = [];
+        const tonapiSseErrors: Error[] = [];
         const detachHandlers = [
             attachTransactionsCollector(toncenterWs, "toncenter-ws", events),
             attachTransactionsCollector(toncenterSse, "toncenter-sse", events),
             attachTransactionsCollector(tonapiWs, "tonapi-ws", events),
             attachTransactionsCollector(tonapiSse, "tonapi-sse", events),
+            attachErrorCollector(toncenterWs, toncenterWsErrors),
+            attachErrorCollector(toncenterSse, toncenterSseErrors),
+            attachErrorCollector(tonapiWs, tonapiWsErrors),
+            attachErrorCollector(tonapiSse, tonapiSseErrors),
         ];
 
         const startedAt = Date.now();
@@ -102,6 +129,11 @@ describeLive("streaming live transaction watch", () => {
                 }),
             ]);
 
+            expect(toncenterWs.connected).toBe(true);
+            expect(tonapiWs.connected).toBe(true);
+            expect(toncenterSse.connected).toBe(true);
+            expect(tonapiSse.connected).toBe(true);
+
             await Promise.all([
                 toncenterWs.subscribe({
                     addresses: [TEST_ADDRESS],
@@ -114,6 +146,26 @@ describeLive("streaming live transaction watch", () => {
             ]);
 
             await delay(WATCH_MS);
+
+            await Promise.all([
+                toncenterWs.unsubscribe({
+                    addresses: [TEST_ADDRESS],
+                }),
+                tonapiWs.unsubscribe({
+                    addresses: [TEST_ADDRESS],
+                }),
+                toncenterSse.unsubscribe({
+                    addresses: [TEST_ADDRESS],
+                }),
+                tonapiSse.unsubscribe({
+                    addresses: [TEST_ADDRESS],
+                }),
+            ]);
+
+            expect(toncenterSse.connected).toBe(false);
+            expect(tonapiSse.connected).toBe(false);
+            expect(toncenterWs.connected).toBe(true);
+            expect(tonapiWs.connected).toBe(true);
         } finally {
             for (const detach of detachHandlers) {
                 detach();
@@ -129,6 +181,10 @@ describeLive("streaming live transaction watch", () => {
         const watchedMs = Date.now() - startedAt;
         expect(watchedMs).toBeGreaterThanOrEqual(90_000);
         expect(events.length).toBeGreaterThan(0);
+        expect(toncenterWsErrors).toEqual([]);
+        expect(toncenterSseErrors).toEqual([]);
+        expect(tonapiWsErrors).toEqual([]);
+        expect(tonapiSseErrors).toEqual([]);
 
         const sources = new Set(events.map((event) => event.source));
         expect(sources).toEqual(
@@ -140,7 +196,7 @@ describeLive("streaming live transaction watch", () => {
             ]),
         );
 
-        function transactionKeys(source: SeenEvent["source"]): string[] {
+        function transactionKeys(source: Source): string[] {
             return events
                 .filter(
                     (
@@ -163,7 +219,7 @@ describeLive("streaming live transaction watch", () => {
                 .sort();
         }
 
-        function transactionCount(source: SeenEvent["source"]): number {
+        function transactionCount(source: Source): number {
             return events
                 .filter(
                     (event): event is SeenEvent & { txCount: number } =>

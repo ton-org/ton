@@ -15,3 +15,5 @@ streaming.md
 .omx/
 .env
 ton-streaming-client
+.tmp
+pr.md

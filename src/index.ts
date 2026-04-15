@@ -29,11 +29,10 @@ export {
 //
 
 export {
-    StreamingWebSocket,
-    StreamingSse,
+    TonWsClient,
+    TonSseClient,
     SseParser,
 } from "./client/streaming";
-export { TonStreaming } from "./client/TonStreaming";
 export type {
     Finality,
     FetchLike,
@@ -42,6 +41,7 @@ export type {
     SseEvent,
     StreamingAccountStateEvent,
     StreamingActionsEvent,
+    StreamingBaseParameters,
     StreamingClient,
     StreamingEvent,
     StreamingEventMap,

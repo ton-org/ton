@@ -8,7 +8,7 @@
 
 import { Finality, FetchResponseLike, StreamingProvider } from "./types";
 
-export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+export const DEFAULT_REQUEST_TIMEOUT_MS = 5_000;
 export const DEFAULT_PING_INTERVAL_MS = 15_000;
 
 export const FINALITY_LEVELS = new Set<Finality>([
@@ -41,9 +41,7 @@ export function ensureError(reason: unknown, fallback?: string): Error {
 
         try {
             return new Error(JSON.stringify(reason));
-        } catch {
-            // Fall through to the generic fallback below.
-        }
+        } catch {}
     }
 
     if (fallback) {
@@ -56,7 +54,7 @@ export function ensureError(reason: unknown, fallback?: string): Error {
 export function isAbortError(reason: unknown): boolean {
     return (
         reason instanceof Error &&
-        (reason.name === "AbortError" || reason.message === "Aborted")
+        (reason.name === "AbortError" || /aborted/i.test(reason.message))
     );
 }
 
@@ -136,9 +134,7 @@ export async function describeHttpError(
         if (typeof response.text === "function") {
             bodyText = (await response.text()).trim();
         }
-    } catch {
-        // Ignore bodies that cannot be read.
-    }
+    } catch {}
 
     return bodyText ? `${statusPart} — ${bodyText}` : statusPart;
 }
@@ -157,30 +153,42 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 type ProviderDefaults = { endpoint: string; apiKeyParam: string };
 
+function createProviderDefaults(
+    service: "tonapi.io" | "toncenter.com",
+    apiKeyParam: string,
+    network: "mainnet" | "testnet",
+): { sse: ProviderDefaults; ws: ProviderDefaults } {
+    const host = network === "testnet" ? `testnet.${service}` : service;
+    const apiPrefix = service === "toncenter.com" ? "/api" : "";
+
+    return {
+        sse: {
+            endpoint: `https://${host}${apiPrefix}/streaming/v2/sse`,
+            apiKeyParam,
+        },
+        ws: {
+            endpoint: `wss://${host}${apiPrefix}/streaming/v2/ws`,
+            apiKeyParam,
+        },
+    };
+}
+
 const PROVIDER_DEFAULTS: Record<
     StreamingProvider,
     { sse: ProviderDefaults; ws: ProviderDefaults }
 > = {
-    tonapi: {
-        sse: {
-            endpoint: "https://tonapi.io/streaming/v2/sse",
-            apiKeyParam: "token",
-        },
-        ws: {
-            endpoint: "wss://tonapi.io/streaming/v2/ws",
-            apiKeyParam: "token",
-        },
-    },
-    toncenter: {
-        sse: {
-            endpoint: "https://toncenter.com/api/streaming/v2/sse",
-            apiKeyParam: "api_key",
-        },
-        ws: {
-            endpoint: "wss://toncenter.com/api/streaming/v2/ws",
-            apiKeyParam: "api_key",
-        },
-    },
+    tonapiMainnet: createProviderDefaults("tonapi.io", "token", "mainnet"),
+    toncenterMainnet: createProviderDefaults(
+        "toncenter.com",
+        "api_key",
+        "mainnet",
+    ),
+    tonapiTestnet: createProviderDefaults("tonapi.io", "token", "testnet"),
+    toncenterTestnet: createProviderDefaults(
+        "toncenter.com",
+        "api_key",
+        "testnet",
+    ),
 };
 
 export function resolveProviderEndpoint(

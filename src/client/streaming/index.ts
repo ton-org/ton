@@ -6,9 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-export { TonStreaming } from "./TonStreaming";
-export { StreamingWebSocket } from "./StreamingWebSocket";
-export { StreamingSse } from "./StreamingSse";
+export { TonWsClient } from "./TonWsClient";
+export { TonSseClient } from "./TonSseClient";
 export { SseParser } from "./SseParser";
 export type { SseEvent } from "./SseParser";
 
@@ -26,11 +25,13 @@ export type {
     ReadResultLike,
     StreamingAccountStateEvent,
     StreamingActionsEvent,
+    StreamingBaseParameters,
     StreamingClient,
     StreamingEvent,
     StreamingEventMap,
     StreamingEventType,
     StreamingJettonsEvent,
+    StreamingLifecycleEvents,
     StreamingProvider,
     StreamingSseParameters,
     StreamingSubscription,
@@ -39,5 +40,4 @@ export type {
     StreamingTransactionsEvent,
     StreamingUnsubscribe,
     StreamingWebSocketParameters,
-    StreamingLifecycleEvents,
 } from "./types";

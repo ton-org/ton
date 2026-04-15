@@ -30,14 +30,16 @@ import {
     NormalizedStreamingSubscription,
     NormalizedStreamingUnsubscribe,
     applyStreamingUnsubscribe,
-    areNormalizedSubscriptionsEqual,
+    diffRemovedTargets,
     normalizeStreamingSubscription,
     normalizeStreamingUnsubscribe,
-} from "./validation";
+    serializeSubscription,
+} from "./subscriptionState";
 
 type PendingRequest = {
     resolve: (value: StreamingResponse) => void;
     reject: (reason: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
 };
 
 type StreamingResponse = {
@@ -49,51 +51,20 @@ type StreamingResponse = {
 
 const textDecoder = new TextDecoder();
 
-function decodeWebSocketMessage(rawMessage: unknown): string {
-    if (typeof rawMessage === "string") {
-        return rawMessage;
-    }
-
-    if (rawMessage instanceof ArrayBuffer) {
-        return textDecoder.decode(new Uint8Array(rawMessage));
-    }
-
-    if (ArrayBuffer.isView(rawMessage)) {
-        return textDecoder.decode(
-            new Uint8Array(
-                rawMessage.buffer,
-                rawMessage.byteOffset,
-                rawMessage.byteLength,
-            ),
-        );
-    }
-
-    return String(rawMessage);
-}
-
 function parseWebSocketMessage(rawMessage: unknown): unknown {
     if (isRecord(rawMessage)) {
         return rawMessage;
     }
 
-    return JSON.parse(decodeWebSocketMessage(rawMessage)) as unknown;
-}
-
-function diffRemovedTargets(
-    current: readonly string[] | undefined,
-    next: readonly string[] | undefined,
-): string[] | undefined {
-    if (!current || current.length === 0) {
-        return undefined;
+    if (typeof rawMessage === "string") {
+        return JSON.parse(rawMessage) as unknown;
     }
 
-    if (!next || next.length === 0) {
-        return [...current];
+    if (rawMessage instanceof ArrayBuffer || ArrayBuffer.isView(rawMessage)) {
+        return JSON.parse(textDecoder.decode(rawMessage)) as unknown;
     }
 
-    const nextSet = new Set(next);
-    const removed = current.filter((value) => !nextSet.has(value));
-    return removed.length > 0 ? removed : undefined;
+    return JSON.parse(String(rawMessage)) as unknown;
 }
 
 function createUnsubscribeDelta(
@@ -117,7 +88,7 @@ function createUnsubscribeDelta(
 }
 
 /** WebSocket client for Streaming API v2-compatible endpoints. */
-export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
+export class TonWsClient extends TypedEventEmitter<StreamingEventMap> {
     readonly #endpoint: string;
     readonly #apiKey: string | undefined;
     readonly #apiKeyParam: string;
@@ -171,46 +142,19 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
     }
 
     async connect(params?: StreamingSubscription): Promise<void> {
-        const targetSubscription = params
-            ? normalizeStreamingSubscription(params)
-            : this.#requestedSubscription;
-        const wasOpen = this.#state === "open";
-
         await this.#ensureSocketOpen();
 
-        if (!targetSubscription) {
-            return;
-        }
-
-        this.#requestedSubscription = targetSubscription;
-        if (
-            !wasOpen ||
-            (params !== undefined &&
-                !areNormalizedSubscriptionsEqual(
-                    this.#activeSubscription,
-                    targetSubscription,
-                ))
-        ) {
-            await this.#replaceSubscriptionSnapshot(targetSubscription);
+        if (params) {
+            this.#requestedSubscription = normalizeStreamingSubscription(params);
+            await this.#replaceSubscriptionSnapshot(this.#requestedSubscription);
         }
     }
 
     async subscribe(params: StreamingSubscription): Promise<void> {
-        const normalized = normalizeStreamingSubscription(params);
-        this.#requestedSubscription = normalized;
+        this.#requestedSubscription = normalizeStreamingSubscription(params);
 
         await this.#ensureSocketOpen();
-        if (
-            this.connected &&
-            areNormalizedSubscriptionsEqual(
-                this.#activeSubscription,
-                normalized,
-            )
-        ) {
-            return;
-        }
-
-        await this.#replaceSubscriptionSnapshot(normalized);
+        await this.#replaceSubscriptionSnapshot(this.#requestedSubscription);
     }
 
     async unsubscribe(params: StreamingUnsubscribe): Promise<void> {
@@ -329,9 +273,7 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
                 this.#rejectConnection(error);
                 try {
                     ws.close();
-                } catch {
-                    // Ignore secondary close errors.
-                }
+                } catch {}
             }
         };
 
@@ -378,14 +320,7 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
         const response = await this.#sendRequest(id, {
             operation: "subscribe",
             id,
-            types: normalized.types,
-            addresses: normalized.addresses,
-            trace_external_hash_norms: normalized.traceExternalHashNorms,
-            min_finality: normalized.minFinality,
-            include_address_book: normalized.includeAddressBook,
-            include_metadata: normalized.includeMetadata,
-            action_types: normalized.actionTypes,
-            supported_action_types: normalized.supportedActionTypes,
+            ...serializeSubscription(normalized),
         });
 
         if (response.status !== "subscribed") {
@@ -528,6 +463,7 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
                     clearTimeout(timeout);
                     reject(reason);
                 },
+                timeout,
             });
 
             try {
@@ -542,6 +478,7 @@ export class StreamingWebSocket extends TypedEventEmitter<StreamingEventMap> {
 
     #rejectAllPending(error: Error): void {
         for (const pending of this.#pendingRequests.values()) {
+            clearTimeout(pending.timeout);
             pending.reject(error);
         }
         this.#pendingRequests.clear();

@@ -1,4 +1,4 @@
-import { StreamingWebSocket } from "./StreamingWebSocket";
+import { TonWsClient } from "./TonWsClient";
 import { IWebSocket } from "./types";
 
 class MockWebSocket implements IWebSocket {
@@ -50,17 +50,15 @@ async function flushAsyncWork(): Promise<void> {
     await new Promise((resolve) => setImmediate(resolve));
 }
 
-describe("StreamingWebSocket", () => {
+describe("TonWsClient", () => {
     beforeEach(() => {
         MockWebSocket.instances = [];
     });
 
     function createClient(
-        parameters: Partial<
-            ConstructorParameters<typeof StreamingWebSocket>[0]
-        > = {},
+        parameters: Partial<ConstructorParameters<typeof TonWsClient>[0]> = {},
     ) {
-        return new StreamingWebSocket({
+        return new TonWsClient({
             endpoint: "wss://example.test/stream",
             WebSocket: MockWebSocket,
             pingIntervalMs: 0,
@@ -100,9 +98,9 @@ describe("StreamingWebSocket", () => {
             expectedUrl: "wss://tonapi.io/streaming/v2/ws?token=secret",
         },
         {
-            name: "resolves Toncenter provider defaults",
+            name: "resolves Toncenter mainnet provider defaults",
             parameters: {
-                provider: "toncenter" as const,
+                provider: "toncenterMainnet" as const,
                 apiKey: "secret",
                 endpoint: "wss://example.test/ignored",
                 apiKeyParam: "ignored_token",
@@ -111,14 +109,35 @@ describe("StreamingWebSocket", () => {
                 "wss://toncenter.com/api/streaming/v2/ws?api_key=secret",
         },
         {
-            name: "resolves TonAPI provider defaults",
+            name: "resolves TonAPI mainnet provider defaults",
             parameters: {
-                provider: "tonapi" as const,
+                provider: "tonapiMainnet" as const,
                 apiKey: "secret",
                 endpoint: "wss://example.test/ignored",
                 apiKeyParam: "ignored_api_key",
             },
             expectedUrl: "wss://tonapi.io/streaming/v2/ws?token=secret",
+        },
+        {
+            name: "resolves Toncenter testnet provider defaults",
+            parameters: {
+                provider: "toncenterTestnet" as const,
+                apiKey: "secret",
+                endpoint: "wss://example.test/ignored",
+                apiKeyParam: "ignored_token",
+            },
+            expectedUrl:
+                "wss://testnet.toncenter.com/api/streaming/v2/ws?api_key=secret",
+        },
+        {
+            name: "resolves TonAPI testnet provider defaults",
+            parameters: {
+                provider: "tonapiTestnet" as const,
+                apiKey: "secret",
+                endpoint: "wss://example.test/ignored",
+                apiKeyParam: "ignored_api_key",
+            },
+            expectedUrl: "wss://testnet.tonapi.io/streaming/v2/ws?token=secret",
         },
     ])("$name", async ({ parameters, expectedUrl }) => {
         const client = createClient(parameters);
@@ -134,7 +153,7 @@ describe("StreamingWebSocket", () => {
     it("requires endpoint when provider is not specified", () => {
         expect(
             () =>
-                new StreamingWebSocket({
+                new TonWsClient({
                     WebSocket: MockWebSocket,
                 }),
         ).toThrow(

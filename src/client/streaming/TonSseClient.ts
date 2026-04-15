@@ -29,10 +29,10 @@ import {
 import {
     NormalizedStreamingSubscription,
     applyStreamingUnsubscribe,
-    areNormalizedSubscriptionsEqual,
     normalizeStreamingSubscription,
     normalizeStreamingUnsubscribe,
-} from "./validation";
+    serializeSubscription,
+} from "./subscriptionState";
 
 type ConnectHandshake = {
     settled: boolean;
@@ -46,23 +46,21 @@ type ConnectHandshake = {
  * SSE subscriptions are immutable for the lifetime of the HTTP stream,
  * so `subscribe()` / `unsubscribe()` reconnect with the desired snapshot.
  */
-export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
+export class TonSseClient extends TypedEventEmitter<StreamingEventMap> {
     readonly #endpoint: string;
     readonly #apiKey: string | undefined;
     readonly #apiKeyParam: string;
-    readonly #bearerAuth: boolean;
     readonly #fetchFn: FetchLike;
     readonly #headers: Record<string, string>;
 
     #abortController: AbortController | null = null;
     #connectionId = 0;
-    #reading = false;
+    #streaming = false;
     #pendingHandshake: {
         abortController: AbortController;
         handshake: ConnectHandshake;
     } | null = null;
-    #requestedSubscription: NormalizedStreamingSubscription | null = null;
-    #activeSubscription: NormalizedStreamingSubscription | null = null;
+    #subscription: NormalizedStreamingSubscription | null = null;
 
     constructor(parameters: StreamingSseParameters) {
         super();
@@ -75,7 +73,6 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
         this.#endpoint = resolved.endpoint;
         this.#apiKeyParam = resolved.apiKeyParam;
         this.#apiKey = parameters.apiKey;
-        this.#bearerAuth = parameters.bearerAuth ?? false;
         this.#fetchFn =
             parameters.fetch ??
             (globalThis as { fetch?: FetchLike }).fetch ??
@@ -88,29 +85,13 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
     }
 
     async connect(params?: StreamingSubscription): Promise<void> {
-        const normalized = params
-            ? normalizeStreamingSubscription(params)
-            : this.#requestedSubscription;
-
-        if (!normalized) {
+        const normalizedSubscription = params ? normalizeStreamingSubscription(params) : this.#subscription;
+        if (!normalizedSubscription) {
             throw new Error(
                 "Streaming SSE connect requires subscription parameters on the first call",
             );
         }
-
-        if (
-            this.connected &&
-            areNormalizedSubscriptionsEqual(
-                this.#activeSubscription,
-                normalized,
-            )
-        ) {
-            this.#requestedSubscription = normalized;
-            return;
-        }
-
-        this.#requestedSubscription = normalized;
-        await this.#connectNormalized(normalized);
+        await this.#connectNormalized(normalizedSubscription);
     }
 
     async subscribe(params: StreamingSubscription): Promise<void> {
@@ -120,44 +101,32 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
     async unsubscribe(params: StreamingUnsubscribe): Promise<void> {
         const normalizedUnsubscribe = normalizeStreamingUnsubscribe(params);
 
-        if (!this.#requestedSubscription) {
+        if (!this.#subscription) {
             throw new Error(
                 "Cannot unsubscribe from SSE before a subscription has been established",
             );
         }
 
-        const nextSubscription = applyStreamingUnsubscribe(
-            this.#requestedSubscription,
+        const normalizedSubscription = applyStreamingUnsubscribe(
+            this.#subscription,
             normalizedUnsubscribe,
         );
 
-        this.#requestedSubscription = nextSubscription;
-        if (!nextSubscription) {
-            this.#activeSubscription = null;
+        if (!normalizedSubscription) {
             this.close();
             return;
         }
 
-        if (
-            this.connected &&
-            areNormalizedSubscriptionsEqual(
-                this.#activeSubscription,
-                nextSubscription,
-            )
-        ) {
-            return;
-        }
-
-        await this.#connectNormalized(nextSubscription);
+        await this.#connectNormalized(normalizedSubscription);
     }
 
     close(): void {
         const abortController = this.#abortController;
-        const hadConnection = this.#reading || abortController !== null;
+        const hadConnection = this.#streaming || abortController !== null;
 
         this.#abortController = null;
-        this.#reading = false;
-        this.#activeSubscription = null;
+        this.#streaming = false;
+        this.#subscription = null
 
         if (
             abortController &&
@@ -179,7 +148,7 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
     }
 
     get connected(): boolean {
-        return this.#reading;
+        return this.#streaming;
     }
 
     async #connectNormalized(
@@ -191,25 +160,17 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
         const abortController = new AbortController();
         this.#abortController = abortController;
 
-        const url =
-            this.#apiKey && !this.#bearerAuth
-                ? appendQueryParameter(
-                      this.#endpoint,
-                      this.#apiKeyParam,
-                      this.#apiKey,
-                  )
-                : this.#endpoint;
-        const authorizationHeader =
-            this.#apiKey && this.#bearerAuth
-                ? `Bearer ${this.#apiKey}`
-                : undefined;
+        const url = this.#apiKey
+            ? appendQueryParameter(
+                  this.#endpoint,
+                  this.#apiKeyParam,
+                  this.#apiKey,
+              )
+            : this.#endpoint;
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
             Accept: "text/event-stream",
             "Cache-Control": "no-cache",
-            ...(authorizationHeader
-                ? { Authorization: authorizationHeader }
-                : {}),
             ...this.#headers,
         };
 
@@ -224,17 +185,7 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
             response = await this.#fetchFn(url, {
                 method: "POST",
                 headers,
-                body: JSON.stringify({
-                    types: normalized.types,
-                    addresses: normalized.addresses,
-                    trace_external_hash_norms:
-                        normalized.traceExternalHashNorms,
-                    min_finality: normalized.minFinality,
-                    include_address_book: normalized.includeAddressBook,
-                    include_metadata: normalized.includeMetadata,
-                    action_types: normalized.actionTypes,
-                    supported_action_types: normalized.supportedActionTypes,
-                }),
+                body: JSON.stringify(serializeSubscription(normalized)),
                 signal: abortController.signal,
             });
         } catch (error) {
@@ -281,7 +232,7 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
                 ) {
                     this.#pendingHandshake = null;
                 }
-                this.#activeSubscription = normalized;
+                this.#subscription = normalized;
                 resolve();
             };
             handshake.reject = (error: Error) => {
@@ -352,8 +303,8 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
 
             if (typeof payload.status === "string") {
                 if (payload.status === "subscribed") {
-                    if (!this.#reading) {
-                        this.#reading = true;
+                    if (!this.#streaming) {
+                        this.#streaming = true;
                         this.emit("open", undefined);
                     }
                     if (!handshake.settled) {
@@ -393,9 +344,9 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
         });
 
         const reader = body.getReader();
-        const decoder = new TextDecoder();
         let endedNormally = false;
 
+        const decoder = new TextDecoder();
         try {
             while (true) {
                 const { done, value } = await reader.read();
@@ -414,16 +365,15 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
             parser.finish();
             endedNormally = true;
         } catch (error) {
-            if (!isAbortError(error)) {
-                const normalizedError = ensureError(
-                    error,
-                    "Streaming SSE stream terminated unexpectedly",
+            if (!abortController.signal.aborted && !isAbortError(error)) {
+                this.#rejectOrEmitError(
+                    handshake,
+                    abortController,
+                    ensureError(
+                        error,
+                        "Streaming SSE stream terminated unexpectedly",
+                    ),
                 );
-                if (!handshake.settled) {
-                    handshake.reject(normalizedError);
-                } else {
-                    this.emit("error", normalizedError);
-                }
             }
         } finally {
             reader.releaseLock?.();
@@ -435,10 +385,10 @@ export class StreamingSse extends TypedEventEmitter<StreamingEventMap> {
                 return;
             }
 
-            const wasReading = this.#reading;
+            const wasReading = this.#streaming;
             this.#abortController = null;
-            this.#reading = false;
-            this.#activeSubscription = null;
+            this.#streaming = false;
+            this.#subscription = null;
 
             if (!handshake.settled) {
                 handshake.reject(

@@ -90,7 +90,9 @@ function expectOptionalObjectArray(
     value: unknown,
     fieldName: string,
 ): JsonObject[] | undefined {
-    return value === undefined ? undefined : expectObjectArray(value, fieldName);
+    return value === undefined
+        ? undefined
+        : expectObjectArray(value, fieldName);
 }
 
 function expectRecordOfObjects(
@@ -112,7 +114,9 @@ function expectOptionalRecordOfObjects(
     value: unknown,
     fieldName: string,
 ): Record<string, JsonObject> | undefined {
-    return value === undefined ? undefined : expectRecordOfObjects(value, fieldName);
+    return value === undefined
+        ? undefined
+        : expectRecordOfObjects(value, fieldName);
 }
 
 function parseTraceCollectionEventBase(

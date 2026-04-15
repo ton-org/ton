@@ -43,21 +43,6 @@ export type NormalizedStreamingUnsubscribe = {
     traceExternalHashNorms?: string[];
 };
 
-function normalizeOptionalBoolean(
-    value: boolean | undefined,
-    fieldName: string,
-): boolean | undefined {
-    if (value === undefined) {
-        return undefined;
-    }
-
-    if (typeof value !== "boolean") {
-        throw new Error(`${fieldName} must be a boolean`);
-    }
-
-    return value;
-}
-
 export function normalizeStreamingSubscription(
     params: StreamingSubscription,
 ): NormalizedStreamingSubscription {
@@ -78,14 +63,8 @@ export function normalizeStreamingSubscription(
     const supportedActionTypes = sanitizeStringList(
         params.supportedActionTypes,
     );
-    const includeAddressBook = normalizeOptionalBoolean(
-        params.includeAddressBook,
-        "params.includeAddressBook",
-    );
-    const includeMetadata = normalizeOptionalBoolean(
-        params.includeMetadata,
-        "params.includeMetadata",
-    );
+    const includeAddressBook = params.includeAddressBook;
+    const includeMetadata = params.includeMetadata;
 
     if (
         params.minFinality !== undefined &&
@@ -156,35 +135,6 @@ export function normalizeStreamingUnsubscribe(
     };
 }
 
-export function areNormalizedSubscriptionsEqual(
-    left: NormalizedStreamingSubscription | null,
-    right: NormalizedStreamingSubscription | null,
-): boolean {
-    if (left === right) {
-        return true;
-    }
-
-    if (!left || !right) {
-        return false;
-    }
-
-    return (
-        areStringListsEqual(left.addresses, right.addresses) &&
-        areStringListsEqual(
-            left.traceExternalHashNorms,
-            right.traceExternalHashNorms,
-        ) &&
-        areStringListsEqual(left.types, right.types) &&
-        left.minFinality === right.minFinality &&
-        left.includeAddressBook === right.includeAddressBook &&
-        left.includeMetadata === right.includeMetadata &&
-        areStringListsEqual(left.actionTypes, right.actionTypes) &&
-        areStringListsEqual(
-            left.supportedActionTypes,
-            right.supportedActionTypes,
-        )
-    );
-}
 
 function removeFromList(
     current: readonly string[] | undefined,
@@ -201,6 +151,38 @@ function removeFromList(
     const removalSet = new Set(toRemove);
     const next = current.filter((value) => !removalSet.has(value));
     return next.length > 0 ? next : undefined;
+}
+
+export function serializeSubscription(
+    normalized: NormalizedStreamingSubscription,
+): Record<string, unknown> {
+    return {
+        types: normalized.types,
+        addresses: normalized.addresses,
+        trace_external_hash_norms: normalized.traceExternalHashNorms,
+        min_finality: normalized.minFinality,
+        include_address_book: normalized.includeAddressBook,
+        include_metadata: normalized.includeMetadata,
+        action_types: normalized.actionTypes,
+        supported_action_types: normalized.supportedActionTypes,
+    };
+}
+
+export function diffRemovedTargets(
+    current: readonly string[] | undefined,
+    next: readonly string[] | undefined,
+): string[] | undefined {
+    if (!current || current.length === 0) {
+        return undefined;
+    }
+
+    if (!next || next.length === 0) {
+        return [...current];
+    }
+
+    const nextSet = new Set(next);
+    const removed = current.filter((value) => !nextSet.has(value));
+    return removed.length > 0 ? removed : undefined;
 }
 
 export function applyStreamingUnsubscribe(

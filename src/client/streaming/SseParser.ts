@@ -73,14 +73,20 @@ export class SseParser {
     }
 
     #findBoundary(): { index: number; length: number } | null {
-        const delimiters = ["\r\n\r\n", "\n\n", "\r\r"];
+        // Check \n\n first — the overwhelmingly common SSE delimiter.
+        const nnIndex = this.#buffer.indexOf("\n\n");
+        const crlfIndex = this.#buffer.indexOf("\r\n\r\n");
+        const crIndex = this.#buffer.indexOf("\r\r");
 
         let best: { index: number; length: number } | null = null;
-        for (const delimiter of delimiters) {
-            const index = this.#buffer.indexOf(delimiter);
-            if (index !== -1 && (best === null || index < best.index)) {
-                best = { index, length: delimiter.length };
-            }
+        if (nnIndex !== -1) {
+            best = { index: nnIndex, length: 2 };
+        }
+        if (crlfIndex !== -1 && (best === null || crlfIndex < best.index)) {
+            best = { index: crlfIndex, length: 4 };
+        }
+        if (crIndex !== -1 && (best === null || crIndex < best.index)) {
+            best = { index: crIndex, length: 2 };
         }
 
         return best;
