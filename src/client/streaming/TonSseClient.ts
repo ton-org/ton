@@ -6,45 +6,60 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { SseParser } from "./SseParser";
-import { parseStreamingEvent } from "./protocol";
-import { TypedEventEmitter } from "./TypedEventEmitter";
 import {
+    StreamingClosedError,
+    StreamingError,
+    StreamingHandshakeError,
+    createStreamingError,
+} from "./errors";
+import type { StreamingErrorContext } from "./errors";
+import { parseStreamingEvent } from "./protocol";
+import { SseParser } from "./SseParser";
+import {
+    type ResolvedStreamingSubscription,
+    resolveStreamingSubscription,
+    serializeSubscription,
+} from "./subscriptionState";
+import { TypedEventEmitter } from "./TypedEventEmitter";
+import type {
     FetchLike,
     ReadableStreamLike,
     StreamingEventMap,
+    StreamingLifecycleError,
     StreamingSseParameters,
     StreamingSubscription,
-    StreamingUnsubscribe,
 } from "./types";
 import {
+    type Deferred,
     appendQueryParameter,
+    deferred,
     describeHttpError,
     describeUnexpectedMessage,
-    ensureError,
     isAbortError,
     isRecord,
     resolveProviderEndpoint,
 } from "./utils";
-import {
-    NormalizedStreamingSubscription,
-    applyStreamingUnsubscribe,
-    normalizeStreamingSubscription,
-    normalizeStreamingUnsubscribe,
-    serializeSubscription,
-} from "./subscriptionState";
 
-type ConnectHandshake = {
-    settled: boolean;
-    resolve: () => void;
-    reject: (error: Error) => void;
+// ---------------------------------------------------------------------------
+// Session — single object replaces all fragmented per-connection state
+// ---------------------------------------------------------------------------
+
+type SseSession = {
+    abort: AbortController;
+    subscribed: Deferred<void>;
+    closed: Deferred<void>;
+    isReady: boolean;
 };
+
+// ---------------------------------------------------------------------------
+// Client
+// ---------------------------------------------------------------------------
 
 /**
  * SSE client for Streaming API v2-compatible endpoints.
  *
  * SSE subscriptions are immutable for the lifetime of the HTTP stream,
- * so `subscribe()` / `unsubscribe()` reconnect with the desired snapshot.
+ * so each `subscribe()` reconnects with the desired snapshot.
  */
 export class TonSseClient extends TypedEventEmitter<StreamingEventMap> {
     readonly #endpoint: string;
@@ -53,20 +68,14 @@ export class TonSseClient extends TypedEventEmitter<StreamingEventMap> {
     readonly #fetchFn: FetchLike;
     readonly #headers: Record<string, string>;
 
-    #abortController: AbortController | null = null;
-    #connectionId = 0;
-    #streaming = false;
-    #pendingHandshake: {
-        abortController: AbortController;
-        handshake: ConnectHandshake;
-    } | null = null;
-    #subscription: NormalizedStreamingSubscription | null = null;
+    #session: SseSession | null = null;
 
     constructor(parameters: StreamingSseParameters) {
         super();
         const resolved = resolveProviderEndpoint(
             "sse",
-            parameters.provider,
+            parameters.service,
+            parameters.network,
             parameters.endpoint,
             parameters.apiKeyParam,
         );
@@ -84,81 +93,60 @@ export class TonSseClient extends TypedEventEmitter<StreamingEventMap> {
         this.#headers = { ...(parameters.headers ?? {}) };
     }
 
-    async connect(params?: StreamingSubscription): Promise<void> {
-        const normalizedSubscription = params ? normalizeStreamingSubscription(params) : this.#subscription;
-        if (!normalizedSubscription) {
-            throw new Error(
-                "Streaming SSE connect requires subscription parameters on the first call",
-            );
-        }
-        await this.#connectNormalized(normalizedSubscription);
-    }
-
     async subscribe(params: StreamingSubscription): Promise<void> {
-        await this.connect(params);
+        const resolved = resolveStreamingSubscription(params);
+        await this.#startSession(resolved);
     }
 
-    async unsubscribe(params: StreamingUnsubscribe): Promise<void> {
-        const normalizedUnsubscribe = normalizeStreamingUnsubscribe(params);
-
-        if (!this.#subscription) {
-            throw new Error(
-                "Cannot unsubscribe from SSE before a subscription has been established",
-            );
+    close(): Promise<void> {
+        const session = this.#session;
+        if (!session) {
+            return Promise.resolve();
         }
 
-        const normalizedSubscription = applyStreamingUnsubscribe(
-            this.#subscription,
-            normalizedUnsubscribe,
+        const wasReady = session.isReady;
+        this.#session = null;
+        session.isReady = false;
+        session.abort.abort();
+
+        session.subscribed.reject(
+            new StreamingHandshakeError(
+                "Streaming SSE connection was closed before subscription confirmation",
+                this.#ctx("subscription_confirmation"),
+            ),
         );
 
-        if (!normalizedSubscription) {
-            this.close();
-            return;
-        }
-
-        await this.#connectNormalized(normalizedSubscription);
-    }
-
-    close(): void {
-        const abortController = this.#abortController;
-        const hadConnection = this.#streaming || abortController !== null;
-
-        this.#abortController = null;
-        this.#streaming = false;
-        this.#subscription = null
-
-        if (
-            abortController &&
-            this.#pendingHandshake?.abortController === abortController &&
-            !this.#pendingHandshake.handshake.settled
-        ) {
-            this.#pendingHandshake.handshake.reject(
-                new Error(
-                    "Streaming SSE connection was closed before subscription confirmation",
-                ),
-            );
-        }
-
-        abortController?.abort();
-
-        if (hadConnection) {
+        if (wasReady) {
             this.emit("close", undefined);
         }
+
+        return session.closed.promise;
     }
 
-    get connected(): boolean {
-        return this.#streaming;
+    get ready(): boolean {
+        return this.#session?.isReady === true;
     }
 
-    async #connectNormalized(
-        normalized: NormalizedStreamingSubscription,
+    // -----------------------------------------------------------------------
+    // Internal
+    // -----------------------------------------------------------------------
+
+    #ctx(phase: string, extra?: Partial<StreamingErrorContext>): StreamingErrorContext {
+        return { transport: "sse", endpoint: this.#endpoint, phase, ...extra };
+    }
+
+    async #startSession(
+        resolved: ResolvedStreamingSubscription,
     ): Promise<void> {
-        this.close();
+        await this.close();
 
-        const connectionId = ++this.#connectionId;
-        const abortController = new AbortController();
-        this.#abortController = abortController;
+        const session: SseSession = {
+            abort: new AbortController(),
+            subscribed: deferred<void>(),
+            closed: deferred<void>(),
+            isReady: false,
+        };
+        this.#session = session;
 
         const url = this.#apiKey
             ? appendQueryParameter(
@@ -174,91 +162,75 @@ export class TonSseClient extends TypedEventEmitter<StreamingEventMap> {
             ...this.#headers,
         };
 
-        const releaseAbort = () => {
-            if (this.#abortController === abortController) {
-                this.#abortController = null;
-            }
-        };
-
         let response;
         try {
             response = await this.#fetchFn(url, {
                 method: "POST",
                 headers,
-                body: JSON.stringify(serializeSubscription(normalized)),
-                signal: abortController.signal,
+                body: JSON.stringify(serializeSubscription(resolved)),
+                signal: session.abort.signal,
             });
         } catch (error) {
-            releaseAbort();
+            this.#teardown(session);
             if (isAbortError(error)) {
-                throw new Error(
+                throw new StreamingHandshakeError(
                     "Streaming SSE connection was closed before subscription confirmation",
+                    this.#ctx("subscription_confirmation"),
+                    { cause: error },
                 );
             }
-            throw ensureError(error, "Streaming SSE connection failed");
+            throw createStreamingError(
+                StreamingError,
+                error,
+                this.#ctx("connect"),
+                "Streaming SSE connection failed",
+            );
         }
 
         if (!response.ok) {
-            releaseAbort();
-            throw new Error(
+            this.#teardown(session);
+            throw new StreamingError(
                 `Streaming SSE connection failed: ${await describeHttpError(response)}`,
+                this.#ctx("connect", { rawPayload: response }),
             );
         }
 
         if (!response.body || typeof response.body.getReader !== "function") {
-            releaseAbort();
-            throw new Error("SSE response does not expose a readable body");
+            this.#teardown(session);
+            throw new StreamingError(
+                "SSE response does not expose a readable body",
+                this.#ctx("connect", { rawPayload: response }),
+            );
         }
         const body = response.body;
 
-        if (this.#abortController !== abortController) {
+        if (this.#session !== session) {
             body.cancel?.();
-            throw new Error(
-                "Streaming SSE connection was superseded by a newer connect call",
+            this.#teardown(session);
+            throw new StreamingClosedError(
+                "Streaming SSE connection was superseded by a newer subscribe call",
+                this.#ctx("connect"),
             );
         }
 
-        const handshake: ConnectHandshake = {
-            settled: false,
-            resolve: () => undefined,
-            reject: () => undefined,
-        };
+        void this.#readStream(body, session);
+        return session.subscribed.promise;
+    }
 
-        const waitForSubscribed = new Promise<void>((resolve, reject) => {
-            handshake.resolve = () => {
-                handshake.settled = true;
-                if (
-                    this.#pendingHandshake?.abortController === abortController
-                ) {
-                    this.#pendingHandshake = null;
-                }
-                this.#subscription = normalized;
-                resolve();
-            };
-            handshake.reject = (error: Error) => {
-                handshake.settled = true;
-                if (
-                    this.#pendingHandshake?.abortController === abortController
-                ) {
-                    this.#pendingHandshake = null;
-                }
-                reject(error);
-            };
-        });
-
-        this.#pendingHandshake = { abortController, handshake };
-        void this.#readStream(body, connectionId, abortController, handshake);
-        return waitForSubscribed;
+    #teardown(session: SseSession): void {
+        if (this.#session === session) {
+            this.#session = null;
+        }
+        session.closed.resolve();
     }
 
     #rejectOrEmitError(
-        handshake: ConnectHandshake,
-        abortController: AbortController,
-        error: Error,
+        session: SseSession,
+        error: StreamingLifecycleError,
     ): void {
-        if (!handshake.settled) {
-            handshake.reject(error);
-            abortController.abort();
+        if (!session.subscribed.settled) {
+            session.subscribed.reject(error);
+            session.abort.abort();
         } else {
             this.emit("error", error);
         }
@@ -266,9 +238,7 @@ export class TonSseClient extends TypedEventEmitter<StreamingEventMap> {
 
     async #readStream(
         body: ReadableStreamLike,
-        connectionId: number,
-        abortController: AbortController,
-        handshake: ConnectHandshake,
+        session: SseSession,
     ): Promise<void> {
         const parser = new SseParser((sseEvent) => {
             let payload: unknown;
@@ -276,53 +246,58 @@ export class TonSseClient extends TypedEventEmitter<StreamingEventMap> {
                 payload = JSON.parse(sseEvent.data) as unknown;
             } catch (error) {
                 this.#rejectOrEmitError(
-                    handshake,
-                    abortController,
-                    ensureError(error, "Failed to parse streaming SSE event"),
+                    session,
+                    createStreamingError(
+                        StreamingError,
+                        error,
+                        this.#ctx("message", { rawPayload: sseEvent.data }),
+                        "Failed to parse streaming SSE event",
+                    ),
                 );
                 return;
             }
 
             if (!isRecord(payload)) {
                 this.#rejectOrEmitError(
-                    handshake,
-                    abortController,
-                    new Error(
+                    session,
+                    new StreamingError(
                         `Unexpected streaming SSE payload: ${describeUnexpectedMessage(payload)}`,
+                        this.#ctx("message", { rawPayload: payload }),
                     ),
                 );
                 return;
             }
 
-            if (
-                this.#connectionId !== connectionId ||
-                this.#abortController !== abortController
-            ) {
+            if (this.#session !== session) {
                 return;
             }
 
             if (typeof payload.status === "string") {
                 if (payload.status === "subscribed") {
-                    if (!this.#streaming) {
-                        this.#streaming = true;
+                    if (!session.isReady) {
+                        session.isReady = true;
                         this.emit("open", undefined);
                     }
-                    if (!handshake.settled) {
-                        handshake.resolve();
-                    }
+                    session.subscribed.resolve();
                     return;
                 }
 
                 this.#rejectOrEmitError(
-                    handshake,
-                    abortController,
+                    session,
                     payload.error !== undefined
-                        ? ensureError(
+                        ? createStreamingError(
+                              StreamingError,
                               payload.error,
+                              this.#ctx("subscription_confirmation", {
+                                  rawPayload: payload,
+                              }),
                               `Streaming SSE request failed with status ${payload.status}`,
                           )
-                        : new Error(
+                        : new StreamingError(
                               `Unexpected streaming SSE status message: ${describeUnexpectedMessage(payload)}`,
+                              this.#ctx("subscription_confirmation", {
+                                  rawPayload: payload,
+                              }),
                           ),
                 );
                 return;
@@ -336,9 +311,13 @@ export class TonSseClient extends TypedEventEmitter<StreamingEventMap> {
                 );
             } catch (error) {
                 this.#rejectOrEmitError(
-                    handshake,
-                    abortController,
-                    ensureError(error, "Invalid streaming SSE notification"),
+                    session,
+                    createStreamingError(
+                        StreamingError,
+                        error,
+                        this.#ctx("notification", { rawPayload: payload }),
+                        "Invalid streaming SSE notification",
+                    ),
                 );
             }
         });
@@ -365,12 +344,13 @@ export class TonSseClient extends TypedEventEmitter<StreamingEventMap> {
             parser.finish();
             endedNormally = true;
         } catch (error) {
-            if (!abortController.signal.aborted && !isAbortError(error)) {
+            if (!session.abort.signal.aborted && !isAbortError(error)) {
                 this.#rejectOrEmitError(
-                    handshake,
-                    abortController,
-                    ensureError(
+                    session,
+                    createStreamingError(
+                        StreamingError,
                         error,
+                        this.#ctx("stream"),
                         "Streaming SSE stream terminated unexpectedly",
                     ),
                 );
@@ -378,40 +358,37 @@ export class TonSseClient extends TypedEventEmitter<StreamingEventMap> {
         } finally {
             reader.releaseLock?.();
 
-            if (
-                this.#connectionId !== connectionId ||
-                this.#abortController !== abortController
-            ) {
+            if (this.#session !== session) {
+                this.#teardown(session);
                 return;
             }
 
-            const wasReading = this.#streaming;
-            this.#abortController = null;
-            this.#streaming = false;
-            this.#subscription = null;
+            const wasReady = session.isReady;
+            this.#session = null;
+            session.isReady = false;
 
-            if (!handshake.settled) {
-                handshake.reject(
-                    new Error(
-                        "Streaming SSE connection closed before subscription confirmation",
+            session.subscribed.reject(
+                new StreamingHandshakeError(
+                    "Streaming SSE connection closed before subscription confirmation",
+                    this.#ctx("subscription_confirmation"),
+                ),
+            );
+
+            if (endedNormally && wasReady) {
+                this.emit(
+                    "error",
+                    new StreamingClosedError(
+                        "Streaming SSE stream closed by server",
+                        this.#ctx("stream"),
                     ),
                 );
             }
 
-            if (this.#pendingHandshake?.abortController === abortController) {
-                this.#pendingHandshake = null;
-            }
-
-            if (endedNormally && handshake.settled && wasReading) {
-                this.emit(
-                    "error",
-                    new Error("Streaming SSE stream closed by server"),
-                );
-            }
-
-            if (wasReading) {
+            if (wasReady) {
                 this.emit("close", undefined);
             }
+
+            this.#teardown(session);
         }
     }
 }

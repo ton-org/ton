@@ -6,9 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { ensureError } from "./utils";
-
-export class TypedEventEmitter<TEvents extends { error: Error }> {
+export class TypedEventEmitter<TEvents extends Record<string, unknown>> {
     #listeners = new Map<
         keyof TEvents,
         Set<(data: TEvents[keyof TEvents]) => void>
@@ -45,15 +43,7 @@ export class TypedEventEmitter<TEvents extends { error: Error }> {
         }
 
         for (const handler of handlers) {
-            try {
-                handler(data as TEvents[keyof TEvents]);
-            } catch (error) {
-                if (event === "error") {
-                    continue;
-                }
-
-                this.emit("error" as K, ensureError(error) as TEvents[K]);
-            }
+            handler(data as TEvents[keyof TEvents]);
         }
     }
 

@@ -6,38 +6,56 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-export { TonWsClient } from "./TonWsClient";
+export {
+    StreamingClosedError,
+    StreamingError,
+    StreamingHandshakeError,
+    StreamingProtocolError,
+    StreamingRequestTimeoutError,
+    StreamingTransportError,
+} from "./errors";
 export { TonSseClient } from "./TonSseClient";
-export { SseParser } from "./SseParser";
-export type { SseEvent } from "./SseParser";
+export { TonWsClient } from "./TonWsClient";
 
 export type {
-    FetchLike,
-    FetchResponseLike,
+    StreamingErrorContext,
+    StreamingTransport,
+} from "./errors";
+export type {
+    ResolvedStreamingSubscription,
+} from "./subscriptionState";
+export type {
     Finality,
-    HeadersLike,
-    IWebSocket,
-    IWebSocketConstructor,
-    JsonObject,
-    JsonValue,
-    ReadableStreamLike,
-    ReaderLike,
-    ReadResultLike,
+    NonPendingFinality,
+    SubscribableEventType,
+    StreamingService,
+    StreamingNetwork,
+    StreamingAction,
+    StreamingActionDetails,
     StreamingAccountStateEvent,
+    StreamingAddressBookEntry,
     StreamingActionsEvent,
     StreamingBaseParameters,
+    StreamingBlockRef,
     StreamingClient,
+    StreamingDecodedMessage,
     StreamingEvent,
     StreamingEventMap,
-    StreamingEventType,
     StreamingJettonsEvent,
+    StreamingLifecycleError,
     StreamingLifecycleEvents,
-    StreamingProvider,
+    StreamingMessage,
+    StreamingMessageContent,
+    StreamingMetadataEntry,
     StreamingSseParameters,
     StreamingSubscription,
+    StreamingTrace,
     StreamingTraceEvent,
     StreamingTraceInvalidatedEvent,
+    StreamingTraceNode,
+    StreamingTransaction,
+    StreamingTransactionAccountState,
+    StreamingTransactionDescription,
     StreamingTransactionsEvent,
-    StreamingUnsubscribe,
     StreamingWebSocketParameters,
 } from "./types";

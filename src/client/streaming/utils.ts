@@ -6,20 +6,90 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { Finality, FetchResponseLike, StreamingProvider } from "./types";
+import type { FetchResponseLike } from "./types";
+
+// ---------------------------------------------------------------------------
+// Deferred
+// ---------------------------------------------------------------------------
+
+export type Deferred<T> = {
+    promise: Promise<T>;
+    resolve(value: T): void;
+    reject(error: unknown): void;
+    settled: boolean;
+};
+
+export function deferred<T = void>(): Deferred<T> {
+    let resolve!: (value: T) => void;
+    let reject!: (error: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+    });
+    const d: Deferred<T> = {
+        promise,
+        settled: false,
+        resolve(value: T) {
+            if (!d.settled) {
+                d.settled = true;
+                resolve(value);
+            }
+        },
+        reject(error: unknown) {
+            if (!d.settled) {
+                d.settled = true;
+                reject(error);
+            }
+        },
+    };
+    return d;
+}
+
+// ---------------------------------------------------------------------------
+// Canonical const arrays — single source of truth for union values
+// ---------------------------------------------------------------------------
+
+export const FINALITIES = ["pending", "confirmed", "finalized"] as const;
+export type Finality = (typeof FINALITIES)[number];
+export const FINALITY_SET: ReadonlySet<string> = new Set(FINALITIES);
+
+export const NON_PENDING_FINALITIES = ["confirmed", "finalized"] as const;
+export type NonPendingFinality = (typeof NON_PENDING_FINALITIES)[number];
+export const NON_PENDING_FINALITY_SET: ReadonlySet<string> = new Set(
+    NON_PENDING_FINALITIES,
+);
+
+export const SUBSCRIBABLE_EVENT_TYPES = [
+    "transactions",
+    "actions",
+    "trace",
+    "account_state_change",
+    "jettons_change",
+] as const;
+export type SubscribableEventType = (typeof SUBSCRIBABLE_EVENT_TYPES)[number];
+export const SUBSCRIBABLE_EVENT_TYPE_SET: ReadonlySet<string> = new Set(
+    SUBSCRIBABLE_EVENT_TYPES,
+);
+
+export const NOTIFICATION_TYPES = [
+    ...SUBSCRIBABLE_EVENT_TYPES,
+    "trace_invalidated",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+// ---------------------------------------------------------------------------
+// Streaming service / network (provider resolution)
+// ---------------------------------------------------------------------------
+
+export type StreamingService = "tonapi" | "toncenter";
+export type StreamingNetwork = "mainnet" | "testnet";
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 5_000;
 export const DEFAULT_PING_INTERVAL_MS = 15_000;
 
-export const FINALITY_LEVELS = new Set<Finality>([
-    "pending",
-    "confirmed",
-    "finalized",
-]);
-export const NON_PENDING_FINALITY_LEVELS = new Set<"confirmed" | "finalized">([
-    "confirmed",
-    "finalized",
-]);
+// ---------------------------------------------------------------------------
+// General helpers
+// ---------------------------------------------------------------------------
 
 export function ensureError(reason: unknown, fallback?: string): Error {
     if (reason instanceof Error) {
@@ -151,63 +221,6 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-type ProviderDefaults = { endpoint: string; apiKeyParam: string };
-
-function createProviderDefaults(
-    service: "tonapi.io" | "toncenter.com",
-    apiKeyParam: string,
-    network: "mainnet" | "testnet",
-): { sse: ProviderDefaults; ws: ProviderDefaults } {
-    const host = network === "testnet" ? `testnet.${service}` : service;
-    const apiPrefix = service === "toncenter.com" ? "/api" : "";
-
-    return {
-        sse: {
-            endpoint: `https://${host}${apiPrefix}/streaming/v2/sse`,
-            apiKeyParam,
-        },
-        ws: {
-            endpoint: `wss://${host}${apiPrefix}/streaming/v2/ws`,
-            apiKeyParam,
-        },
-    };
-}
-
-const PROVIDER_DEFAULTS: Record<
-    StreamingProvider,
-    { sse: ProviderDefaults; ws: ProviderDefaults }
-> = {
-    tonapiMainnet: createProviderDefaults("tonapi.io", "token", "mainnet"),
-    toncenterMainnet: createProviderDefaults(
-        "toncenter.com",
-        "api_key",
-        "mainnet",
-    ),
-    tonapiTestnet: createProviderDefaults("tonapi.io", "token", "testnet"),
-    toncenterTestnet: createProviderDefaults(
-        "toncenter.com",
-        "api_key",
-        "testnet",
-    ),
-};
-
-export function resolveProviderEndpoint(
-    transport: "sse" | "ws",
-    provider: StreamingProvider | undefined,
-    endpoint: string | undefined,
-    apiKeyParam: string | undefined,
-): { endpoint: string; apiKeyParam: string } {
-    if (provider) {
-        return PROVIDER_DEFAULTS[provider][transport];
-    }
-    if (!endpoint) {
-        throw new Error(
-            "Streaming endpoint is required when provider is not specified",
-        );
-    }
-    return { endpoint, apiKeyParam: apiKeyParam ?? "api_key" };
-}
-
 export function areStringListsEqual(
     left?: readonly string[],
     right?: readonly string[],
@@ -231,4 +244,70 @@ export function areStringListsEqual(
     }
 
     return true;
+}
+
+// ---------------------------------------------------------------------------
+// Provider endpoint resolution
+// ---------------------------------------------------------------------------
+
+type ProviderDefaults = { endpoint: string; apiKeyParam: string };
+
+function createProviderDefaults(
+    service: "tonapi.io" | "toncenter.com",
+    apiKeyParam: string,
+    network: "mainnet" | "testnet",
+): { sse: ProviderDefaults; ws: ProviderDefaults } {
+    const host = network === "testnet" ? `testnet.${service}` : service;
+    const apiPrefix = service === "toncenter.com" ? "/api" : "";
+
+    return {
+        sse: {
+            endpoint: `https://${host}${apiPrefix}/streaming/v2/sse`,
+            apiKeyParam,
+        },
+        ws: {
+            endpoint: `wss://${host}${apiPrefix}/streaming/v2/ws`,
+            apiKeyParam,
+        },
+    };
+}
+
+const PROVIDER_DEFAULTS: Record<
+    StreamingService,
+    Record<StreamingNetwork, { sse: ProviderDefaults; ws: ProviderDefaults }>
+> = {
+    tonapi: {
+        mainnet: createProviderDefaults("tonapi.io", "token", "mainnet"),
+        testnet: createProviderDefaults("tonapi.io", "token", "testnet"),
+    },
+    toncenter: {
+        mainnet: createProviderDefaults("toncenter.com", "api_key", "mainnet"),
+        testnet: createProviderDefaults("toncenter.com", "api_key", "testnet"),
+    },
+};
+
+export function resolveProviderEndpoint(
+    transport: "sse" | "ws",
+    service: StreamingService | undefined,
+    network: StreamingNetwork | undefined,
+    endpoint: string | undefined,
+    apiKeyParam: string | undefined,
+): { endpoint: string; apiKeyParam: string } {
+    if (service && endpoint) {
+        throw new Error(
+            "Cannot specify both 'service' and 'endpoint'. Use one or the other.",
+        );
+    }
+
+    if (service) {
+        return PROVIDER_DEFAULTS[service][network ?? "mainnet"][transport];
+    }
+
+    if (!endpoint) {
+        throw new Error(
+            "Streaming endpoint is required when service is not specified",
+        );
+    }
+
+    return { endpoint, apiKeyParam: apiKeyParam ?? "api_key" };
 }

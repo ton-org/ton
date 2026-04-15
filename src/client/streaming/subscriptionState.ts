@@ -6,96 +6,89 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import type { StreamingSubscription } from "./types";
+import type { Finality, SubscribableEventType } from "./utils";
 import {
-    Finality,
-    StreamingEventType,
-    StreamingSubscription,
-    StreamingUnsubscribe,
-} from "./types";
-import {
-    FINALITY_LEVELS,
-    areStringListsEqual,
+    FINALITY_SET,
+    SUBSCRIBABLE_EVENT_TYPE_SET,
     requireStringList,
     sanitizeStringList,
 } from "./utils";
 
-const STREAMING_EVENT_TYPES = new Set<StreamingEventType>([
-    "transactions",
-    "actions",
-    "trace",
-    "account_state_change",
-    "jettons_change",
-]);
-
-export type NormalizedStreamingSubscription = {
-    addresses?: string[];
-    traceExternalHashNorms?: string[];
-    types: StreamingEventType[];
-    minFinality?: Finality;
-    includeAddressBook?: boolean;
-    includeMetadata?: boolean;
-    actionTypes?: string[];
-    supportedActionTypes?: string[];
+/**
+ * A fully resolved subscription with all defaults materialized and arrays
+ * sorted. Two resolved subscriptions can be compared with
+ * `sameSubscription()` for cheap equality.
+ */
+export type ResolvedStreamingSubscription = {
+    addresses: string[];
+    traceExternalHashNorms: string[];
+    types: SubscribableEventType[];
+    minFinality: Finality;
+    includeAddressBook: boolean;
+    includeMetadata: boolean;
+    actionTypes: string[];
+    supportedActionTypes: string[];
 };
 
-export type NormalizedStreamingUnsubscribe = {
-    addresses?: string[];
-    traceExternalHashNorms?: string[];
-};
-
-export function normalizeStreamingSubscription(
+export function resolveStreamingSubscription(
     params: StreamingSubscription,
-): NormalizedStreamingSubscription {
+): ResolvedStreamingSubscription {
     const types = requireStringList(params.types, "params.types").map(
         (type) => {
-            if (!STREAMING_EVENT_TYPES.has(type as StreamingEventType)) {
+            if (!SUBSCRIBABLE_EVENT_TYPE_SET.has(type)) {
                 throw new Error(`Unsupported streaming event type: ${type}`);
             }
-            return type as StreamingEventType;
+            return type as SubscribableEventType;
         },
     );
+    types.sort();
 
-    const addresses = sanitizeStringList(params.addresses);
-    const traceExternalHashNorms = sanitizeStringList(
-        params.traceExternalHashNorms,
-    );
-    const actionTypes = sanitizeStringList(params.actionTypes);
-    const supportedActionTypes = sanitizeStringList(
-        params.supportedActionTypes,
-    );
-    const includeAddressBook = params.includeAddressBook;
-    const includeMetadata = params.includeMetadata;
+    const addresses = sanitizeStringList(params.addresses) ?? [];
+    addresses.sort();
 
-    if (
-        params.minFinality !== undefined &&
-        !FINALITY_LEVELS.has(params.minFinality)
-    ) {
-        throw new Error(`Unsupported finality level: ${params.minFinality}`);
+    const traceExternalHashNorms =
+        sanitizeStringList(params.traceExternalHashNorms) ?? [];
+    traceExternalHashNorms.sort();
+
+    const actionTypes = sanitizeStringList(params.actionTypes) ?? [];
+    actionTypes.sort();
+
+    const supportedActionTypes =
+        sanitizeStringList(params.supportedActionTypes) ?? [];
+    supportedActionTypes.sort();
+
+    const minFinality: Finality = params.minFinality ?? "finalized";
+    if (!FINALITY_SET.has(minFinality)) {
+        throw new Error(`Unsupported finality level: ${minFinality}`);
     }
+
+    const includeAddressBook = params.includeAddressBook ?? false;
+    const includeMetadata = params.includeMetadata ?? false;
 
     const hasTraceSubscription = types.includes("trace");
     const hasAddressBoundSubscription = types.some((type) => type !== "trace");
 
-    if (hasTraceSubscription && !traceExternalHashNorms) {
+    if (hasTraceSubscription && traceExternalHashNorms.length === 0) {
         throw new Error(
             'traceExternalHashNorms are required when subscribing to "trace" events',
         );
     }
 
-    if (hasAddressBoundSubscription && !addresses) {
+    if (hasAddressBoundSubscription && addresses.length === 0) {
         throw new Error(
             "addresses are required when subscribing to non-trace streaming events",
         );
     }
 
-    if (actionTypes && !types.includes("actions")) {
+    if (actionTypes.length > 0 && !types.includes("actions")) {
         throw new Error(
             'actionTypes can only be used with the "actions" event type',
         );
     }
 
     if (
-        supportedActionTypes &&
+        supportedActionTypes.length > 0 &&
         !types.some((type) => type === "actions" || type === "trace")
     ) {
         throw new Error(
@@ -107,7 +100,7 @@ export function normalizeStreamingSubscription(
         addresses,
         traceExternalHashNorms,
         types,
-        minFinality: params.minFinality,
+        minFinality,
         includeAddressBook,
         includeMetadata,
         actionTypes,
@@ -115,115 +108,62 @@ export function normalizeStreamingSubscription(
     };
 }
 
-export function normalizeStreamingUnsubscribe(
-    params: StreamingUnsubscribe,
-): NormalizedStreamingUnsubscribe {
-    const addresses = sanitizeStringList(params.addresses);
-    const traceExternalHashNorms = sanitizeStringList(
-        params.traceExternalHashNorms,
+export function sameSubscription(
+    a: ResolvedStreamingSubscription,
+    b: ResolvedStreamingSubscription,
+): boolean {
+    return (
+        a.minFinality === b.minFinality &&
+        a.includeAddressBook === b.includeAddressBook &&
+        a.includeMetadata === b.includeMetadata &&
+        arraysEqual(a.types, b.types) &&
+        arraysEqual(a.addresses, b.addresses) &&
+        arraysEqual(a.traceExternalHashNorms, b.traceExternalHashNorms) &&
+        arraysEqual(a.actionTypes, b.actionTypes) &&
+        arraysEqual(a.supportedActionTypes, b.supportedActionTypes)
     );
-
-    if (!addresses && !traceExternalHashNorms) {
-        throw new Error(
-            "unsubscribe requires at least one address or traceExternalHashNorm",
-        );
-    }
-
-    return {
-        addresses,
-        traceExternalHashNorms,
-    };
 }
 
-
-function removeFromList(
-    current: readonly string[] | undefined,
-    toRemove: readonly string[] | undefined,
-): string[] | undefined {
-    if (!current) {
-        return undefined;
+function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
+    if (a.length !== b.length) {
+        return false;
     }
-
-    if (!toRemove || toRemove.length === 0) {
-        return [...current];
+    for (let i = 0; i < a.length; i += 1) {
+        if (a[i] !== b[i]) {
+            return false;
+        }
     }
-
-    const removalSet = new Set(toRemove);
-    const next = current.filter((value) => !removalSet.has(value));
-    return next.length > 0 ? next : undefined;
+    return true;
 }
 
 export function serializeSubscription(
-    normalized: NormalizedStreamingSubscription,
+    resolved: ResolvedStreamingSubscription,
 ): Record<string, unknown> {
-    return {
-        types: normalized.types,
-        addresses: normalized.addresses,
-        trace_external_hash_norms: normalized.traceExternalHashNorms,
-        min_finality: normalized.minFinality,
-        include_address_book: normalized.includeAddressBook,
-        include_metadata: normalized.includeMetadata,
-        action_types: normalized.actionTypes,
-        supported_action_types: normalized.supportedActionTypes,
+    const result: Record<string, unknown> = {
+        types: resolved.types,
     };
-}
 
-export function diffRemovedTargets(
-    current: readonly string[] | undefined,
-    next: readonly string[] | undefined,
-): string[] | undefined {
-    if (!current || current.length === 0) {
-        return undefined;
+    if (resolved.addresses.length > 0) {
+        result.addresses = resolved.addresses;
+    }
+    if (resolved.traceExternalHashNorms.length > 0) {
+        result.trace_external_hash_norms = resolved.traceExternalHashNorms;
+    }
+    if (resolved.minFinality !== "finalized") {
+        result.min_finality = resolved.minFinality;
+    }
+    if (resolved.includeAddressBook) {
+        result.include_address_book = true;
+    }
+    if (resolved.includeMetadata) {
+        result.include_metadata = true;
+    }
+    if (resolved.actionTypes.length > 0) {
+        result.action_types = resolved.actionTypes;
+    }
+    if (resolved.supportedActionTypes.length > 0) {
+        result.supported_action_types = resolved.supportedActionTypes;
     }
 
-    if (!next || next.length === 0) {
-        return [...current];
-    }
-
-    const nextSet = new Set(next);
-    const removed = current.filter((value) => !nextSet.has(value));
-    return removed.length > 0 ? removed : undefined;
-}
-
-export function applyStreamingUnsubscribe(
-    current: NormalizedStreamingSubscription,
-    params: NormalizedStreamingUnsubscribe,
-): NormalizedStreamingSubscription | null {
-    const addresses = removeFromList(current.addresses, params.addresses);
-    const traceExternalHashNorms = removeFromList(
-        current.traceExternalHashNorms,
-        params.traceExternalHashNorms,
-    );
-
-    const types = current.types.filter((type) => {
-        if (type === "trace") {
-            return Boolean(traceExternalHashNorms);
-        }
-
-        return Boolean(addresses);
-    });
-
-    if (types.length === 0) {
-        return null;
-    }
-
-    const actionTypes = types.includes("actions")
-        ? current.actionTypes
-        : undefined;
-    const supportedActionTypes = types.some(
-        (type) => type === "actions" || type === "trace",
-    )
-        ? current.supportedActionTypes
-        : undefined;
-
-    return {
-        addresses,
-        traceExternalHashNorms,
-        types,
-        minFinality: current.minFinality,
-        includeAddressBook: current.includeAddressBook,
-        includeMetadata: current.includeMetadata,
-        actionTypes,
-        supportedActionTypes,
-    };
+    return result;
 }

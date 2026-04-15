@@ -185,10 +185,7 @@ describeLive("streaming wallet testnet e2e", () => {
             apiKey: env.TONCENTER_API_KEY,
         });
 
-        const provider =
-            env.STREAMING_PROVIDER === "tonapi"
-                ? "tonapiTestnet"
-                : "toncenterTestnet";
+        const streamingService = env.STREAMING_PROVIDER;
         const streamingApiKey =
             env.STREAMING_PROVIDER === "tonapi"
                 ? env.TONAPI_API_KEY
@@ -196,12 +193,12 @@ describeLive("streaming wallet testnet e2e", () => {
 
         const addressStream = createStreamingClient(
             env.CONNECTION_TYPE,
-            provider,
+            streamingService,
             streamingApiKey,
         );
         const traceStream = createStreamingClient(
             env.CONNECTION_TYPE,
-            provider,
+            streamingService,
             streamingApiKey,
         );
 
@@ -238,9 +235,9 @@ describeLive("streaming wallet testnet e2e", () => {
                 await wallet.contract.getBalance(walletProvider);
             expect(balanceBefore).toBeGreaterThan(TON_TRANSFER_VALUE);
 
-            await addressStream.connect(addressSubscription(wallet.contract.address));
+            await addressStream.subscribe(addressSubscription(wallet.contract.address));
 
-            expect(addressStream.connected).toBe(true);
+            expect(addressStream.ready).toBe(true);
 
             const tonObservation = await sendAndObserve({
                 addressEvents,
@@ -494,7 +491,7 @@ async function sendAndObserve(args: {
         messages: args.buildMessages(),
     });
 
-    await args.traceStreaming.connect(
+    await args.traceStreaming.subscribe(
         traceSubscription(getExternalMessageHashNorm(externalMessage)),
     );
 
@@ -954,18 +951,20 @@ function normalizeConnectionType(value: string): "sse" | "websocket" {
 
 function createStreamingClient(
     connectionType: "sse" | "websocket",
-    provider: "tonapiTestnet" | "toncenterTestnet",
+    service: "toncenter" | "tonapi",
     apiKey: string,
 ): StreamingClient {
     if (connectionType === "websocket") {
         return new TonWsClient({
-            provider,
+            service,
+            network: "testnet",
             apiKey,
         });
     }
 
     return new TonSseClient({
-        provider,
+        service,
+        network: "testnet",
         apiKey,
     });
 }

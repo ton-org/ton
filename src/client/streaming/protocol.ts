@@ -6,22 +6,28 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import {
-    Finality,
+import type {
     JsonObject,
+    JsonValue,
     StreamingAccountStateEvent,
+    StreamingAction,
     StreamingActionsEvent,
+    StreamingAddressBookEntry,
     StreamingEvent,
     StreamingJettonsEvent,
+    StreamingMetadataEntry,
+    StreamingTrace,
     StreamingTraceEvent,
     StreamingTraceInvalidatedEvent,
+    StreamingTransaction,
     StreamingTransactionsEvent,
 } from "./types";
-import {
-    FINALITY_LEVELS,
-    NON_PENDING_FINALITY_LEVELS,
-    isRecord,
-} from "./utils";
+import type { Finality, NonPendingFinality } from "./utils";
+import { FINALITY_SET, NON_PENDING_FINALITY_SET, isRecord } from "./utils";
+
+// ---------------------------------------------------------------------------
+// Minimal validation helpers — envelope-level only
+// ---------------------------------------------------------------------------
 
 function expectRecord(
     value: unknown,
@@ -30,7 +36,6 @@ function expectRecord(
     if (!isRecord(value)) {
         throw new Error(`${fieldName} must be an object`);
     }
-
     return value;
 }
 
@@ -38,118 +43,155 @@ function expectString(value: unknown, fieldName: string): string {
     if (typeof value !== "string") {
         throw new Error(`${fieldName} must be a string`);
     }
-
     return value;
-}
-
-function expectOptionalString(
-    value: unknown,
-    fieldName: string,
-): string | undefined {
-    return value === undefined ? undefined : expectString(value, fieldName);
 }
 
 function expectFinality(value: unknown, fieldName: string): Finality {
     const finality = expectString(value, fieldName);
-    if (!FINALITY_LEVELS.has(finality as Finality)) {
+    if (!FINALITY_SET.has(finality)) {
         throw new Error(`${fieldName} has unsupported value: ${finality}`);
     }
-
     return finality as Finality;
 }
 
 function expectNonPendingFinality(
     value: unknown,
     fieldName: string,
-): "confirmed" | "finalized" {
+): NonPendingFinality {
     const finality = expectString(value, fieldName);
-    if (
-        !NON_PENDING_FINALITY_LEVELS.has(finality as "confirmed" | "finalized")
-    ) {
+    if (!NON_PENDING_FINALITY_SET.has(finality)) {
         throw new Error(`${fieldName} has unsupported value: ${finality}`);
     }
-
-    return finality as "confirmed" | "finalized";
+    return finality as NonPendingFinality;
 }
 
-function expectObjectArray(value: unknown, fieldName: string): JsonObject[] {
+function expectArray(value: unknown, fieldName: string): unknown[] {
     if (!Array.isArray(value)) {
         throw new Error(`${fieldName} must be an array`);
     }
+    return value;
+}
 
-    for (let i = 0; i < value.length; i += 1) {
-        if (!isRecord(value[i])) {
-            throw new Error(`${fieldName}[${i}] must be an object`);
-        }
+function isJsonValue(value: unknown): value is JsonValue {
+    if (
+        value === null ||
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+    ) {
+        return true;
     }
 
-    return value as JsonObject[];
+    if (Array.isArray(value)) {
+        return value.every((entry) => isJsonValue(entry));
+    }
+
+    if (isRecord(value)) {
+        return Object.values(value).every((entry) => isJsonValue(entry));
+    }
+
+    return false;
 }
 
-function expectOptionalObjectArray(
-    value: unknown,
-    fieldName: string,
-): JsonObject[] | undefined {
-    return value === undefined
-        ? undefined
-        : expectObjectArray(value, fieldName);
-}
-
-function expectRecordOfObjects(
-    value: unknown,
-    fieldName: string,
-): Record<string, JsonObject> {
+function expectJsonObject(value: unknown, fieldName: string): JsonObject {
     const record = expectRecord(value, fieldName);
 
     for (const [key, entry] of Object.entries(record)) {
-        if (!isRecord(entry)) {
-            throw new Error(`${fieldName}.${key} must be an object`);
+        if (!isJsonValue(entry)) {
+            throw new Error(`${fieldName}.${key} must be valid JSON`);
         }
     }
 
-    return record as Record<string, JsonObject>;
+    return record as JsonObject;
 }
 
-function expectOptionalRecordOfObjects(
+/**
+ * Cast an array of records as-is. Each element is validated only as a
+ * JsonObject — no deep field-level parsing.
+ */
+function castJsonObjectArray<T extends JsonObject>(
     value: unknown,
     fieldName: string,
-): Record<string, JsonObject> | undefined {
-    return value === undefined
-        ? undefined
-        : expectRecordOfObjects(value, fieldName);
+): T[] {
+    const arr = expectArray(value, fieldName);
+    return arr.map((entry, i) =>
+        expectJsonObject(entry, `${fieldName}[${i}]`),
+    ) as T[];
 }
 
-function parseTraceCollectionEventBase(
-    payload: Record<string, unknown>,
-    eventType: "transactions" | "actions",
-) {
-    return {
-        finality: expectFinality(payload.finality, `${eventType}.finality`),
-        trace_external_hash_norm: expectString(
-            payload.trace_external_hash_norm,
-            `${eventType}.trace_external_hash_norm`,
-        ),
-        address_book: expectOptionalRecordOfObjects(
-            payload.address_book,
-            `${eventType}.address_book`,
-        ),
-        metadata: expectOptionalRecordOfObjects(
-            payload.metadata,
-            `${eventType}.metadata`,
-        ),
-    };
+/**
+ * Cast a record-of-records as-is. Values are validated only as JsonObjects.
+ */
+function castJsonObjectRecord<T extends JsonObject>(
+    value: unknown,
+    fieldName: string,
+): Record<string, T> {
+    const record = expectRecord(value, fieldName);
+    const result: Record<string, T> = {};
+
+    for (const [key, entry] of Object.entries(record)) {
+        result[key] = expectJsonObject(entry, `${fieldName}.${key}`) as T;
+    }
+
+    return result;
 }
+
+function castOptionalJsonObjectRecord<T extends JsonObject>(
+    value: unknown,
+    fieldName: string,
+): Record<string, T> | undefined {
+    return value === undefined
+        ? undefined
+        : castJsonObjectRecord<T>(value, fieldName);
+}
+
+// ---------------------------------------------------------------------------
+// Envelope-level address book / metadata
+// ---------------------------------------------------------------------------
+
+function parseAddressBook(
+    value: unknown,
+    fieldName: string,
+): Record<string, StreamingAddressBookEntry> | undefined {
+    return castOptionalJsonObjectRecord<StreamingAddressBookEntry>(
+        value,
+        fieldName,
+    );
+}
+
+function parseMetadata(
+    value: unknown,
+    fieldName: string,
+): Record<string, StreamingMetadataEntry> | undefined {
+    return castOptionalJsonObjectRecord<StreamingMetadataEntry>(
+        value,
+        fieldName,
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Event parsers — envelope validation only, deep content passed through
+// ---------------------------------------------------------------------------
 
 function parseTransactionsEvent(
     payload: Record<string, unknown>,
 ): StreamingTransactionsEvent {
     return {
-        ...parseTraceCollectionEventBase(payload, "transactions"),
         type: "transactions",
-        transactions: expectObjectArray(
+        finality: expectFinality(payload.finality, "transactions.finality"),
+        trace_external_hash_norm: expectString(
+            payload.trace_external_hash_norm,
+            "transactions.trace_external_hash_norm",
+        ),
+        transactions: castJsonObjectArray<StreamingTransaction>(
             payload.transactions,
             "transactions.transactions",
         ),
+        address_book: parseAddressBook(
+            payload.address_book,
+            "transactions.address_book",
+        ),
+        metadata: parseMetadata(payload.metadata, "transactions.metadata"),
     };
 }
 
@@ -157,9 +199,21 @@ function parseActionsEvent(
     payload: Record<string, unknown>,
 ): StreamingActionsEvent {
     return {
-        ...parseTraceCollectionEventBase(payload, "actions"),
         type: "actions",
-        actions: expectObjectArray(payload.actions, "actions.actions"),
+        finality: expectFinality(payload.finality, "actions.finality"),
+        trace_external_hash_norm: expectString(
+            payload.trace_external_hash_norm,
+            "actions.trace_external_hash_norm",
+        ),
+        actions: castJsonObjectArray<StreamingAction>(
+            payload.actions,
+            "actions.actions",
+        ),
+        address_book: parseAddressBook(
+            payload.address_book,
+            "actions.address_book",
+        ),
+        metadata: parseMetadata(payload.metadata, "actions.metadata"),
     };
 }
 
@@ -173,20 +227,23 @@ function parseTraceEvent(
             payload.trace_external_hash_norm,
             "trace.trace_external_hash_norm",
         ),
-        trace: expectRecord(payload.trace, "trace.trace") as JsonObject,
-        transactions: expectRecordOfObjects(
+        trace: expectJsonObject(payload.trace, "trace.trace") as StreamingTrace,
+        transactions: castJsonObjectRecord<StreamingTransaction>(
             payload.transactions,
             "trace.transactions",
         ),
-        actions: expectOptionalObjectArray(payload.actions, "trace.actions"),
-        address_book: expectOptionalRecordOfObjects(
+        actions:
+            payload.actions === undefined
+                ? undefined
+                : castJsonObjectArray<StreamingAction>(
+                      payload.actions,
+                      "trace.actions",
+                  ),
+        address_book: parseAddressBook(
             payload.address_book,
             "trace.address_book",
         ),
-        metadata: expectOptionalRecordOfObjects(
-            payload.metadata,
-            "trace.metadata",
-        ),
+        metadata: parseMetadata(payload.metadata, "trace.metadata"),
     };
 }
 
@@ -202,32 +259,17 @@ function parseAccountStateEvent(
             "account_state_change.finality",
         ),
         account: expectString(payload.account, "account_state_change.account"),
-        state: {
-            hash: expectString(state.hash, "account_state_change.state.hash"),
-            balance: expectString(
-                state.balance,
-                "account_state_change.state.balance",
-            ),
-            account_status: expectString(
-                state.account_status,
-                "account_state_change.state.account_status",
-            ),
-            data_hash: expectOptionalString(
-                state.data_hash,
-                "account_state_change.state.data_hash",
-            ),
-            code_hash: expectOptionalString(
-                state.code_hash,
-                "account_state_change.state.code_hash",
-            ),
-        },
+        state: expectJsonObject(
+            state,
+            "account_state_change.state",
+        ) as StreamingAccountStateEvent["state"],
     };
 }
 
 function parseJettonsEvent(
     payload: Record<string, unknown>,
 ): StreamingJettonsEvent {
-    const jetton = expectRecord(payload.jetton, "jettons_change.jetton");
+    expectRecord(payload.jetton, "jettons_change.jetton");
 
     return {
         type: "jettons_change",
@@ -235,30 +277,15 @@ function parseJettonsEvent(
             payload.finality,
             "jettons_change.finality",
         ),
-        jetton: {
-            address: expectString(
-                jetton.address,
-                "jettons_change.jetton.address",
-            ),
-            balance: expectString(
-                jetton.balance,
-                "jettons_change.jetton.balance",
-            ),
-            owner: expectString(jetton.owner, "jettons_change.jetton.owner"),
-            jetton: expectString(jetton.jetton, "jettons_change.jetton.jetton"),
-            last_transaction_lt: expectString(
-                jetton.last_transaction_lt,
-                "jettons_change.jetton.last_transaction_lt",
-            ),
-        },
-        address_book: expectOptionalRecordOfObjects(
+        jetton: expectJsonObject(
+            payload.jetton,
+            "jettons_change.jetton",
+        ) as StreamingJettonsEvent["jetton"],
+        address_book: parseAddressBook(
             payload.address_book,
             "jettons_change.address_book",
         ),
-        metadata: expectOptionalRecordOfObjects(
-            payload.metadata,
-            "jettons_change.metadata",
-        ),
+        metadata: parseMetadata(payload.metadata, "jettons_change.metadata"),
     };
 }
 
@@ -273,6 +300,10 @@ function parseTraceInvalidatedEvent(
         ),
     };
 }
+
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
 
 export function parseStreamingEvent(payload: unknown): StreamingEvent {
     const record = expectRecord(payload, "streaming message");

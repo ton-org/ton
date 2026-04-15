@@ -6,6 +6,29 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import type {
+    StreamingClosedError,
+    StreamingHandshakeError,
+    StreamingProtocolError,
+    StreamingRequestTimeoutError,
+    StreamingTransportError,
+} from "./errors";
+import type {
+    Finality,
+    NonPendingFinality,
+    SubscribableEventType,
+    StreamingService,
+    StreamingNetwork,
+} from "./utils";
+
+export type {
+    Finality,
+    NonPendingFinality,
+    SubscribableEventType,
+    StreamingService,
+    StreamingNetwork,
+} from "./utils";
+
 export type JsonPrimitive = string | number | boolean | null;
 export type JsonValue = JsonPrimitive | JsonObject | JsonValue[];
 export type JsonObject = {
@@ -23,42 +46,41 @@ export interface IWebSocket {
 }
 
 export interface IWebSocketConstructor {
-    new (url: string): IWebSocket;
+    new (url: string, options?: unknown): IWebSocket;
     readonly OPEN: number;
 }
 
-export type Finality = "pending" | "confirmed" | "finalized";
+export type StreamingLifecycleError =
+    | StreamingClosedError
+    | StreamingHandshakeError
+    | StreamingProtocolError
+    | StreamingRequestTimeoutError
+    | StreamingTransportError;
 
 export type StreamingLifecycleEvents = {
-    error: Error;
+    error: StreamingLifecycleError;
     close: undefined;
     open: undefined;
 };
 
-export type StreamingEventType =
-    | "transactions"
-    | "actions"
-    | "trace"
-    | "account_state_change"
-    | "jettons_change";
-
-export type StreamingProvider =
-    | "tonapiMainnet"
-    | "toncenterMainnet"
-    | "tonapiTestnet"
-    | "toncenterTestnet";
-
 export type StreamingBaseParameters = {
     /**
-     * Known streaming provider preset.
+     * Known streaming service.
      * When set, endpoint and API key query parameter are inferred automatically.
-     * Explicit `endpoint` and `apiKeyParam` values are ignored.
+     * Cannot be combined with `endpoint`.
      */
-    provider?: StreamingProvider;
+    service?: StreamingService;
+
+    /**
+     * Network to use with the streaming service.
+     * Ignored when `endpoint` is provided directly.
+     * @default "mainnet"
+     */
+    network?: StreamingNetwork;
 
     /**
      * Transport endpoint URL.
-     * Required when `provider` is omitted.
+     * Required when `service` is omitted. Cannot be combined with `service`.
      */
     endpoint?: string;
 
@@ -67,8 +89,7 @@ export type StreamingBaseParameters = {
 
     /**
      * Query parameter name for the API key.
-     * Use "token" for TonAPI-compatible query-parameter authentication.
-     * Ignored when `provider` is set.
+     * Ignored when `service` is set (inferred from the service).
      * @default "api_key"
      */
     apiKeyParam?: string;
@@ -79,8 +100,17 @@ export type StreamingWebSocketParameters = StreamingBaseParameters & {
     WebSocket?: IWebSocketConstructor;
 
     /**
+     * Extra headers to send with the WebSocket handshake.
+     *
+     * Requires a custom `WebSocket` constructor (for example, Node.js `ws`).
+     * Browser WebSocket does not support arbitrary headers — providing headers
+     * without a custom constructor will throw.
+     */
+    headers?: Record<string, string>;
+
+    /**
      * Time to wait for a request/response pair before rejecting.
-     * @default 30000
+     * @default 5000
      */
     requestTimeoutMs?: number;
 
@@ -97,7 +127,7 @@ export type StreamingSubscription = {
     /** Trace external hashes to monitor (required for the "trace" event type). */
     traceExternalHashNorms?: readonly string[];
     /** Event types to receive. */
-    types: readonly StreamingEventType[];
+    types: readonly SubscribableEventType[];
     /** Minimum finality level. Default: "finalized". */
     minFinality?: Finality;
     /** Include DNS-resolved and friendly names for addresses. */
@@ -110,47 +140,166 @@ export type StreamingSubscription = {
     supportedActionTypes?: readonly string[];
 };
 
-export type StreamingUnsubscribe = {
-    /** Addresses to remove from the current subscription snapshot. */
-    addresses?: readonly string[];
-    /** Trace external hashes to remove from the current subscription snapshot. */
-    traceExternalHashNorms?: readonly string[];
+export type StreamingAddressBookEntry = JsonObject & {
+    user_friendly?: string;
+    domain?: string | null;
+    interfaces?: string[];
+};
+
+export type StreamingMetadataEntry = JsonObject;
+
+/**
+ * Streaming payloads may expose different decode depth for the same message
+ * across notification types. The public surface is kept loose: callers may
+ * discriminate on `@type` when present, but should not assume a fully
+ * normalized payload shape.
+ */
+export type StreamingDecodedMessage = JsonObject & {
+    "@type": string;
+};
+
+export type StreamingMessageContent = JsonObject & {
+    hash: string;
+    body: string;
+    decoded: StreamingDecodedMessage | null;
+};
+
+/**
+ * Message payload from the streaming API.
+ *
+ * Many fields may be `null` for external messages (e.g. `source`, `value`,
+ * `fwd_fee`, etc.). The type is kept conservative — prefer null-checks at
+ * usage sites.
+ */
+export type StreamingMessage = JsonObject & {
+    hash: string;
+    source: string | null;
+    destination: string | null;
+    value: string | null;
+    value_extra_currencies: JsonObject | null;
+    fwd_fee: string | null;
+    ihr_fee: string | null;
+    extra_flags: string | null;
+    created_lt: string | null;
+    created_at: string | null;
+    opcode: string | null;
+    decoded_opcode: string | null;
+    ihr_disabled: boolean | null;
+    bounce: boolean | null;
+    bounced: boolean | null;
+    import_fee: string | null;
+    message_content: StreamingMessageContent | null;
+    init_state: JsonObject | null;
+};
+
+export type StreamingTransactionAccountState = JsonObject & {
+    hash: string;
+    balance: string | null;
+    extra_currencies: JsonValue | null;
+    account_status: string | null;
+    frozen_hash: string | null;
+    data_hash: string | null;
+    code_hash: string | null;
+};
+
+export type StreamingBlockRef = JsonObject & {
+    workchain: number;
+    shard: string;
+    seqno: number;
+};
+
+export type StreamingTransactionDescription = JsonObject & {
+    type: string;
+};
+
+export type StreamingTransaction = JsonObject & {
+    account: string;
+    hash: string;
+    lt: string;
+    now: number;
+    mc_block_seqno: number;
+    trace_id: string;
+    prev_trans_hash: string;
+    prev_trans_lt: string;
+    orig_status: string;
+    end_status: string;
+    total_fees: string;
+    total_fees_extra_currencies: JsonObject;
+    description: StreamingTransactionDescription;
+    out_msgs: StreamingMessage[];
+    block_ref?: StreamingBlockRef;
+    account_state_before?: StreamingTransactionAccountState;
+    account_state_after?: StreamingTransactionAccountState;
+    in_msg?: StreamingMessage | null;
+    finality?: Finality;
+    emulated?: boolean;
+};
+
+export type StreamingTraceNode = JsonObject & {
+    tx_hash: string;
+    children: StreamingTraceNode[];
+    in_msg_hash?: string;
+    transaction?: StreamingTransaction | null;
+};
+
+export type StreamingTrace = StreamingTraceNode;
+
+export type StreamingActionDetails = JsonObject;
+
+export type StreamingAction = JsonObject & {
+    trace_id: string;
+    action_id: string;
+    start_lt: string;
+    end_lt: string;
+    start_utime: number;
+    end_utime: number;
+    trace_end_lt: string;
+    trace_end_utime: number;
+    trace_mc_seqno_end: number;
+    transactions: string[];
+    success: boolean;
+    type: string;
+    details: StreamingActionDetails;
+    trace_external_hash?: string;
+    trace_external_hash_norm?: string;
+    accounts: string[];
+    finality?: Finality;
 };
 
 export type StreamingTransactionsEvent = {
     type: "transactions";
     finality: Finality;
     trace_external_hash_norm: string;
-    transactions: JsonObject[];
-    address_book?: Record<string, JsonObject>;
-    metadata?: Record<string, JsonObject>;
+    transactions: StreamingTransaction[];
+    address_book?: Record<string, StreamingAddressBookEntry>;
+    metadata?: Record<string, StreamingMetadataEntry>;
 };
 
 export type StreamingActionsEvent = {
     type: "actions";
     finality: Finality;
     trace_external_hash_norm: string;
-    actions: JsonObject[];
-    address_book?: Record<string, JsonObject>;
-    metadata?: Record<string, JsonObject>;
+    actions: StreamingAction[];
+    address_book?: Record<string, StreamingAddressBookEntry>;
+    metadata?: Record<string, StreamingMetadataEntry>;
 };
 
 export type StreamingTraceEvent = {
     type: "trace";
     finality: Finality;
     trace_external_hash_norm: string;
-    trace: JsonObject;
-    transactions: Record<string, JsonObject>;
-    actions?: JsonObject[];
-    address_book?: Record<string, JsonObject>;
-    metadata?: Record<string, JsonObject>;
+    trace: StreamingTrace;
+    transactions: Record<string, StreamingTransaction>;
+    actions?: StreamingAction[];
+    address_book?: Record<string, StreamingAddressBookEntry>;
+    metadata?: Record<string, StreamingMetadataEntry>;
 };
 
 export type StreamingAccountStateEvent = {
     type: "account_state_change";
-    finality: "confirmed" | "finalized";
+    finality: NonPendingFinality;
     account: string;
-    state: {
+    state: JsonObject & {
         hash: string;
         balance: string;
         account_status: string;
@@ -161,16 +310,16 @@ export type StreamingAccountStateEvent = {
 
 export type StreamingJettonsEvent = {
     type: "jettons_change";
-    finality: "confirmed" | "finalized";
-    jetton: {
+    finality: NonPendingFinality;
+    jetton: JsonObject & {
         address: string;
         balance: string;
         owner: string;
         jetton: string;
         last_transaction_lt: string;
     };
-    address_book?: Record<string, JsonObject>;
-    metadata?: Record<string, JsonObject>;
+    address_book?: Record<string, StreamingAddressBookEntry>;
+    metadata?: Record<string, StreamingMetadataEntry>;
 };
 
 export type StreamingTraceInvalidatedEvent = {
@@ -241,17 +390,15 @@ export type FetchLike = (
 /**
  * Common interface for streaming clients (WebSocket or SSE).
  *
- * `connect(params)` opens a connection and, when parameters are provided,
- * establishes the full subscription snapshot in one step.
- *
- * For WebSocket transports, `subscribe(params)` sends a protocol-level
- * `subscribe` request. For SSE transports it reconnects with the new snapshot,
- * because SSE subscriptions are immutable for the lifetime of the connection.
+ * The lifecycle is subscription-centric:
+ * - `subscribe(params)` starts (or replaces) the active subscription. Resolves
+ *   when the server confirms the subscription and notifications may arrive.
+ * - `ready` is `true` while an active subscription is confirmed.
+ * - `open` / `close` events bracket the `ready` state.
+ * - `close()` shuts down the client. Resolves when transport cleanup finishes.
  */
 export type StreamingClient = {
-    connect(params?: StreamingSubscription): Promise<void>;
     subscribe(params: StreamingSubscription): Promise<void>;
-    unsubscribe(params: StreamingUnsubscribe): Promise<void>;
     on<K extends keyof StreamingEventMap>(
         event: K,
         handler: (data: StreamingEventMap[K]) => void,
@@ -260,8 +407,8 @@ export type StreamingClient = {
         event: K,
         handler: (data: StreamingEventMap[K]) => void,
     ): void;
-    close(): void;
-    readonly connected: boolean;
+    close(): Promise<void>;
+    readonly ready: boolean;
 };
 
 export type StreamingSseParameters = StreamingBaseParameters & {

@@ -78,6 +78,11 @@ describeLive("streaming live transaction watch", () => {
     jest.setTimeout(130_000);
 
     it("keeps the smoke checks and fails on any data mismatch between live streaming endpoints", async () => {
+        const subscription = {
+            addresses: [TEST_ADDRESS],
+            types: ["transactions"] as const,
+        };
+
         const toncenterWs = new TonWsClient({
             endpoint: "wss://toncenter.com/api/streaming/v2/ws",
             apiKey: TONCENTER_API_KEY,
@@ -117,55 +122,30 @@ describeLive("streaming live transaction watch", () => {
 
         try {
             await Promise.all([
-                toncenterWs.connect(),
-                tonapiWs.connect(),
-                toncenterSse.connect({
-                    addresses: [TEST_ADDRESS],
-                    types: ["transactions"],
-                }),
-                tonapiSse.connect({
-                    addresses: [TEST_ADDRESS],
-                    types: ["transactions"],
-                }),
+                toncenterWs.subscribe(subscription),
+                tonapiWs.subscribe(subscription),
+                toncenterSse.subscribe(subscription),
+                tonapiSse.subscribe(subscription),
             ]);
 
-            expect(toncenterWs.connected).toBe(true);
-            expect(tonapiWs.connected).toBe(true);
-            expect(toncenterSse.connected).toBe(true);
-            expect(tonapiSse.connected).toBe(true);
-
-            await Promise.all([
-                toncenterWs.subscribe({
-                    addresses: [TEST_ADDRESS],
-                    types: ["transactions"],
-                }),
-                tonapiWs.subscribe({
-                    addresses: [TEST_ADDRESS],
-                    types: ["transactions"],
-                }),
-            ]);
+            expect(toncenterWs.ready).toBe(true);
+            expect(tonapiWs.ready).toBe(true);
+            expect(toncenterSse.ready).toBe(true);
+            expect(tonapiSse.ready).toBe(true);
 
             await delay(WATCH_MS);
 
             await Promise.all([
-                toncenterWs.unsubscribe({
-                    addresses: [TEST_ADDRESS],
-                }),
-                tonapiWs.unsubscribe({
-                    addresses: [TEST_ADDRESS],
-                }),
-                toncenterSse.unsubscribe({
-                    addresses: [TEST_ADDRESS],
-                }),
-                tonapiSse.unsubscribe({
-                    addresses: [TEST_ADDRESS],
-                }),
+                toncenterWs.close(),
+                tonapiWs.close(),
+                toncenterSse.close(),
+                tonapiSse.close(),
             ]);
 
-            expect(toncenterSse.connected).toBe(false);
-            expect(tonapiSse.connected).toBe(false);
-            expect(toncenterWs.connected).toBe(true);
-            expect(tonapiWs.connected).toBe(true);
+            expect(toncenterSse.ready).toBe(false);
+            expect(tonapiSse.ready).toBe(false);
+            expect(toncenterWs.ready).toBe(false);
+            expect(tonapiWs.ready).toBe(false);
         } finally {
             for (const detach of detachHandlers) {
                 detach();

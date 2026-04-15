@@ -1,5 +1,10 @@
+import {
+    StreamingClosedError,
+    StreamingHandshakeError,
+    StreamingError,
+} from "./errors";
 import { TonSseClient } from "./TonSseClient";
-import { Finality, StreamingSubscription } from "./types";
+import type { Finality, StreamingSubscription } from "./types";
 
 type DeferredRead = {
     resolve: (value: { done: boolean; value?: Uint8Array }) => void;
@@ -17,8 +22,10 @@ function createAbortError(): Error {
 function createSseResponse(
     contentType = "text/event-stream; charset=utf-8",
     abortErrorFactory: () => Error = createAbortError,
+    abortMode: "immediate" | "manual" = "immediate",
 ) {
     let deferred: DeferredRead | null = null;
+    let aborted = false;
 
     const reader = {
         read: jest.fn(
@@ -49,7 +56,18 @@ function createSseResponse(
                 getReader: () => reader,
             },
         },
-        abort: () => deferred?.reject(abortErrorFactory()),
+        abort: () => {
+            aborted = true;
+            if (abortMode === "immediate") {
+                deferred?.reject(abortErrorFactory());
+            }
+        },
+        rejectAbort: () => {
+            if (!aborted) {
+                throw new Error("Abort has not been requested");
+            }
+            deferred?.reject(abortErrorFactory());
+        },
         close: () => deferred?.resolve({ done: true }),
         pushText: (text: string) =>
             deferred?.resolve({ done: false, value: encoder.encode(text) }),
@@ -84,16 +102,16 @@ function createSubscription(
     };
 }
 
-async function connectAndConfirm(
+async function subscribeAndConfirm(
     client: TonSseClient,
     response: ReturnType<typeof createSseResponse>,
     subscription = createSubscription("EQC123"),
 ): Promise<void> {
-    const connectPromise = client.connect(subscription);
+    const subscribePromise = client.subscribe(subscription);
     await flushAsyncWork();
     response.pushText('data: {"status":"subscribed"}\n\n');
     await flushAsyncWork();
-    await connectPromise;
+    await subscribePromise;
 }
 
 describe("TonSseClient", () => {
@@ -117,44 +135,38 @@ describe("TonSseClient", () => {
             expectedUrl: "https://tonapi.io/streaming/v2/sse?token=secret",
         },
         {
-            name: "resolves Toncenter mainnet provider defaults",
+            name: "resolves Toncenter mainnet service defaults",
             parameters: {
-                provider: "toncenterMainnet" as const,
+                service: "toncenter" as const,
                 apiKey: "secret",
-                endpoint: "https://example.test/ignored",
-                apiKeyParam: "ignored_token",
             },
             expectedUrl:
                 "https://toncenter.com/api/streaming/v2/sse?api_key=secret",
         },
         {
-            name: "resolves TonAPI mainnet provider defaults",
+            name: "resolves TonAPI mainnet service defaults",
             parameters: {
-                provider: "tonapiMainnet" as const,
+                service: "tonapi" as const,
                 apiKey: "secret",
-                endpoint: "https://example.test/ignored",
-                apiKeyParam: "ignored_api_key",
             },
             expectedUrl: "https://tonapi.io/streaming/v2/sse?token=secret",
         },
         {
-            name: "resolves Toncenter testnet provider defaults",
+            name: "resolves Toncenter testnet service defaults",
             parameters: {
-                provider: "toncenterTestnet" as const,
+                service: "toncenter" as const,
+                network: "testnet" as const,
                 apiKey: "secret",
-                endpoint: "https://example.test/ignored",
-                apiKeyParam: "ignored_token",
             },
             expectedUrl:
                 "https://testnet.toncenter.com/api/streaming/v2/sse?api_key=secret",
         },
         {
-            name: "resolves TonAPI testnet provider defaults",
+            name: "resolves TonAPI testnet service defaults",
             parameters: {
-                provider: "tonapiTestnet" as const,
+                service: "tonapi" as const,
+                network: "testnet" as const,
                 apiKey: "secret",
-                endpoint: "https://example.test/ignored",
-                apiKeyParam: "ignored_api_key",
             },
             expectedUrl:
                 "https://testnet.tonapi.io/streaming/v2/sse?token=secret",
@@ -167,7 +179,7 @@ describe("TonSseClient", () => {
             fetch: fetchFn,
         });
 
-        await connectAndConfirm(client, response, createSubscription("EQC123"));
+        await subscribeAndConfirm(client, response, createSubscription("EQC123"));
 
         expect(fetchFn).toHaveBeenCalledWith(
             expectedUrl,
@@ -183,18 +195,58 @@ describe("TonSseClient", () => {
         client.close();
     });
 
-    it("requires endpoint when provider is not specified", () => {
+    it("requires endpoint when service is not specified", () => {
         expect(
             () =>
                 new TonSseClient({
                     fetch: jest.fn(),
                 }),
         ).toThrow(
-            "Streaming endpoint is required when provider is not specified",
+            "Streaming endpoint is required when service is not specified",
         );
     });
 
-    it("reconnects with a pruned snapshot when unsubscribing from SSE", async () => {
+    it("throws when both service and endpoint are specified", () => {
+        expect(
+            () =>
+                new TonSseClient({
+                    service: "tonapi",
+                    endpoint: "https://example.test/sse",
+                    fetch: jest.fn(),
+                }),
+        ).toThrow("Cannot specify both 'service' and 'endpoint'");
+    });
+
+    it("rejects an unconfirmed handshake with a typed handshake error", async () => {
+        const response = createSseResponse();
+        const fetchFn = createFetchMock(response);
+        const client = new TonSseClient({
+            endpoint: "https://example.test/sse",
+            fetch: fetchFn,
+        });
+
+        const subscribePromise = client
+            .subscribe(createSubscription("EQC123"))
+            .catch((error) => error as Error);
+        await flushAsyncWork();
+        response.close();
+        await flushAsyncWork();
+
+        const error = await subscribePromise;
+
+        expect(error).toBeInstanceOf(StreamingHandshakeError);
+        expect(error).toMatchObject({
+            context: {
+                endpoint: "https://example.test/sse",
+                phase: "subscription_confirmation",
+                transport: "sse",
+            },
+            message:
+                "Streaming SSE connection closed before subscription confirmation",
+        });
+    });
+
+    it("reconnects with the replacement snapshot when subscribe updates SSE", async () => {
         const first = createSseResponse();
         const second = createSseResponse();
         const fetchFn = createFetchMock(first, second);
@@ -207,17 +259,20 @@ describe("TonSseClient", () => {
             closeCount += 1;
         });
 
-        await connectAndConfirm(client, first, {
+        await subscribeAndConfirm(client, first, {
             addresses: ["EQ1"],
             traceExternalHashNorms: ["trace-1"],
             types: ["transactions", "trace"],
         });
 
-        const unsubscribePromise = client.unsubscribe({ addresses: ["EQ1"] });
+        const replacePromise = client.subscribe({
+            traceExternalHashNorms: ["trace-1"],
+            types: ["trace"],
+        });
         await flushAsyncWork();
         second.pushText('data: {"status":"subscribed"}\n\n');
         await flushAsyncWork();
-        await unsubscribePromise;
+        await replacePromise;
 
         expect(fetchFn).toHaveBeenCalledTimes(2);
         expect(JSON.parse(fetchFn.mock.calls[1][1].body)).toEqual({
@@ -229,33 +284,39 @@ describe("TonSseClient", () => {
         client.close();
     });
 
-    it("closes the SSE stream when unsubscribe removes the last target", async () => {
-        const first = createSseResponse();
-        const fetchFn = createFetchMock(first);
+    it("resolves close only after the active SSE reader unwinds", async () => {
+        const response = createSseResponse(
+            "text/event-stream; charset=utf-8",
+            createAbortError,
+            "manual",
+        );
+        const fetchFn = createFetchMock(response);
         const client = new TonSseClient({
             endpoint: "https://example.test/sse",
             fetch: fetchFn,
         });
-        let closeCount = 0;
-        client.on("close", () => {
-            closeCount += 1;
+
+        await subscribeAndConfirm(client, response, createSubscription("EQC123"));
+
+        let closeResolved = false;
+        const closePromise = client.close().then(() => {
+            closeResolved = true;
         });
 
-        await connectAndConfirm(client, first, {
-            traceExternalHashNorms: ["trace-1"],
-            types: ["trace"],
-        });
-
-        await client.unsubscribe({ traceExternalHashNorms: ["trace-1"] });
         await flushAsyncWork();
+        expect(closeResolved).toBe(false);
 
-        expect(fetchFn).toHaveBeenCalledTimes(1);
-        expect(client.connected).toBe(false);
-        expect(closeCount).toBe(1);
+        response.rejectAbort();
+        await closePromise;
+        expect(closeResolved).toBe(true);
     });
 
-    it("reuses the previous snapshot when reconnecting without explicit params", async () => {
-        const first = createSseResponse();
+    it("waits for the previous SSE stream to close before reconnecting", async () => {
+        const first = createSseResponse(
+            "text/event-stream; charset=utf-8",
+            createAbortError,
+            "manual",
+        );
         const second = createSseResponse();
         const fetchFn = createFetchMock(first, second);
         const client = new TonSseClient({
@@ -263,23 +324,21 @@ describe("TonSseClient", () => {
             fetch: fetchFn,
         });
 
-        await connectAndConfirm(client, first, createSubscription("EQC123"));
-        client.close();
+        await subscribeAndConfirm(client, first, createSubscription("EQ1"));
+
+        const replacePromise = client.subscribe(createSubscription("EQ2"));
         await flushAsyncWork();
 
-        const reconnectPromise = client.connect();
+        expect(fetchFn).toHaveBeenCalledTimes(1);
+
+        first.rejectAbort();
         await flushAsyncWork();
-        second.pushText('data: {"status":"subscribed"}\n\n');
-        await flushAsyncWork();
-        await reconnectPromise;
 
         expect(fetchFn).toHaveBeenCalledTimes(2);
-        expect(JSON.parse(fetchFn.mock.calls[1][1].body)).toEqual({
-            addresses: ["EQC123"],
-            types: ["transactions"],
-        });
 
-        client.close();
+        second.pushText('data: {"status":"subscribed"}\n\n');
+        await flushAsyncWork();
+        await replacePromise;
     });
 
     it("surfaces invalid notifications through the error channel", async () => {
@@ -299,7 +358,7 @@ describe("TonSseClient", () => {
             transactions.push(event);
         });
 
-        await connectAndConfirm(client, response, createSubscription("EQC123"));
+        await subscribeAndConfirm(client, response, createSubscription("EQC123"));
         await flushAsyncWork();
 
         response.pushText(
@@ -309,11 +368,48 @@ describe("TonSseClient", () => {
 
         expect(transactions).toHaveLength(0);
         expect(errors).toHaveLength(1);
+        expect(errors[0]).toBeInstanceOf(StreamingError);
         expect(errors[0].message).toContain(
             "transactions.transactions must be an array",
         );
+        expect(errors[0]).toMatchObject({
+            context: {
+                endpoint: "https://example.test/sse",
+                phase: "notification",
+                transport: "sse",
+            },
+        });
 
         client.close();
+    });
+
+    it("emits a typed closed error when the server ends an active stream", async () => {
+        const response = createSseResponse();
+        const fetchFn = createFetchMock(response);
+        const client = new TonSseClient({
+            endpoint: "https://example.test/sse",
+            fetch: fetchFn,
+        });
+        const errors: Error[] = [];
+
+        client.on("error", (error) => {
+            errors.push(error);
+        });
+
+        await subscribeAndConfirm(client, response, createSubscription("EQC123"));
+        response.close();
+        await flushAsyncWork();
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toBeInstanceOf(StreamingClosedError);
+        expect(errors[0]).toMatchObject({
+            context: {
+                endpoint: "https://example.test/sse",
+                phase: "stream",
+                transport: "sse",
+            },
+            message: "Streaming SSE stream closed by server",
+        });
     });
 
     it("does not emit an error when reconnect aborts the previous stream", async () => {
@@ -333,9 +429,9 @@ describe("TonSseClient", () => {
             errors.push(error);
         });
 
-        await connectAndConfirm(client, first, createSubscription("EQ1"));
+        await subscribeAndConfirm(client, first, createSubscription("EQ1"));
 
-        const reconnectPromise = client.connect(createSubscription("EQ2"));
+        const reconnectPromise = client.subscribe(createSubscription("EQ2"));
         await flushAsyncWork();
         second.pushText('data: {"status":"subscribed"}\n\n');
         await flushAsyncWork();
