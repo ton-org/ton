@@ -3,8 +3,6 @@
 /node_modules/
 /package-lock.json
 /coverage
-/.DS_Store
-**/.DS_Store
 
 
 # Yarn >2.0.0
@@ -13,10 +11,3 @@
 !.yarn/plugins
 !.yarn/sdks
 !.yarn/versions
-streaming.md
-.omx/
-.env
-ton-streaming-client
-.tmp
-pr.md
-AGENTS.md
