@@ -9,46 +9,57 @@ on:
       - package.json
       - yarn.lock
 
-permissions:
-  contents: write
-  id-token: write
+permissions: { }
 
 jobs:
   quality-gates:
+    if: github.repository == 'ton-org/ton'
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Enable Corepack
         run: corepack enable
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: 'yarn'
-      
+
       - name: Install dependencies
         run: yarn install --immutable
-      
+
       - name: Check formatting
         run: yarn format:check
-      
+
       - name: Type check
         run: yarn typecheck
-      
+
       - name: Run tests
         run: yarn test
 
   publish:
     needs: quality-gates
+    if: github.repository == 'ton-org/ton'
+
     runs-on: ubuntu-latest
+    environment: deploy
+
+    permissions:
+      contents: read
+      id-token: write
+
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Enable Corepack
         run: corepack enable
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -56,13 +67,13 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'yarn'
           always-auth: true
-      
+
       - name: Install dependencies
         run: yarn install --immutable
-      
+
       - name: Build
         run: yarn build
-      
+
       - name: Check if version already published
         id: version_check
         run: |
