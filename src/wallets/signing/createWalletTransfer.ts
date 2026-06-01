@@ -119,16 +119,10 @@ export function createWalletTransferV2(args: {
 
     // Create message
     let signingMessage = beginCell().storeUint(args.seqno, 32);
-    if (args.seqno === 0) {
-        for (let i = 0; i < 32; i++) {
-            signingMessage.storeBit(1);
-        }
-    } else {
-        signingMessage.storeUint(
-            args.timeout || Math.floor(Date.now() / 1e3) + 60,
-            32,
-        ); // Default timeout: 60 seconds
-    }
+    signingMessage.storeUint(
+        args.timeout || Math.floor(Date.now() / 1e3) + 60,
+        32,
+    ); // Default timeout: 60 seconds
     for (let m of args.messages) {
         signingMessage.storeUint(args.sendMode, 8);
         signingMessage.storeRef(beginCell().store(storeMessageRelaxed(m)));
@@ -160,16 +154,10 @@ export function createWalletTransferV3<
 
     // Create message to sign
     let signingMessage = beginCell().storeUint(args.walletId, 32);
-    if (args.seqno === 0) {
-        for (let i = 0; i < 32; i++) {
-            signingMessage.storeBit(1);
-        }
-    } else {
-        signingMessage.storeUint(
-            args.timeout || Math.floor(Date.now() / 1e3) + 60,
-            32,
-        ); // Default timeout: 60 seconds
-    }
+    signingMessage.storeUint(
+        args.timeout || Math.floor(Date.now() / 1e3) + 60,
+        32,
+    ); // Default timeout: 60 seconds
     signingMessage.storeUint(args.seqno, 32);
     for (let m of args.messages) {
         signingMessage.storeUint(args.sendMode, 8);
@@ -187,16 +175,10 @@ export function createWalletTransferV4<
     T extends WalletV4SendArgs & { action: OutActionWalletV4 },
 >(args: T & { walletId: number; domain?: SignatureDomain }) {
     let signingMessage = beginCell().storeUint(args.walletId, 32);
-    if (args.seqno === 0) {
-        for (let i = 0; i < 32; i++) {
-            signingMessage.storeBit(1);
-        }
-    } else {
-        signingMessage.storeUint(
-            args.timeout || Math.floor(Date.now() / 1e3) + 60,
-            32,
-        ); // Default timeout: 60 seconds
-    }
+    signingMessage.storeUint(
+        args.timeout || Math.floor(Date.now() / 1e3) + 60,
+        32,
+    ); // Default timeout: 60 seconds
     signingMessage.storeUint(args.seqno, 32);
     signingMessage.store(storeExtendedAction(args.action));
 
@@ -236,16 +218,10 @@ export function createWalletTransferV5Beta<T extends WalletV5BetaSendArgs>(
         )
         .store(args.walletId);
 
-    if (args.seqno === 0) {
-        for (let i = 0; i < 32; i++) {
-            signingMessage.storeBit(1);
-        }
-    } else {
-        signingMessage.storeUint(
-            args.timeout || Math.floor(Date.now() / 1e3) + 60,
-            32,
-        ); // Default timeout: 60 seconds
-    }
+    signingMessage.storeUint(
+        args.timeout || Math.floor(Date.now() / 1e3) + 60,
+        32,
+    ); // Default timeout: 60 seconds
 
     signingMessage
         .storeUint(args.seqno, 32)
@@ -291,16 +267,10 @@ export function createWalletTransferV5R1<T extends WalletV5R1SendArgs>(
         )
         .store(args.walletId);
 
-    if (args.seqno === 0) {
-        for (let i = 0; i < 32; i++) {
-            signingMessage.storeBit(1);
-        }
-    } else {
-        signingMessage.storeUint(
-            args.timeout || Math.floor(Date.now() / 1e3) + 60,
-            32,
-        ); // Default timeout: 60 seconds
-    }
+    signingMessage.storeUint(
+        args.timeout || Math.floor(Date.now() / 1e3) + 60,
+        32,
+    ); // Default timeout: 60 seconds
 
     signingMessage
         .storeUint(args.seqno, 32)
