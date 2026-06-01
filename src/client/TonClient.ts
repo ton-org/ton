@@ -55,8 +55,7 @@ export type TonClientParameters = {
 
 export class TonClient {
     readonly parameters: TonClientParameters;
-
-    protected api: HttpApi;
+    readonly api: HttpApi;
 
     constructor(parameters: TonClientParameters) {
         this.parameters = {

@@ -209,6 +209,7 @@ interface HttpApiResolvedParameters extends HttpApiParameters {
 }
 
 export class HttpApi {
+    readonly axios: typeof axios = axios;
     readonly endpoint: string;
     readonly cache: TonCache;
 
