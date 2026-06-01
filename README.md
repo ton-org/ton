@@ -1,6 +1,6 @@
 # TON JS Client
 
-[![Version npm](https://img.shields.io/npm/v/ton.svg?logo=npm)](https://www.npmjs.com/package/ton)
+[![Version npm](https://img.shields.io/npm/v/@ton/ton.svg?logo=npm)](https://www.npmjs.com/package/@ton/ton)
 
 Cross-platform client for TON blockchain.
 
