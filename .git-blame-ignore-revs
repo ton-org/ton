@@ -1,0 +1,18 @@
+# .git-blame-ignore-revs
+#
+# Add formatting-only or other mechanical commits here so `git blame` skips them.
+# Add each new revision as a separate 3-line block:
+# 1) # <commit title>
+# 2) # <pull request URL>
+# 3) <full commit SHA>
+#
+# Configure once per clone:
+#   git config set blame.ignoreRevsFile .git-blame-ignore-revs
+# Disable local config:
+#   git config unset blame.ignoreRevsFile
+# One-off usage:
+#   git blame --ignore-revs-file .git-blame-ignore-revs path/to/file
+
+# chore: introduced formatter
+# https://github.com/ton-org/ton/pull/136
+2936606dcd9193e69319ef87cad1163bf1b158a0
