@@ -18,6 +18,7 @@
         "build": "rm -fr dist && tsc -p ./tsconfig.build.json",
         "typecheck": "tsc",
         "test": "jest --verbose",
+        "test:streaming:live": "node --env-file=.env node_modules/.bin/jest --runInBand --forceExit --verbose src/client/streaming/Streaming.transactions.live.spec.ts src/client/streaming/Streaming.wallet.e2e.live.spec.ts",
         "format": "biome format --write .",
         "format:check": "biome format .",
         "coverage": "jest -c ./jest-coverage.config.js",

@@ -25,6 +25,52 @@ export {
 } from "./client/TonClient4";
 
 //
+// Streaming Clients
+//
+
+export {
+    TonWsClient,
+    TonSseClient,
+    StreamingClosedError,
+    StreamingError,
+    StreamingHandshakeError,
+    StreamingRequestTimeoutError,
+} from "./client/streaming";
+export type {
+    Finality,
+    StreamingAction,
+    StreamingAccountStateEvent,
+    StreamingAddressBookEntry,
+    StreamingActionsEvent,
+    StreamingBlockRef,
+    StreamingDecodedMessage,
+    StreamingEvent,
+    StreamingEventMap,
+    SubscribableEventType,
+    StreamingJettonsEvent,
+    StreamingLifecycleEvents,
+    StreamingMessage,
+    StreamingMessageContent,
+    StreamingMetadataEntry,
+    StreamingErrorContext,
+    StreamingSubscription,
+    StreamingTransport,
+    StreamingClient,
+    StreamingService,
+    StreamingNetwork,
+    StreamingSseParameters,
+    StreamingWebSocketParameters,
+    StreamingBaseParameters,
+    StreamingTrace,
+    StreamingTraceEvent,
+    StreamingTraceInvalidatedEvent,
+    StreamingTraceNode,
+    StreamingTransaction,
+    StreamingTransactionAccountState,
+    StreamingTransactionsEvent,
+} from "./client/streaming";
+
+//
 // Wallets
 //
 
