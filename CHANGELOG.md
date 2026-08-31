@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- `toUrlSafe` now replaces all occurrences in a single pass per character instead of an `indexOf`/`replace` loop that was O(n^2) for inputs with many `/`, `+` or `=` characters (output is unchanged).
+
 ## [16.3.0]
 
 ### Fixed
