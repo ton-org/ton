@@ -7,14 +7,9 @@
  */
 
 export function toUrlSafe(src: string) {
-    while (src.indexOf("/") >= 0) {
-        src = src.replace("/", "_");
-    }
-    while (src.indexOf("+") >= 0) {
-        src = src.replace("+", "-");
-    }
-    while (src.indexOf("=") >= 0) {
-        src = src.replace("=", "");
-    }
-    return src;
+    // Replace all occurrences in a single pass each. The previous
+    // implementation used `while (indexOf >= 0) src = src.replace(...)`, which
+    // replaces only the first match per call and re-scans from the start every
+    // iteration — O(n^2) for inputs with many `/`, `+` or `=` characters.
+    return src.replace(/\//g, "_").replace(/\+/g, "-").replace(/=/g, "");
 }
