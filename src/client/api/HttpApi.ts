@@ -202,6 +202,12 @@ export interface HttpApiParameters {
      * Adapter for Axios
      */
     adapter?: AxiosAdapter;
+
+    /**
+     * Cache for shards and block transactions. Defaults to an unbounded
+     * `InMemoryCache`; long-running processes can pass a bounded one.
+     */
+    cache?: TonCache;
 }
 
 interface HttpApiResolvedParameters extends HttpApiParameters {
@@ -227,7 +233,7 @@ export class HttpApi {
 
     constructor(endpoint: string, parameters?: HttpApiParameters) {
         this.endpoint = endpoint;
-        this.cache = new InMemoryCache();
+        this.cache = parameters?.cache ?? new InMemoryCache();
 
         this.parameters = {
             timeout: parameters?.timeout || 30000, // 30 seconds by default
@@ -352,7 +358,13 @@ export class HttpApi {
     }
 
     async getShards(seqno: number) {
-        return await this.shardLoader.load(seqno);
+        try {
+            return await this.shardLoader.load(seqno);
+        } finally {
+            // Results are kept in `this.cache`; the loader only batches and
+            // deduplicates in-flight requests, so it must not retain them.
+            this.shardLoader.clear(seqno);
+        }
     }
 
     async getBlockTransactions(
@@ -360,11 +372,12 @@ export class HttpApi {
         seqno: number,
         shard: string,
     ) {
-        return await this.shardTransactionsLoader.load({
-            workchain,
-            seqno,
-            shard,
-        });
+        const key = { workchain, seqno, shard };
+        try {
+            return await this.shardTransactionsLoader.load(key);
+        } finally {
+            this.shardTransactionsLoader.clear(key);
+        }
     }
 
     async getTransaction(address: Address, lt: string, hash: string) {
