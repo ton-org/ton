@@ -13,6 +13,7 @@ export * from "@ton/core";
 //
 
 export { HttpApi, HttpApiParameters } from "./client/api/HttpApi";
+export { TonCache, InMemoryCache } from "./client/api/TonCache";
 export { TonClient, TonClientParameters } from "./client/TonClient";
 
 //

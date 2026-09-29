@@ -7,6 +7,7 @@
  */
 
 import { HttpApi } from "./api/HttpApi";
+import { TonCache } from "./api/TonCache";
 import { AxiosAdapter } from "axios";
 import {
     Address,
@@ -51,6 +52,11 @@ export type TonClientParameters = {
      * HTTP Adapter for axios
      */
     httpAdapter?: AxiosAdapter;
+
+    /**
+     * Cache for shards and block transactions, see `HttpApiParameters.cache`
+     */
+    cache?: TonCache;
 };
 
 export class TonClient {
@@ -66,6 +72,7 @@ export class TonClient {
             timeout: parameters.timeout,
             apiKey: parameters.apiKey,
             adapter: parameters.httpAdapter,
+            cache: parameters.cache,
         });
     }
 
