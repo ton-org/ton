@@ -41,7 +41,7 @@
     "dependencies": {
         "axios": "^1.15.0",
         "dataloader": "^2.0.0",
-        "zod": "^3.21.4"
+        "zod": "^4.6.6"
     },
     "peerDependencies": {
         "@ton/core": ">=0.63.0 <1.0.0",

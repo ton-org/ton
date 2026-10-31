@@ -929,7 +929,7 @@ const supportedMessageTypeCodec = z.union([
 
 const opCodec = z.object({
     type: supportedMessageTypeCodec,
-    options: z.optional(z.record(z.string())),
+    options: z.optional(z.record(z.string(), z.string())),
 });
 
 const parsedOperationCodec = z.object({

@@ -1596,7 +1596,7 @@ __metadata:
     jest: ^29.7.0
     release-it: ^17.1.1
     typescript: ^5.6.3
-    zod: ^3.21.4
+    zod: ^4.6.6
   peerDependencies:
     "@ton/core": ">=0.63.0 <1.0.0"
     "@ton/crypto": ">=3.2.0"
@@ -7357,9 +7357,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.21.4":
-  version: 3.22.4
-  resolution: "zod@npm:3.22.4"
-  checksum: 80bfd7f8039b24fddeb0718a2ec7c02aa9856e4838d6aa4864335a047b6b37a3273b191ef335bf0b2002e5c514ef261ffcda5a589fb084a48c336ffc4cdbab7f
+"zod@npm:^4.6.6":
+  version: 4.6.7
+  resolution: "zod@npm:4.6.7"
+  checksum: 6801f5067dd43204d5ed2b4f2f0d09f891365ecfdd385877901e42f6f6ebf67e8943b385c71eaba53081029dd21f4740f16c91497a06f95195e209bffef92056
   languageName: node
   linkType: hard
