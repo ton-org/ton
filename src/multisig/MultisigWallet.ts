@@ -1,3 +1,5 @@
+import { Buffer } from "buffer";
+
 /* Made by @Gusarich and @Miandic */
 
 import { TonClient } from "../index";

@@ -1,3 +1,4 @@
+import { Buffer } from "buffer";
 import { beginCell, BitReader, BitString, Builder, Slice } from "@ton/core";
 
 /**
