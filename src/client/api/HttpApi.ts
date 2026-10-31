@@ -111,7 +111,7 @@ const transaction = z.object({
     fee: z.string(),
     storage_fee: z.string(),
     other_fee: z.string(),
-    in_msg: z.union([z.undefined(), message]),
+    in_msg: z.optional(message),
     out_msgs: z.array(message),
 });
 
