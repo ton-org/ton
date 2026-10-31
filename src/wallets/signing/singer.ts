@@ -1,3 +1,4 @@
+import { Buffer } from "buffer";
 import { Builder, Cell, domainSign, SignatureDomain } from "@ton/core";
 
 export type SendArgsSigned = {

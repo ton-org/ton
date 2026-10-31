@@ -1,3 +1,4 @@
+import { Buffer } from "buffer";
 import { BitReader, BitString, Builder, Slice } from "@ton/core";
 
 export interface WalletIdV5Beta {

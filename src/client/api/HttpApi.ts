@@ -5,6 +5,7 @@
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
  */
+import { Buffer } from "buffer";
 import { InMemoryCache, TonCache } from "./TonCache";
 import DataLoader from "dataloader";
 import axios, { AxiosAdapter } from "axios";

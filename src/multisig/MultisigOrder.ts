@@ -1,3 +1,5 @@
+import { Buffer } from "buffer";
+
 /* Made by @Gusarich and @Miandic */
 
 import { sign, signVerify } from "@ton/crypto";
