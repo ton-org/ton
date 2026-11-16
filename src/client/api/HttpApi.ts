@@ -313,8 +313,7 @@ export class HttpApi {
             archival?: boolean;
         },
     ) {
-        const inclusive = opts.inclusive;
-        delete opts.inclusive;
+        const { inclusive, ...params } = opts;
 
         // Convert hash
         let hash: string | undefined = undefined;
@@ -331,7 +330,7 @@ export class HttpApi {
         // Do request
         let res = await this.doCall(
             "getTransactions",
-            { address: address.toString(), ...opts, limit, hash },
+            { address: address.toString(), ...params, limit, hash },
             getTransactions,
         );
         if (res.length > limit) {
