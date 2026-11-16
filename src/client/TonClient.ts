@@ -91,7 +91,7 @@ export class TonClient {
         stack: TupleItem[] = [],
     ): Promise<{ gas_used: number; stack: TupleReader }> {
         let res = await this.api.callGetMethod(address, name, stack);
-        if (res.exit_code !== 0) {
+        if (res.exit_code !== 0 && res.exit_code !== 1) {
             throw Error(
                 "Unable to execute get method. Got exit_code: " + res.exit_code,
             );

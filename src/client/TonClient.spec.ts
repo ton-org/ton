@@ -1,6 +1,45 @@
 import { Address, beginCell } from "@ton/core";
 import { TonClient } from "./TonClient";
 
+describe("TonClient.runMethod exit codes", () => {
+    const address = new Address(0, Buffer.alloc(32));
+    function clientWithExitCode(exit_code: number) {
+        return new TonClient({
+            endpoint: "http://localhost",
+            httpAdapter: async (config) => ({
+                config,
+                headers: {},
+                status: 200,
+                statusText: "OK",
+                data: {
+                    ok: true,
+                    result: {
+                        exit_code,
+                        gas_used: 26,
+                        stack: [["num", "0x7"]],
+                    },
+                },
+            }),
+        });
+    }
+
+    it.each([
+        0, 1,
+    ])("reads the result stack for successful exit code %i", async (code) => {
+        const res = await clientWithExitCode(code).runMethod(
+            address,
+            "get_value",
+        );
+        expect(res.stack.readNumber()).toBe(7);
+    });
+
+    it("rejects an unsuccessful exit code", async () => {
+        await expect(
+            clientWithExitCode(2).runMethod(address, "get_value"),
+        ).rejects.toThrow("exit_code: 2");
+    });
+});
+
 let describeConditional = process.env.TEST_CLIENTS ? describe : describe.skip;
 
 describeConditional("TonClient", () => {
