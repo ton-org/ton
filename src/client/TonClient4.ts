@@ -638,6 +638,10 @@ function createProvider(
                     hash,
                 );
 
+                if (txs.length === 0) {
+                    break;
+                }
+
                 const firstTx = txs[0].tx;
                 const [firstLt, firstHash] = [firstTx.lt, firstTx.hash()];
                 const needSkipFirst =
@@ -653,11 +657,11 @@ function createProvider(
                 }
                 const lastTx = txs[txs.length - 1].tx;
                 const [lastLt, lastHash] = [lastTx.lt, lastTx.hash()];
+                transactions.push(...txs.map((tx) => tx.tx));
                 if (lastLt === lt && lastHash.equals(hash)) {
                     break;
                 }
 
-                transactions.push(...txs.map((tx) => tx.tx));
                 lt = lastLt;
                 hash = lastHash;
             } while (useLimit && transactions.length < limit);
