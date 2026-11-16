@@ -25,45 +25,32 @@ require("buffer");
 
 ## Usage
 
-To use this library you need HTTP API endpoint, you can use one of the public endpoints:
+### Read an account balance
 
-- Mainnet: https://toncenter.com/api/v2/jsonRPC
-- Testnet: https://testnet.toncenter.com/api/v2/jsonRPC
+This example reads a public account on mainnet and prints its balance in TON.
+It only needs the account address.
 
 ```ts
-import { TonClient, WalletContractV4, internal } from "@ton/ton";
-import { mnemonicNew, mnemonicToPrivateKey } from "@ton/crypto";
+import { Address, fromNano, TonClient } from "@ton/ton";
 
-// Create Client
 const client = new TonClient({
-  endpoint: 'https://toncenter.com/api/v2/jsonRPC',
+  endpoint: "https://toncenter.com/api/v2/jsonRPC",
 });
+const address = Address.parse("EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N");
+const balance = await client.getBalance(address);
+console.log(fromNano(balance), "TON");
+```
 
-// Generate new key
-const mnemonic = await mnemonicNew();
-const keyPair = await mnemonicToPrivateKey(mnemonic);
+For a testnet account, use `https://testnet.toncenter.com/api/v2/jsonRPC`.
 
-// Create wallet contract
-const wallet = WalletContractV4.create({
-  workchain: 0, // basechain
-  publicKey: keyPair.publicKey,
-});
-const contract = client.open(wallet);
+### Try a wallet transfer locally
 
-// Get balance
-const balance = await contract.getBalance();
+The [Wallet V4 test](src/wallets/v4/WalletContractV4.spec.ts) funds a fresh wallet in
+TON Sandbox, signs its first transfer and checks that the recipient receives both
+messages. Run it from this repository after `yarn install`:
 
-// Create a transfer
-const seqno = await contract.getSeqno();
-const transfer = await contract.createTransfer({
-  seqno,
-  secretKey: keyPair.secretKey,
-  messages: [internal({
-    value: '1.5',
-    to: 'EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N',
-    body: 'Hello world',
-  })]
-});
+```sh
+yarn test --runInBand --runTestsByPath src/wallets/v4/WalletContractV4.spec.ts -t "first transfer"
 ```
 
 ## Formatting

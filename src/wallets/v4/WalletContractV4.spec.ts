@@ -6,6 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import "@ton/test-utils";
+import { Blockchain } from "@ton/sandbox";
 import { randomTestKey, testAddress } from "../../utils/testUtils";
 import { tillNextSeqno } from "../../utils/testWallets";
 import { WalletContractV4 } from "./WalletContractV4";
@@ -15,6 +17,7 @@ import {
     beginCell,
     internal,
     OpenedContract,
+    SendMode,
     toNano,
 } from "@ton/core";
 import { TonClient4 } from "../../client/TonClient4";
@@ -70,37 +73,47 @@ describe("WalletContractV4", () => {
         expect(balance > 0n).toBe(true);
     });
 
-    it.skip("should perform transfer", async () => {
-        // Create contract
-        let client = createTestClient4();
-        let key = randomTestKey("v4-treasure");
-        let contract = client.open(
+    it("should deploy a funded wallet and deliver both messages on its first transfer", async () => {
+        const blockchain = await Blockchain.create();
+        const treasury = await blockchain.treasury("treasury");
+        const key = randomTestKey("v4-first-transfer");
+        const wallet = blockchain.openContract(
             WalletContractV4.create({ workchain: 0, publicKey: key.publicKey }),
         );
 
-        // Prepare transfer
-        let seqno = await contract.getSeqno();
-        let transfer = contract.createTransfer({
-            seqno,
-            secretKey: key.secretKey,
-            messages: [
-                internal({
-                    to: "kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt",
-                    value: "0.1",
-                    body: "Hello world: 1",
-                }),
-                internal({
-                    to: "kQD6oPnzaaAMRW24R8F0_nlSsJQni0cGHntR027eT9_sgtwt",
-                    value: "0.1",
-                    body: "Hello world: 2",
-                }),
-            ],
+        // Fund the address before its first external message deploys the wallet.
+        await treasury.send({
+            to: wallet.address,
+            value: toNano("1"),
+            bounce: false,
         });
 
-        // Perform transfer
-        await contract.send(transfer);
-        // Awaiting update
-        await tillNextSeqno(contract, seqno);
+        const seqno = await wallet.getSeqno();
+        const transfer = wallet.createTransfer({
+            seqno,
+            secretKey: key.secretKey,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            messages: [
+                internal({ to: treasury.address, value: toNano("0.1") }),
+                internal({ to: treasury.address, value: toNano("0.2") }),
+            ],
+        });
+        const result = await wallet.send(transfer);
+
+        expect(result.transactions).toHaveTransaction({
+            to: wallet.address,
+            deploy: true,
+            success: true,
+        });
+        for (const amount of ["0.1", "0.2"]) {
+            expect(result.transactions).toHaveTransaction({
+                from: wallet.address,
+                to: treasury.address,
+                value: toNano(amount),
+                success: true,
+            });
+        }
+        expect(await wallet.getSeqno()).toBe(seqno + 1);
     });
 
     it.skip("should perform extra currency transfer", async () => {
