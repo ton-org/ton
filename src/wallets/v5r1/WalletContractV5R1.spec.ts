@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { randomTestKey, testAddress } from "../../utils/testUtils";
+import { randomTestKey, testAddress } from "../../utils/__testdata__/testUtils";
 import {
     Address,
     Cell,
